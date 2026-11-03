@@ -9,6 +9,7 @@ type RoomRow = {
   due_date: string | null;
   parts: unknown;
   created_by: string | null;
+  language: string | null;
 };
 
 type MemberDbRow = {
@@ -21,6 +22,9 @@ type MemberDbRow = {
 export const supabaseMembershipStore: MembershipStore = {
   getRoom,
   insertRoom,
+  updateRoom,
+  renameRoom,
+  setMemberPart,
   deleteRoom,
   listMembers,
   insertMember,
@@ -31,7 +35,7 @@ async function getRoom(id: string): Promise<StoredRoom | null> {
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, token, topic, due_date, parts, created_by")
+    .select("id, token, topic, due_date, parts, created_by, language")
     .eq("id", id)
     .maybeSingle();
   if (error) {
@@ -47,6 +51,7 @@ async function getRoom(id: string): Promise<StoredRoom | null> {
     dueDate: row.due_date,
     parts: readParts(row.parts),
     createdBy: row.created_by,
+    language: row.language === "en" ? "en" : "es",
   };
 }
 
@@ -54,9 +59,10 @@ async function insertRoom(room: {
   id: string;
   token: string;
   topic: string;
-  dueDate: string;
+  dueDate: string | null;
   parts: string[];
   createdBy: string;
+  language: "es" | "en";
 }): Promise<void> {
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("rooms").insert({
@@ -66,11 +72,53 @@ async function insertRoom(room: {
     due_date: room.dueDate,
     parts: room.parts,
     created_by: room.createdBy,
+    language: room.language,
   });
   if (!error) return;
   console.error("rooms.insert", error.code);
   if (error.code === "23505") throw new MembershipError("taken");
   if (error.code === "23514") throw new MembershipError("invalid");
+  throw new MembershipError("save");
+}
+
+async function updateRoom(id: string, patch: {
+  topic?: string;
+  dueDate?: string | null;
+  parts?: string[];
+  language?: "es" | "en";
+  token?: string;
+}): Promise<void> {
+  const row: Record<string, unknown> = {};
+  if (patch.topic !== undefined) row.topic = patch.topic;
+  if (patch.dueDate !== undefined) row.due_date = patch.dueDate;
+  if (patch.parts !== undefined) row.parts = patch.parts;
+  if (patch.language !== undefined) row.language = patch.language;
+  if (patch.token !== undefined) row.token = patch.token;
+  if (Object.keys(row).length === 0) return;
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("rooms").update(row).eq("id", id);
+  if (!error) return;
+  console.error("rooms.update", error.code);
+  if (error.code === "23505") throw new MembershipError("taken");
+  if (error.code === "23514") throw new MembershipError("invalid");
+  throw new MembershipError("save");
+}
+
+async function renameRoom(id: string, nextId: string): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("rooms").update({ id: nextId }).eq("id", id);
+  if (!error) return;
+  console.error("rooms.rename", error.code);
+  if (error.code === "23505") throw new MembershipError("taken");
+  if (error.code === "23514") throw new MembershipError("invalid");
+  throw new MembershipError("save");
+}
+
+async function setMemberPart(roomId: string, name: string, part: string | null): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("members").update({ part }).eq("room_id", roomId).eq("name", name);
+  if (!error) return;
+  console.error("members.part", error.code);
   throw new MembershipError("save");
 }
 

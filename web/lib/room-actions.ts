@@ -1,21 +1,38 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { setSuggestionStatus } from "./analysis-db";
+import { loadRoomBoard } from "./board";
 import { currentAccount } from "./current-account";
 import { sortEventsNewestFirst } from "./room-feed";
 import { createRoomFor, joinRoomFor, readRoomForMember } from "./room-membership";
 import { supabaseMembershipStore } from "./room-membership-db";
+import { acceptSuggestionFor, saveSettings, setRoomToken } from "./room-settings";
 import { supabaseRoomStore } from "./room-store";
 import {
+  NO_DATE,
   isInviteToken,
+  parseCustomToken,
   parseDueDate,
+  parseMemberPart,
   parseParts,
   parseRoomId,
+  parseRoomLanguage,
   parseTopic,
   type CreateState,
   type JoinState,
 } from "./room-fields";
+import type { RoomBoard } from "./board-view";
 import type { StoredEvent } from "./room-types";
 import { rememberRoomToken } from "./room-token-cookie";
+import { createRoomToken } from "./room-token";
+import { scheduleRoomAnalysis } from "./run-analysis";
+
+export type SettingsState =
+  | { status: "idle" }
+  | { status: "saved" }
+  | { status: "error"; code: "topic" | "parts" | "date" | "id" | "token" | "auth" | "taken" | "forbidden" | "save" };
 
 export async function createRoomAction(_prev: CreateState, formData: FormData): Promise<CreateState> {
   const account = await currentAccount();
@@ -23,17 +40,9 @@ export async function createRoomAction(_prev: CreateState, formData: FormData): 
 
   const topic = parseTopic(String(formData.get("topic") ?? ""));
   if (!topic) return { status: "error", code: "topic" };
-  const parts = parseParts(formData.getAll("parts").filter((value): value is string => typeof value === "string"));
-  if (!parts) return { status: "error", code: "parts" };
-  const dueDate = parseDueDate(String(formData.get("date") ?? ""), formData.get("sin_fecha") === "on");
-  if (!dueDate) return { status: "error", code: "date" };
-
-  const rawId = String(formData.get("room_id") ?? "").trim();
-  const roomId = rawId ? parseRoomId(rawId) : null;
-  if (rawId && !roomId) return { status: "error", code: "id" };
 
   try {
-    const created = await createRoomFor(supabaseMembershipStore, account, { topic, parts, dueDate, roomId });
+    const created = await createRoomFor(supabaseMembershipStore, account, { topic });
     if (!created.ok) return { status: "error", code: created.code };
     await rememberRoomToken(created.id, created.token);
     return { status: "created", id: created.id, token: created.token, path: created.path };
@@ -63,6 +72,20 @@ export async function readRoomSnapshotAction(
   }
 }
 
+export async function readRoomBoardAction(roomId: string): Promise<{ ok: true; board: RoomBoard } | { ok: false }> {
+  const id = parseRoomId(roomId);
+  if (!id) return { ok: false };
+  const account = await currentAccount();
+  if (!account) return { ok: false };
+  try {
+    const view = await readRoomForMember(supabaseMembershipStore, account.id, id);
+    if (!view.ok) return { ok: false };
+    return { ok: true, board: await loadRoomBoard(account, view.room, view.members) };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function joinInviteAction(roomId: string, token: string): Promise<JoinState> {
   const id = parseRoomId(roomId);
   if (!id || !isInviteToken(token)) return { ok: false, code: "link" };
@@ -76,4 +99,137 @@ export async function joinInviteAction(roomId: string, token: string): Promise<J
   } catch {
     return { ok: false, code: "save" };
   }
+}
+
+export async function saveSettingsAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const account = await currentAccount();
+  if (!account) return { status: "error", code: "auth" };
+  const roomId = parseRoomId(String(formData.get("room_id") ?? ""));
+  if (!roomId) return { status: "error", code: "id" };
+  const topic = parseTopic(String(formData.get("topic") ?? ""));
+  if (!topic) return { status: "error", code: "topic" };
+  const parts = parseParts(strings(formData, "parts"));
+  if (!parts) return { status: "error", code: "parts" };
+
+  const noDate = formData.get("sin_fecha") === "on";
+  const rawDate = String(formData.get("date") ?? "").trim();
+  let dueDate: string | null;
+  if (noDate) dueDate = NO_DATE;
+  else if (!rawDate) dueDate = null;
+  else {
+    const parsed = parseDueDate(rawDate, false);
+    if (!parsed) return { status: "error", code: "date" };
+    dueDate = parsed;
+  }
+
+  const language = parseRoomLanguage(String(formData.get("language") ?? "es"));
+  const rawNext = String(formData.get("next_id") ?? "").trim();
+  const nextId = rawNext ? parseRoomId(rawNext) : null;
+  if (rawNext && !nextId) return { status: "error", code: "id" };
+
+  const names = strings(formData, "member_name");
+  const memberPartValues = strings(formData, "member_part");
+  const memberParts: { name: string; part: string | null }[] = [];
+  for (let index = 0; index < names.length; index += 1) {
+    const name = names[index]?.trim() ?? "";
+    if (!name) continue;
+    const part = parseMemberPart(memberPartValues[index] ?? "");
+    if (part === "invalid") return { status: "error", code: "parts" };
+    memberParts.push({ name, part });
+  }
+
+  let saved;
+  try {
+    saved = await saveSettings(supabaseMembershipStore, account.id, roomId, {
+      topic,
+      parts,
+      dueDate,
+      language,
+      nextId,
+      memberParts,
+    });
+  } catch {
+    return { status: "error", code: "save" };
+  }
+  if (!saved.ok) return { status: "error", code: saved.code === "missing" ? "forbidden" : saved.code };
+  if (saved.id !== roomId) {
+    await rememberRoomToken(saved.id, saved.token);
+    redirect(`/rooms/${saved.id}`);
+  }
+  revalidatePath(`/rooms/${saved.id}`);
+  return { status: "saved" };
+}
+
+export async function regenerateTokenAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  return writeToken(formData, createRoomToken());
+}
+
+export async function customTokenAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const token = parseCustomToken(String(formData.get("custom_token") ?? ""));
+  if (!token) return { status: "error", code: "token" };
+  return writeToken(formData, token);
+}
+
+export async function acceptSuggestionAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const ready = await memberRoom(formData);
+  if (!ready.ok) return ready.state;
+  const access = await readRoomForMember(supabaseMembershipStore, ready.account.id, ready.roomId);
+  if (!access.ok) return { status: "error", code: access.code === "save" ? "save" : "forbidden" };
+  let suggestion;
+  try {
+    const board = await loadRoomBoard({ id: ready.account.id, name: access.members.find((member) => member.userId === ready.account.id)?.name ?? "" }, access.room, access.members);
+    suggestion = board.suggestion;
+  } catch {
+    return { status: "error", code: "save" };
+  }
+  if (!suggestion) return { status: "error", code: "save" };
+  const accepted = await acceptSuggestionFor(supabaseMembershipStore, ready.account.id, ready.roomId, suggestion);
+  if (!accepted.ok) return { status: "error", code: accepted.code === "missing" ? "forbidden" : accepted.code };
+  await setSuggestionStatus(ready.roomId, "aceptada");
+  revalidatePath(`/rooms/${ready.roomId}`);
+  return { status: "saved" };
+}
+
+export async function dismissSuggestionAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const ready = await memberRoom(formData);
+  if (!ready.ok) return ready.state;
+  await setSuggestionStatus(ready.roomId, "descartada");
+  revalidatePath(`/rooms/${ready.roomId}`);
+  return { status: "saved" };
+}
+
+export async function analyzeNowAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
+  const ready = await memberRoom(formData);
+  if (!ready.ok) return ready.state;
+  const ok = await scheduleRoomAnalysis(ready.roomId, { force: true });
+  if (!ok) return { status: "error", code: "save" };
+  revalidatePath(`/rooms/${ready.roomId}`);
+  return { status: "saved" };
+}
+
+async function writeToken(formData: FormData, token: string): Promise<SettingsState> {
+  const ready = await memberRoom(formData);
+  if (!ready.ok) return ready.state;
+  const saved = await setRoomToken(supabaseMembershipStore, ready.account.id, ready.roomId, token);
+  if (!saved.ok) return { status: "error", code: saved.code === "missing" ? "forbidden" : saved.code };
+  await rememberRoomToken(ready.roomId, token);
+  revalidatePath(`/rooms/${ready.roomId}`);
+  return { status: "saved" };
+}
+
+async function memberRoom(formData: FormData): Promise<
+  | { ok: true; account: { id: string }; roomId: string }
+  | { ok: false; state: SettingsState }
+> {
+  const account = await currentAccount();
+  if (!account) return { ok: false, state: { status: "error", code: "auth" } };
+  const roomId = parseRoomId(String(formData.get("room_id") ?? ""));
+  if (!roomId) return { ok: false, state: { status: "error", code: "id" } };
+  const access = await readRoomForMember(supabaseMembershipStore, account.id, roomId);
+  if (!access.ok) return { ok: false, state: { status: "error", code: access.code === "save" ? "save" : "forbidden" } };
+  return { ok: true, account, roomId };
+}
+
+function strings(formData: FormData, key: string): string[] {
+  return formData.getAll(key).filter((value): value is string => typeof value === "string");
 }

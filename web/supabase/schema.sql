@@ -16,6 +16,7 @@ immutable
 set search_path = ''
 as $$
   select case
+    when parts is null then true
     when jsonb_typeof(parts) is distinct from 'array' then false
     when jsonb_array_length(parts) > 30 then false
     else not exists (
@@ -35,22 +36,24 @@ create table public.rooms (
   id text primary key,
   topic text not null,
   project_name text,
-  due_date text,
+  due_date text default null,
   token text not null unique,
   created_by uuid references auth.users (id) on delete set null,
-  parts jsonb not null default '[]'::jsonb,
+  parts jsonb default '[]'::jsonb,
+  language text not null default 'es',
   created_at timestamptz not null default now(),
   constraint rooms_due_date_check check (
     due_date is null
     or due_date = 'sin fecha'
     or due_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
   ),
-  constraint rooms_parts_check check (public.enlaza_parts_valid(parts))
+  constraint rooms_parts_check check (public.enlaza_parts_valid(parts)),
+  constraint rooms_language_check check (language in ('es', 'en'))
 );
 
 create table public.members (
   id uuid primary key default gen_random_uuid(),
-  room_id text not null references public.rooms (id) on delete cascade,
+  room_id text not null references public.rooms (id) on delete cascade on update cascade,
   user_id uuid references auth.users (id) on delete set null,
   name text not null,
   part text,
@@ -59,7 +62,7 @@ create table public.members (
 
 create table public.events (
   event_id text primary key,
-  room_id text not null references public.rooms (id) on delete cascade,
+  room_id text not null references public.rooms (id) on delete cascade on update cascade,
   member text not null,
   ai text not null,
   type text not null,
@@ -85,7 +88,30 @@ create unique index members_room_user_uidx on public.members (room_id, user_id) 
 create index rooms_created_by_idx on public.rooms (created_by);
 create index events_room_id_created_at_idx on public.events (room_id, created_at);
 
+-- El analista guarda aquí el resumen, los avisos, el contexto de cada
+-- miembro, los nombres de chat y la sugerencia de partes o fecha.
+create table public.room_analysis (
+  room_id text primary key references public.rooms (id) on delete cascade on update cascade,
+  resumen text not null default '',
+  miembros jsonb not null default '[]'::jsonb,
+  alertas jsonb not null default '[]'::jsonb,
+  chats jsonb not null default '[]'::jsonb,
+  sugerencia jsonb,
+  sugerencia_estado text not null default 'ninguna',
+  fuente text not null default 'reglas',
+  idioma text not null default 'es',
+  eventos integer not null default 0,
+  ran_at timestamptz not null default now(),
+  pending boolean not null default false,
+  constraint room_analysis_estado_check check (
+    sugerencia_estado in ('ninguna', 'pendiente', 'aceptada', 'descartada')
+  ),
+  constraint room_analysis_fuente_check check (fuente in ('ia', 'reglas')),
+  constraint room_analysis_idioma_check check (idioma in ('es', 'en'))
+);
+
 alter table public.events replica identity full;
+alter table public.room_analysis replica identity full;
 
 do $$
 begin
@@ -99,6 +125,17 @@ begin
      ) then
     alter publication supabase_realtime add table public.events;
   end if;
+
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1
+       from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'room_analysis'
+     ) then
+    alter publication supabase_realtime add table public.room_analysis;
+  end if;
 end $$;
 
 -- La clave anónima llega al navegador. Sin estas revocaciones, cualquiera
@@ -107,14 +144,17 @@ end $$;
 alter table public.rooms enable row level security;
 alter table public.members enable row level security;
 alter table public.events enable row level security;
+alter table public.room_analysis enable row level security;
 
 revoke all on table public.rooms from anon, authenticated;
 revoke all on table public.members from anon, authenticated;
 revoke all on table public.events from anon, authenticated;
+revoke all on table public.room_analysis from anon, authenticated;
 
 grant select, insert, update, delete on table public.rooms to service_role;
 grant select, insert, update, delete on table public.members to service_role;
 grant select, insert, update, delete on table public.events to service_role;
+grant select, insert, update, delete on table public.room_analysis to service_role;
 
 -- La fecha sigue en due_date. created_by y members.user_id identifican la
 -- cuenta de Google. parts es la lista de tareas de la sala. El token no se
@@ -149,10 +189,11 @@ grant usage on schema private to authenticated;
 revoke all on function private.can_read_room(text) from public, anon, authenticated;
 grant execute on function private.can_read_room(text) to authenticated;
 
-grant select (id, topic, project_name, due_date, created_by, parts, created_at)
+grant select (id, topic, project_name, due_date, created_by, parts, language, created_at)
   on table public.rooms to authenticated;
 grant select (id, room_id, name, part, user_id, created_at)
   on table public.members to authenticated;
+grant select on table public.room_analysis to authenticated;
 
 drop policy if exists rooms_select_for_member on public.rooms;
 create policy rooms_select_for_member
@@ -175,6 +216,13 @@ grant select on table public.events to authenticated;
 drop policy if exists events_select_for_room on public.events;
 create policy events_select_for_room
   on public.events
+  for select
+  to authenticated
+  using (private.can_read_room(room_id));
+
+drop policy if exists room_analysis_select_for_member on public.room_analysis;
+create policy room_analysis_select_for_member
+  on public.room_analysis
   for select
   to authenticated
   using (private.can_read_room(room_id));

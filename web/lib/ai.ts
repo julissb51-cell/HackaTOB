@@ -7,23 +7,33 @@ export type AiMessage = {
   content: string;
 };
 
-const GEMINI_MODEL = "gemini-3.8-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = "gemini-3.5-flash";
 const XAI_MODEL = "grok-4.7";
 const XAI_URL = "https://api.x.ai/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 120_000;
 
+export type CompleteOptions = {
+  json?: boolean;
+  timeoutMs?: number;
+};
+
 export function getAiProvider(): AiProviderName {
   const raw = process.env.AI_PROVIDER?.trim().toLowerCase() ?? "";
   if (raw === "" || raw === "gemini") return "gemini";
-  if (raw === "xai") return "xai";
+  if (raw === "xai" || raw === "grok") return "xai";
   throw new Error("AI_PROVIDER no reconocido");
 }
 
-export async function complete(messages: AiMessage[]): Promise<string> {
+export function geminiModel(): string {
+  const configured = process.env.GEMINI_MODEL?.trim() ?? "";
+  if (/^[A-Za-z0-9._-]{1,80}$/.test(configured)) return configured;
+  return GEMINI_MODEL;
+}
+
+export async function complete(messages: AiMessage[], options: CompleteOptions = {}): Promise<string> {
   const provider = getAiProvider();
-  if (provider === "gemini") return completeWithGemini(messages);
-  return completeWithXai(messages);
+  if (provider === "gemini") return completeWithGemini(messages, options);
+  return completeWithXai(messages, options);
 }
 
 type GeminiPart = { text?: string; thought?: boolean };
@@ -34,7 +44,7 @@ type GeminiResponse = {
   }>;
 };
 
-async function completeWithGemini(messages: AiMessage[]): Promise<string> {
+async function completeWithGemini(messages: AiMessage[], options: CompleteOptions): Promise<string> {
   const apiKey = requiredEnv("GEMINI_API_KEY");
   const system = messages
     .filter((message) => message.role === "system")
@@ -49,13 +59,17 @@ async function completeWithGemini(messages: AiMessage[]): Promise<string> {
   const body: {
     contents: typeof contents;
     systemInstruction?: { parts: Array<{ text: string }> };
+    generationConfig?: { responseMimeType: string };
   } = { contents };
   if (system) {
     body.systemInstruction = { parts: [{ text: system }] };
   }
+  if (options.json) {
+    body.generationConfig = { responseMimeType: "application/json" };
+  }
 
   const payload = (await postJson(
-    GEMINI_URL,
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent`,
     {
       method: "POST",
       headers: {
@@ -65,6 +79,7 @@ async function completeWithGemini(messages: AiMessage[]): Promise<string> {
       body: JSON.stringify(body),
     },
     "Gemini",
+    options.timeoutMs,
   )) as GeminiResponse;
 
   const parts = payload.candidates?.[0]?.content?.parts ?? [];
@@ -83,7 +98,7 @@ type XaiResponse = {
   }>;
 };
 
-async function completeWithXai(messages: AiMessage[]): Promise<string> {
+async function completeWithXai(messages: AiMessage[], options: CompleteOptions): Promise<string> {
   const apiKey = requiredEnv("XAI_API_KEY");
   dialogue(messages);
   const chat = messages
@@ -101,9 +116,11 @@ async function completeWithXai(messages: AiMessage[]): Promise<string> {
         model: XAI_MODEL,
         messages: chat,
         stream: false,
+        ...(options.json ? { response_format: { type: "json_object" } } : {}),
       }),
     },
     "Grok",
+    options.timeoutMs,
   )) as XaiResponse;
 
   const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
@@ -125,12 +142,12 @@ function requiredEnv(name: "GEMINI_API_KEY" | "XAI_API_KEY"): string {
   return value;
 }
 
-async function postJson(url: string, init: RequestInit, label: string): Promise<unknown> {
+async function postJson(url: string, init: RequestInit, label: string, timeoutMs?: number): Promise<unknown> {
   let response: Response;
   try {
     response = await fetch(url, {
       ...init,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs && timeoutMs > 0 ? timeoutMs : REQUEST_TIMEOUT_MS),
     });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {

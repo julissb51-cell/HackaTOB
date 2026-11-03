@@ -9,6 +9,7 @@ import {
   type Account,
   type MemberRow,
   type MembershipStore,
+  type RoomUpdate,
   type StoredRoom,
 } from "./room-membership";
 
@@ -45,6 +46,19 @@ test("crear la sala deja al creador como miembro y el token no cambia", async ()
   });
   assert.deepEqual(again, { ok: false, code: "taken" });
   assert.equal((await store.store.getRoom("equipo"))?.token, created.token);
+});
+
+test("la sala nueva puede quedar sin partes y sin fecha", async () => {
+  const store = memoryStore();
+  const created = await createRoomFor(store.store, ANA, { topic: "Solo el tema" });
+  assert.equal(created.ok, true);
+  if (!created.ok) return;
+  const room = await store.store.getRoom(created.id);
+  assert.equal(room?.topic, "Solo el tema");
+  assert.equal(room?.dueDate, null);
+  assert.deepEqual(room?.parts, []);
+  assert.equal(room?.language, "es");
+  assert.ok(room?.token);
 });
 
 test("la invitación une una vez y un token malo no entra", async () => {
@@ -97,6 +111,7 @@ test("entrar reclama el miembro que ya tenía ese nombre", async () => {
     dueDate: "2026-11-06",
     parts: [],
     createdBy: null,
+    language: "es",
   });
   store.members.push({ id: "m1", roomId: "demo", name: "Ana", part: "Pantalla", userId: null });
 
@@ -120,7 +135,32 @@ function memoryStore() {
       if (rooms.some((item) => item.id === room.id || item.token === room.token)) {
         throw new MembershipError("taken");
       }
-      rooms.push({ ...room, parts: [...room.parts] });
+      rooms.push({ ...room, parts: [...room.parts], language: room.language });
+    },
+    async updateRoom(id, patch: RoomUpdate) {
+      const room = rooms.find((item) => item.id === id);
+      if (!room) throw new MembershipError("save");
+      if (patch.token && rooms.some((item) => item.id !== id && item.token === patch.token)) {
+        throw new MembershipError("taken");
+      }
+      if (patch.topic !== undefined) room.topic = patch.topic;
+      if (patch.dueDate !== undefined) room.dueDate = patch.dueDate;
+      if (patch.parts !== undefined) room.parts = [...patch.parts];
+      if (patch.language !== undefined) room.language = patch.language;
+      if (patch.token !== undefined) room.token = patch.token;
+    },
+    async renameRoom(id, nextId) {
+      if (rooms.some((item) => item.id === nextId)) throw new MembershipError("taken");
+      const room = rooms.find((item) => item.id === id);
+      if (!room) throw new MembershipError("save");
+      room.id = nextId;
+      for (const member of members) {
+        if (member.roomId === id) member.roomId = nextId;
+      }
+    },
+    async setMemberPart(roomId, name, part) {
+      const member = members.find((item) => item.roomId === roomId && item.name === name);
+      if (member) member.part = part;
     },
     async deleteRoom(id) {
       const roomIndex = rooms.findIndex((room) => room.id === id);

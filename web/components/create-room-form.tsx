@@ -18,8 +18,6 @@ export function CreateRoomScreen() {
 function CreateRoomForm({ onAnother }: { onAnother: () => void }) {
   const text = useCopy();
   const [state, action, pending] = useActionState(createRoomAction, initialState);
-  const [parts, setParts] = useState<string[]>([""]);
-  const [noDate, setNoDate] = useState(false);
 
   if (state.status === "created") {
     return (
@@ -50,7 +48,10 @@ function CreateRoomForm({ onAnother }: { onAnother: () => void }) {
 
   return (
     <form action={action} className="space-y-6">
-      <h1 className="font-display text-4xl font-medium tracking-tight">{text.createRoom}</h1>
+      <div>
+        <h1 className="font-display text-4xl font-medium tracking-tight">{text.createRoom}</h1>
+        <p className="mt-3 text-sm leading-6 text-muted">{text.createHelp}</p>
+      </div>
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}
@@ -61,73 +62,6 @@ function CreateRoomForm({ onAnother }: { onAnother: () => void }) {
           {text.topic}
         </label>
         <input id="topic" name="topic" required maxLength={200} className={fieldClass} />
-      </div>
-      <fieldset className="space-y-3">
-        <legend className="text-sm font-semibold">{text.parts}</legend>
-        <p className="text-sm text-muted">{text.partsHelp}</p>
-        {parts.map((part, index) => (
-          <div key={index} className="flex gap-2">
-            <input
-              name="parts"
-              value={part}
-              maxLength={120}
-              aria-label={`${text.partLabel} ${index + 1}`}
-              className={fieldClass}
-              onChange={(event) => {
-                const next = [...parts];
-                next[index] = event.target.value;
-                setParts(next);
-              }}
-            />
-            {parts.length > 1 ? (
-              <button
-                type="button"
-                className={secondaryButton}
-                onClick={() => setParts(parts.filter((_, partIndex) => partIndex !== index))}
-              >
-                {text.removePart}
-              </button>
-            ) : null}
-          </div>
-        ))}
-        <button
-          type="button"
-          className={secondaryButton}
-          disabled={parts.length >= 30}
-          onClick={() => setParts([...parts, ""])}
-        >
-          {text.addPart}
-        </button>
-      </fieldset>
-      <div className="space-y-3">
-        <label className="block text-sm font-semibold" htmlFor="date">
-          {text.date}
-        </label>
-        <input id="date" name="date" type="date" required={!noDate} disabled={noDate} className={fieldClass} />
-        <label className="flex items-center gap-2 text-sm" htmlFor="sin-fecha">
-          <input
-            id="sin-fecha"
-            name="sin_fecha"
-            type="checkbox"
-            checked={noDate}
-            onChange={(event) => setNoDate(event.target.checked)}
-          />
-          {text.noDate}
-        </label>
-      </div>
-      <div className="space-y-2">
-        <label className="block text-sm font-semibold" htmlFor="room-code">
-          {text.roomId}
-        </label>
-        <input
-          id="room-code"
-          name="room_id"
-          maxLength={32}
-          autoComplete="off"
-          spellCheck={false}
-          className={fieldClass}
-        />
-        <p className="text-sm text-muted">{text.roomIdHelp}</p>
       </div>
       <button type="submit" className={primaryButton} disabled={pending}>
         {pending ? text.creating : text.submit}

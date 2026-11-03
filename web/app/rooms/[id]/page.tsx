@@ -1,14 +1,17 @@
 import { Suspense } from "react";
-import { connection } from "next/server";
+import { after, connection } from "next/server";
 import { RedirectNotice } from "@/components/redirect-notice";
 import { RoomMessage, RoomScreen } from "@/components/room-screen";
 import { ScreenFallback, Shell } from "@/components/shell";
+import { toBoard } from "@/lib/board-view";
+import { loadRoomBoard } from "@/lib/board";
 import { currentAccount } from "@/lib/current-account";
 import { sortEventsNewestFirst } from "@/lib/room-feed";
 import { invitePath, parseRoomId } from "@/lib/room-fields";
 import { readRoomForMember } from "@/lib/room-membership";
 import { supabaseMembershipStore } from "@/lib/room-membership-db";
 import { supabaseRoomStore } from "@/lib/room-store";
+import { scheduleRoomAnalysis } from "@/lib/run-analysis";
 import type { StoredEvent } from "@/lib/room-types";
 
 type PageProps = { params: Promise<{ id: string }> };
@@ -64,6 +67,23 @@ async function RoomContent({ params }: PageProps) {
   }
 
   const viewer = view.members.find((member) => member.userId === account.id);
+  const viewerName = viewer?.name ?? account.name;
+  let board;
+  try {
+    board = await loadRoomBoard(account, view.room, view.members);
+  } catch {
+    board = toBoard({
+      room: view.room,
+      members: view.members,
+      events,
+      saved: null,
+      viewerName,
+    });
+  }
+
+  after(() => {
+    void scheduleRoomAnalysis(id, { markPending: false });
+  });
 
   return (
     <Shell signedIn wide>
@@ -77,9 +97,10 @@ async function RoomContent({ params }: PageProps) {
           token: view.room.token,
           path: invitePath(view.room.id, view.room.token),
           members: view.members.map((member) => ({ name: member.name, part: member.part })),
-          viewerName: viewer?.name ?? account.name,
+          viewerName,
           events,
         }}
+        board={board}
       />
     </Shell>
   );
