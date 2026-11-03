@@ -113,7 +113,7 @@ export function safeNextPath(value: string | null | undefined): string {
   }
   if (decoded.includes("://") || decoded.includes("\0") || decoded.length > 2000) return "/";
   const path = decoded.split("?")[0] ?? "";
-  const allowed = path === "/" || path === "/rooms/new" || path.startsWith("/join/") || path.startsWith("/rooms/");
+  const allowed = path === "/" || path === "/rooms" || path === "/rooms/new" || path.startsWith("/join/") || path.startsWith("/rooms/");
   if (!allowed || path === "/rooms/") return "/";
   return decoded;
 }

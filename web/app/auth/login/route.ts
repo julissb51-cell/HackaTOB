@@ -20,7 +20,6 @@ export async function GET(request: Request) {
       provider: "google",
       options: {
         redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
-        queryParams: { prompt: "select_account" },
       },
     });
     if (error || !oauth.url) return applyCookies(NextResponse.redirect(`${origin}/auth/error`));

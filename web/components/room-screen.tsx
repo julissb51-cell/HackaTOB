@@ -22,6 +22,7 @@ import { browserSupabase } from "@/lib/supabase/browser";
 import { CopyButton, CopyValue, InviteLink, RememberToken } from "./invite-link";
 import { useCopy } from "./language";
 import { RoomSettings } from "./room-settings";
+import { EditableTitle } from "./editable-title";
 import { fieldClass, primaryButton, secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
 
@@ -71,9 +72,9 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
       <RememberToken roomId={room.id} token={room.token} />
       <header className="order-1 min-w-0 space-y-6 lg:order-none lg:col-span-2">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">{due}</p>
-            <h1 className="mt-3 font-display text-3xl font-medium tracking-tight break-words sm:text-5xl">{room.topic}</h1>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold tracking-[0.16em] text-link uppercase">{due}</p>
+            <EditableTitle roomId={room.id} topic={room.topic} />
           </div>
           <AnalyzeButton roomId={room.id} onDone={analysis.refresh} />
         </div>
@@ -92,7 +93,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
                   <span className="font-semibold">
                     {member.name}
                     {member.name === room.viewerName ? (
-                      <span className="ml-2 text-xs font-semibold tracking-wide text-accent uppercase">{text.you}</span>
+                      <span className="ml-2 text-xs font-semibold tracking-wide text-link uppercase">{text.you}</span>
                     ) : null}
                   </span>
                   <span className="text-right text-sm text-muted">{member.part ?? text.memberPart}</span>
@@ -167,7 +168,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
               {text.forMember} <span className="text-foreground">{room.viewerName}</span>
             </p>
           </div>
-          <span className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">
+          <span className="text-xs font-semibold tracking-[0.14em] text-link uppercase">
             {analysis.board.fuente === "ia" ? text.fromAi : text.fromRules}
           </span>
         </div>
@@ -212,8 +213,8 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
           ) : (
             <ul className="space-y-3">
               {context.advertencias.map((warning, index) => (
-                <li key={`${warning.tipo}-${index}`} className="rounded-xl border border-line px-3 py-3">
-                  <p className="text-xs font-semibold tracking-[0.14em] text-warm uppercase">
+                <li key={`${warning.tipo}-${index}`} className={`rounded-xl px-3 py-3 ${warningTone(warning.tipo)}`}>
+                  <p className="text-xs font-semibold tracking-[0.14em] uppercase">
                     <WarningLabel tipo={warning.tipo} />
                   </p>
                   <p className="mt-1 text-sm leading-6">{warning.mensaje}</p>
@@ -460,7 +461,7 @@ export function RoomMessage({ code }: { code: "unavailable" | "save" }) {
 function PartStatusLabel({ status }: { status: PartStatus }) {
   const text = useCopy();
   const label = status === "active" ? text.partActive : status === "waiting" ? text.partWaiting : text.partEmpty;
-  const tone = status === "active" ? "text-accent" : "text-muted";
+  const tone = status === "active" ? "text-link" : "text-muted";
   return <span className={`shrink-0 text-xs font-semibold tracking-wide uppercase ${tone}`}>{label}</span>;
 }
 
@@ -507,7 +508,7 @@ function EventCard({ event, chatName }: { event: StoredEvent; chatName: string |
   const long = event.text.length > PREVIEW;
   const body = long && !open ? `${event.text.slice(0, PREVIEW).trimEnd()}…` : event.text;
   const typeLabel = event.type === "prompt" ? text.typePrompt : event.type === "respuesta" ? text.typeRespuesta : text.typeArchivo;
-  const typeTone = event.type === "prompt" ? "text-accent" : event.type === "respuesta" ? "text-info" : "text-warm";
+  const typeTone = event.type === "prompt" ? "text-link" : event.type === "respuesta" ? "text-info" : "text-warm";
 
   return (
     <article className="rounded-2xl border border-line px-4 py-3">
@@ -525,12 +526,18 @@ function EventCard({ event, chatName }: { event: StoredEvent; chatName: string |
       {chatName ? <p className="mt-1 text-sm text-muted">{chatName}</p> : null}
       <p className="mt-2 text-sm leading-6 break-words whitespace-pre-wrap">{body}</p>
       {long ? (
-        <button type="button" className="mt-2 cursor-pointer text-sm font-semibold text-accent" onClick={() => setOpen((value) => !value)}>
+        <button type="button" className="mt-2 cursor-pointer text-sm font-semibold text-link" onClick={() => setOpen((value) => !value)}>
           {open ? text.seeLess : text.seeMore}
         </button>
       ) : null}
     </article>
   );
+}
+
+function warningTone(tipo: WarningType): string {
+  if (tipo === "contradiccion") return "bg-contra-bg text-contra-ink";
+  if (tipo === "duplicado") return "bg-dup-bg text-dup-ink";
+  return "bg-falta-bg text-falta-ink";
 }
 
 function WarningLabel({ tipo }: { tipo: WarningType }) {

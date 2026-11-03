@@ -31,7 +31,7 @@ export function RoomSettings({ initial, live, onSaved }: { initial: RoomBoard; l
   return (
     <section className="space-y-4 rounded-2xl border border-line bg-surface/70 p-4">
       <div>
-        <h2 className="text-sm font-semibold tracking-[0.14em] text-accent uppercase">{text.settings}</h2>
+        <h2 className="text-sm font-semibold tracking-[0.14em] text-link uppercase">{text.settings}</h2>
         <p className="mt-2 text-sm leading-6 text-muted">{text.settingsHelp}</p>
       </div>
       {live.suggestion ? (
@@ -59,7 +59,7 @@ function SuggestionBox({
   const dismiss = useSavedAction(dismissSuggestionAction, onSaved);
 
   return (
-    <div className="space-y-3 rounded-xl border border-accent/40 bg-background/60 p-3">
+    <div className="space-y-3 rounded-xl border border-line bg-background/60 p-3">
       <h3 className="text-sm font-semibold">{fromAi ? text.suggestion : text.suggestionRules}</h3>
       {suggestion.partes.length > 0 ? <p className="text-sm">{suggestion.partes.join(", ")}</p> : null}
       {suggestion.asignaciones.length > 0 ? (
@@ -105,7 +105,7 @@ function SettingsForm({ initial, onSaved }: { initial: RoomBoard; onSaved: () =>
           {error}
         </p>
       ) : null}
-      {saved.state.status === "saved" ? <p className="text-sm text-accent">{text.saved}</p> : null}
+      {saved.state.status === "saved" ? <p className="text-sm text-link">{text.saved}</p> : null}
       <div className="space-y-2">
         <label className="block text-sm font-semibold" htmlFor="settings-topic">
           {text.topic}

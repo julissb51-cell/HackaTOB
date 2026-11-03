@@ -9,7 +9,7 @@ export function HomeScreen({ signedIn, name }: { signedIn: boolean; name: string
 
   return (
     <div className="flex flex-1 flex-col justify-center pb-16">
-      <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">{text.kicker}</p>
+      <p className="text-sm font-semibold tracking-[0.16em] text-link uppercase">{text.kicker}</p>
       <h1 className="mt-3 font-display text-5xl leading-none font-medium tracking-tight sm:text-7xl">Enlaza</h1>
       <p className="mt-6 max-w-md text-xl leading-8">{text.lead}</p>
       {signedIn && name ? (
@@ -19,11 +19,11 @@ export function HomeScreen({ signedIn, name }: { signedIn: boolean; name: string
       ) : null}
       <div className="mt-8 [&>a]:w-full sm:[&>a]:w-auto">
         {signedIn ? (
-          <Link href="/rooms/new" className={primaryButton}>
+          <Link href="/rooms" className={primaryButton}>
             {text.createRoom}
           </Link>
         ) : (
-          <Link href="/auth/login?next=/rooms/new" className={primaryButton}>
+          <Link href="/auth/login?next=/rooms" className={primaryButton}>
             {text.signIn}
           </Link>
         )}

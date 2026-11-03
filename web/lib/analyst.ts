@@ -282,7 +282,7 @@ export function storageConflicts(input: AnalysisInput): RoomWarning[] {
   for (const [member, mine] of byMember) {
     const others = [...byMember.entries()].filter(([, item]) => item.family !== mine.family);
     const otherText = unique(others.map(([, item]) => item.label))
-      .map((label) => `${join(others.filter(([, item]) => item.label === label).map(([name]) => name))} ${english ? "uses" : "usa"} ${label}`)
+      .map((label) => `${english ? "the work of " : "en lo de "}${join(others.filter(([, item]) => item.label === label).map(([name]) => name))} ${english ? "uses" : "se usa"} ${label}`)
       .join("; ");
     const parts = [member, ...others.map(([name]) => name)]
       .map((name) => input.members.find((m) => m.name === name)?.part)
@@ -292,8 +292,8 @@ export function storageConflicts(input: AnalysisInput): RoomWarning[] {
       destinatario: member,
       partes: unique(parts),
       mensaje: english
-        ? `${member} stores the data in ${mine.label}, but ${otherText}. Agree on one way to store the data.`
-        : `${member} guarda los datos en ${mine.label}, pero ${otherText}. Pónganse de acuerdo en una sola forma de guardar los datos.`,
+        ? `${member}'s work uses ${mine.label} for the data, but ${otherText}. Agree on one way to store the data.`
+        : `En lo de ${member} los datos van en ${mine.label}, pero ${otherText}. Pónganse de acuerdo en una sola forma de guardar los datos.`,
       prompt_sugerido: english
         ? `My team stores the data in ${others[0][1].label} and I used ${mine.label}. Help me compare both and adapt my part to the option we choose.`
         : `En mi equipo guardan los datos en ${others[0][1].label} y yo usé ${mine.label}. Ayúdame a comparar las dos opciones y a adaptar mi parte a la que elijamos.`,

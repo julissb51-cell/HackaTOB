@@ -277,7 +277,16 @@ test("storageConflicts gives each member a contradiccion naming both and both te
     assert.match(warning.mensaje, /Luis/);
     assert.match(warning.mensaje, /JSON/);
     assert.match(warning.mensaje, /SQLite/);
+    assert.doesNotMatch(warning.mensaje, /guarda los datos/);
   }
+});
+
+test("storageConflicts lists several members without broken verb agreement", () => {
+  const three = { ...libraryInput, events: [...libraryInput.events, evt("9", "Sofía", "prompt", "Dame el script SQLite de las tablas.", 9)] };
+  const ana = storageConflicts(three).find((w) => w.destinatario === "Ana");
+  assert.ok(ana);
+  assert.match(ana.mensaje, /Luis y Sofía se usa SQLite|Sofía y Luis se usa SQLite/);
+  assert.doesNotMatch(ana.mensaje, / y \S+ usa /);
 });
 
 test("storageConflicts stays quiet when everyone uses the same storage or compatible ones", () => {

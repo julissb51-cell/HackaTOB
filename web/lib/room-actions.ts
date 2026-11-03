@@ -51,6 +51,44 @@ export async function createRoomAction(_prev: CreateState, formData: FormData): 
   }
 }
 
+const UNTITLED_ROOM = { es: "Sala sin título", en: "Untitled room" } as const;
+
+/** "Nueva sala": crea la sala al instante con un nombre por defecto y la abre. */
+export async function quickCreateRoomAction(formData: FormData): Promise<void> {
+  const account = await currentAccount();
+  if (!account) redirect("/auth/login?next=/rooms");
+  const lang = formData.get("lang") === "en" ? "en" : "es";
+  let id: string | null = null;
+  try {
+    const created = await createRoomFor(supabaseMembershipStore, account, { topic: UNTITLED_ROOM[lang] });
+    if (created.ok) {
+      await rememberRoomToken(created.id, created.token);
+      id = created.id;
+    }
+  } catch {
+    id = null;
+  }
+  redirect(id ? `/rooms/${id}?nueva=1` : "/rooms?error=create");
+}
+
+/** Cambia solo el título de la sala (edición en línea). */
+export async function renameTopicAction(roomId: string, rawTopic: string): Promise<{ ok: boolean; topic?: string }> {
+  const account = await currentAccount();
+  if (!account) return { ok: false };
+  const id = parseRoomId(roomId);
+  const topic = parseTopic(rawTopic);
+  if (!id || !topic) return { ok: false };
+  try {
+    const access = await readRoomForMember(supabaseMembershipStore, account.id, id);
+    if (!access.ok) return { ok: false };
+    await supabaseMembershipStore.updateRoom(id, { topic });
+  } catch {
+    return { ok: false };
+  }
+  revalidatePath(`/rooms/${id}`);
+  return { ok: true, topic };
+}
+
 export async function readRoomSnapshotAction(
   roomId: string,
 ): Promise<{ ok: true; events: StoredEvent[]; members: { name: string; part: string | null }[] } | { ok: false }> {

@@ -1,43 +1,86 @@
 @import "tailwindcss";
 
+/* Paleta oficial "jade": claro por defecto, oscuro según el sistema. El jade es el único color fuerte. */
 :root {
-  --background: #0c1016;
-  --foreground: #e8edf5;
-  --accent: #3ecfb2;
-  --accent-ink: #06241d;
-  --line: #2c3544;
-  --muted: #93a0b5;
-  --surface: #161c26;
-  --danger: #ffb4ab;
-  --info: #9eb7ff;
-  --warm: #f0c27a;
+  color-scheme: light;
+  --background: #faf9f7;
+  --surface: #ffffff;
+  --structural: #f0eeea;
+  --line: #e7e4de;
+  --foreground: #1f1e1d;
+  --muted: #6b6862;
+  --accent: #00d68f;
+  --accent-hover: #33e0a6;
+  --accent-ink: #1f1e1d;
+  --link: #007a52;
+  --contra-bg: #f6edec;
+  --contra-ink: #8a4b45;
+  --dup-bg: #f5f0e6;
+  --dup-ink: #7a6a47;
+  --falta-bg: #eef1f4;
+  --falta-ink: #4f6172;
+  --danger: #8a4b45;
+  --info: #4f6172;
+  --warm: #7a6a47;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --background: #1c1c1b;
+    --surface: #262624;
+    --structural: #2f2e2c;
+    --line: #3a3936;
+    --foreground: #eceae6;
+    --muted: #a8a49c;
+    --accent: #00e0a0;
+    --accent-hover: #4debb8;
+    --accent-ink: #1f1e1d;
+    --link: #2ee6aa;
+    --contra-bg: #33292a;
+    --contra-ink: #d9a9a3;
+    --dup-bg: #322e25;
+    --dup-ink: #d2bf95;
+    --falta-bg: #2a2e33;
+    --falta-ink: #a9b7c4;
+    --danger: #d9a9a3;
+    --info: #a9b7c4;
+    --warm: #d2bf95;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-ink: var(--accent-ink);
+  --color-link: var(--link);
   --color-line: var(--line);
   --color-muted: var(--muted);
   --color-surface: var(--surface);
+  --color-structural: var(--structural);
   --color-danger: var(--danger);
   --color-info: var(--info);
   --color-warm: var(--warm);
+  --color-contra-bg: var(--contra-bg);
+  --color-contra-ink: var(--contra-ink);
+  --color-dup-bg: var(--dup-bg);
+  --color-dup-ink: var(--dup-ink);
+  --color-falta-bg: var(--falta-bg);
+  --color-falta-ink: var(--falta-ink);
   --font-sans: var(--font-source);
   --font-display: var(--font-fraunces);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  background:
-    radial-gradient(900px 420px at 100% -10%, rgba(62, 207, 178, 0.14), transparent 55%),
-    var(--background);
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), "Source Sans 3", sans-serif;
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--link);
   outline-offset: 2px;
 }
