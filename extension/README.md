@@ -17,6 +17,16 @@ Los ganchos de Cursor y Claude Code están en `hooks/` y no se cargan: el manifi
 
 El ícono de Enlaza queda en la barra. No hace falta compilar nada. Si ChatGPT o Gemini ya estaban abiertos, recarga esas pestañas.
 
+## Actualizar
+
+Después de un `git pull`:
+
+1. Abre `edge://extensions` (o `chrome://extensions`).
+2. En la tarjeta de Enlaza pulsa **Actualizar**. La versión tiene que decir 1.1.0.
+3. Recarga la pestaña de ChatGPT con F5.
+
+El ícono muestra cuántos eventos se enviaron. El panel, arriba, dice «Eventos enviados: N» y si el lector ve los mensajes de esa pestaña. El resumen de la sala también cuenta los eventos guardados («Hay N eventos») mientras el analista no lo reescriba; el número del ícono no depende de ese texto.
+
 ## Conectar
 
 1. En la web, copia el enlace de invitación. Se ve así: `https://enlaza-green.vercel.app/join/{sala}?t={token}`.
@@ -65,7 +75,7 @@ Solo se captura con la sesión conectada y el consentimiento aceptado. Lo que ya
 
 ## Limitaciones
 
-- Los selectores del DOM están aislados en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. Si ChatGPT o Gemini cambian la página, se ajustan ahí. Son la parte frágil: el botón de parar, la caja de texto y los nodos de cada mensaje.
+- Los selectores del DOM están aislados en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. El chat de ChatGPT de noviembre 2026 usa `[data-user-message-bubble]` y `[data-content-search-unit-key$=":assistant"]`. Si la página cambia otra vez, se ajustan ahí. El prompt también se lee de la caja al pulsar Enter o Enviar, por si el globo cambia de nuevo.
 - Si no aparece el botón de parar, la extensión espera a que el texto deje de cambiar unos 2,5 segundos antes de mandar la respuesta.
 - En un chat nuevo, espera hasta 12 segundos a que la página ponga el id en la URL. Si no aparece, usa un id local de esa pestaña (`chatgpt_local_…` o `gemini_local_…`). Enlaza no inventa el id cuando el sitio sí lo trae.
 - Insertar el prompt depende de la caja de texto (`#prompt-textarea` en ChatGPT, el editor de Gemini). No aprieta Enviar.

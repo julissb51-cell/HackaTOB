@@ -70,8 +70,35 @@ function renderPrompt(parent, text) {
   addActions(parent, text);
 }
 
-function render(state) {
+function pageLine(page) {
+  if (!page || page.reason === "otra") return "Abre ChatGPT o Gemini para capturar.";
+  if (!page.ok || page.reason === "sin lector") {
+    return "No está el lector en esta pestaña. En Extensiones pulsa Actualizar en Enlaza y recarga el chat.";
+  }
+  const ia = page.ia === "gemini" ? "Gemini" : "ChatGPT";
+  const mode = page.active ? "La sesión está conectada." : "Falta conectar la sala para enviar.";
+  if (!page.users && !page.assistants) {
+    return `${ia}: el lector está, pero no ve mensajes en esta página. ${mode}`;
+  }
+  return `${ia}: ve ${page.users} prompts y ${page.assistants} respuestas. ${mode}`;
+}
+
+function renderCapture(state, page) {
+  const card = el("div", "card");
+  const sent = state.capture?.sent || 0;
+  card.append(el("h2", "", "Captura"), el("p", "", `Eventos enviados: ${sent}`));
+  if (state.capture?.lastPreview) {
+    const tipo = state.capture.lastTipo === "respuesta" ? "respuesta" : "prompt";
+    card.append(el("p", "meta", `Último ${tipo}: ${state.capture.lastPreview}`));
+  }
+  if (state.capture?.lastError) card.append(el("p", "banner", state.capture.lastError));
+  card.append(el("p", "meta", pageLine(page)));
+  return card;
+}
+
+function render(state, page) {
   app.replaceChildren();
+  app.append(renderCapture(state, page));
   const session = state.session;
   if (!session?.connected) {
     tagline.textContent = "Sin conectar";
@@ -145,8 +172,16 @@ function render(state) {
 }
 
 async function paint() {
-  const state = await chrome.storage.local.get(["session", "context", "contextMeta"]);
-  render(state);
+  const state = await chrome.storage.local.get(["session", "context", "contextMeta", "capture"]);
+  let page = null;
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "enlaza.status" });
+    page = response?.page || null;
+    if (response?.capture) state.capture = response.capture;
+  } catch {
+    page = { ok: false, reason: "sin lector" };
+  }
+  render(state, page);
 }
 
 chrome.storage.onChanged.addListener((changes, area) => {

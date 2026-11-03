@@ -23,35 +23,12 @@
     let pollTimer = 0;
     const observed = new WeakSet();
     let observer = null;
-
-    function messageNodes(selectors) {
-      const nodes = dom.findFirst(selectors);
-      return nodes.filter((node) => !nodes.some((other) => other !== node && other.contains(node)));
-    }
-
-    function readText(node, selectors) {
-      for (const selector of selectors) {
-        let target = null;
-        if (node.matches?.(selector)) target = node;
-        else target = dom.queryDeep(selector, node);
-        const value = target?.innerText?.replace(/\u00a0/g, " ").trim();
-        if (value) return value;
-      }
-      return node.innerText?.replace(/\u00a0/g, " ").trim() || "";
-    }
+    let lastComposer = "";
+    let lastWatchKey = "";
+    let lastWatchAt = 0;
 
     function listMessages() {
-      const users = messageNodes(site.userSelectors).map((node) => ({
-        node,
-        role: "user",
-        text: readText(node, site.userTextSelectors),
-      }));
-      const assistants = messageNodes(site.assistantSelectors).map((node) => ({
-        node,
-        role: "assistant",
-        text: readText(node, site.assistantTextSelectors),
-      }));
-      return users.concat(assistants);
+      return globalThis.EnlazaMessages.listChatMessages(document, site);
     }
 
     function lastAssistant(messages) {
@@ -60,7 +37,83 @@
     }
 
     function isStreaming() {
-      return site.stopSelectors.some((selector) => dom.queryAllDeep(selector).length > 0);
+      if ((site.stopSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
+      return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
+        const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
+        return /stop streaming|stop generating|detener respuesta|detener la respuesta|stop-button|composer-stop/.test(label);
+      });
+    }
+
+    function composerText(element) {
+      if (!element) return "";
+      if (element instanceof HTMLTextAreaElement || element instanceof HTMLInputElement) return element.value.trim();
+      return (element.innerText || element.textContent || "").replace(/\u00a0/g, " ").trim();
+    }
+
+    function isPlaceholder(text) {
+      const value = text.trim().toLowerCase();
+      return (
+        !value ||
+        value === "pregunta a chatgpt" ||
+        value === "message chatgpt" ||
+        value === "ask chatgpt" ||
+        value === "ask anything"
+      );
+    }
+
+    function queuePromptFromComposer() {
+      if (!active) return;
+      const text = composerText(findComposer()) || lastComposer;
+      if (isPlaceholder(text)) return;
+      const keyName = countKey("user", text);
+      const inDom = countInDom(listMessages(), "user", text);
+      const already = sentCounts.get(keyName) || 0;
+      if (already > inDom) return;
+      sentCounts.set(keyName, inDom + 1);
+      lastComposer = "";
+      enqueue({ tipo: "prompt", texto: core.truncateText(text) });
+    }
+
+    function isSendControl(target) {
+      if (!target?.closest) return false;
+      for (const selector of site.sendSelectors || []) {
+        try {
+          if (target.closest(selector)) return true;
+        } catch {
+          // Sigue con el resto de selectores.
+        }
+      }
+      const button = target.closest("button, [role='button']");
+      if (!button) return false;
+      const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
+      return /\b(send prompt|send message|enviar prompt|enviar mensaje|enviar)\b/.test(label) || label.includes("send-button");
+    }
+
+    function eventInComposer(event) {
+      const composer = findComposer();
+      if (!composer) return false;
+      const node = event.target;
+      return node === composer || (node && composer.contains(node));
+    }
+
+    function reportWatch() {
+      const now = Date.now();
+      let users = 0;
+      let assistants = 0;
+      let error = "";
+      try {
+        const messages = listMessages();
+        users = messages.filter((message) => message.role === "user").length;
+        assistants = messages.filter((message) => message.role === "assistant").length;
+      } catch {
+        error = "No pude leer el chat.";
+      }
+      const snapshot = { ia: site.ia, active, users, assistants, href: location.href, error };
+      const key = JSON.stringify(snapshot);
+      if (key === lastWatchKey) return;
+      lastWatchKey = key;
+      lastWatchAt = now;
+      chrome.runtime.sendMessage({ type: "enlaza.watch", watch: snapshot }).catch(() => {});
     }
 
     function countKey(role, text) {
@@ -211,8 +264,11 @@
     }
 
     function scan() {
-      if (!active) return;
       clearTimeout(followTimer);
+      if (!active) {
+        reportWatch();
+        return;
+      }
       noteConversationChange();
       attachShadows(document);
       const messages = listMessages();
@@ -235,6 +291,7 @@
       flushWaiting();
       if (waiting.length) nextWait = nextWait === 0 ? 500 : Math.min(nextWait, 500);
       if (nextWait > 0) followTimer = setTimeout(scan, nextWait);
+      reportWatch();
     }
 
     function scheduleScan() {
@@ -295,10 +352,47 @@
     }
 
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-      if (!message || message.type !== "enlaza.insert") return;
-      const error = insertText(message.text);
-      sendResponse({ ok: !error, error });
+      if (!message) return;
+      if (message.type === "enlaza.insert") {
+        const error = insertText(message.text);
+        sendResponse({ ok: !error, error });
+        return;
+      }
+      if (message.type === "enlaza.ping") {
+        let users = 0;
+        let assistants = 0;
+        try {
+          const messages = listMessages();
+          users = messages.filter((item) => item.role === "user").length;
+          assistants = messages.filter((item) => item.role === "assistant").length;
+        } catch {
+          sendResponse({ ok: false, reason: "sin lector" });
+          return;
+        }
+        sendResponse({ ok: true, ia: site.ia, active, users, assistants, href: location.href });
+      }
     });
+
+    function onComposerKey(event) {
+      if (event.key !== "Enter" || event.shiftKey || event.isComposing || !eventInComposer(event)) return;
+      queuePromptFromComposer();
+    }
+
+    function onComposerClick(event) {
+      if (!isSendControl(event.target)) return;
+      queuePromptFromComposer();
+    }
+
+    function onComposerInput(event) {
+      if (!eventInComposer(event)) return;
+      const text = composerText(findComposer());
+      if (!isPlaceholder(text)) lastComposer = text;
+    }
+
+    function onComposerSubmit(event) {
+      if (!eventInComposer(event) && !event.target?.contains?.(findComposer())) return;
+      queuePromptFromComposer();
+    }
 
     async function refreshActive() {
       const stored = await chrome.storage.local.get("session");
@@ -320,10 +414,13 @@
       if (document.body) {
         observer.observe(document.body, { childList: true, subtree: true, characterData: true });
       }
-      pollTimer = setInterval(() => {
-        if (active) scan();
-      }, 1000);
+      pollTimer = setInterval(scan, 1000);
+      document.addEventListener("keydown", onComposerKey, true);
+      document.addEventListener("click", onComposerClick, true);
+      document.addEventListener("input", onComposerInput, true);
+      document.addEventListener("submit", onComposerSubmit, true);
       refreshActive();
+      reportWatch();
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area === "local" && changes.session) refreshActive();
       });

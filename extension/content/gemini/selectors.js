@@ -26,6 +26,12 @@
       ".markdown",
       ".markdown-main-panel",
     ],
+    sendSelectors: [
+      'button[aria-label="Send message"]',
+      'button[aria-label="Enviar mensaje"]',
+      "button.send-button",
+      'button[data-testid="send-button"]',
+    ],
     stopSelectors: [
       'button[aria-label="Stop response"]',
       'button[aria-label="Stop generating"]',

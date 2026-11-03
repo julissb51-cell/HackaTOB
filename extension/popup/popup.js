@@ -31,7 +31,7 @@ function failedItems(outbox) {
 }
 
 async function render() {
-  const state = await chrome.storage.local.get(["session", "context", "contextMeta", "outbox"]);
+  const state = await chrome.storage.local.get(["session", "context", "contextMeta", "outbox", "capture"]);
   const session = state.session;
   if (!filled && session) {
     if (session.invite) inviteInput.value = session.invite;
@@ -46,6 +46,8 @@ async function render() {
   show("connected");
   who.textContent = `${session.member} · sala ${session.salaId}`;
   const bits = [];
+  bits.push(`Eventos enviados: ${state.capture?.sent || 0}.`);
+  if (state.capture?.lastError) bits.push(state.capture.lastError);
   if (state.contextMeta?.error) bits.push(state.contextMeta.error);
   else if (state.context?.parte) bits.push(`Tu parte: ${state.context.parte}`);
   else bits.push("Pidiendo el contexto de la sala…");

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Enlaza",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Comparte prompts y respuestas de ChatGPT y Gemini con tu sala de Enlaza.",
   "permissions": ["storage", "sidePanel", "alarms", "tabs"],
   "host_permissions": [
@@ -30,6 +30,7 @@
       "js": [
         "lib/core.js",
         "content/shared/dom.js",
+        "content/shared/messages.js",
         "content/shared/capture.js",
         "content/chatgpt/selectors.js",
         "content/chatgpt/content.js"
@@ -42,6 +43,7 @@
       "js": [
         "lib/core.js",
         "content/shared/dom.js",
+        "content/shared/messages.js",
         "content/shared/capture.js",
         "content/gemini/selectors.js",
         "content/gemini/content.js"

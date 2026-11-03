@@ -40,6 +40,56 @@ async function readSentIds() {
   return Array.isArray(stored.sentIds) ? stored.sentIds : [];
 }
 
+function emptyCapture() {
+  return { sent: 0, lastError: "", lastSentAt: 0, lastTipo: "", lastPreview: "", watch: null };
+}
+
+async function readCapture() {
+  const stored = await chrome.storage.local.get("capture");
+  return { ...emptyCapture(), ...(stored.capture || {}) };
+}
+
+async function paintBadge(capture) {
+  const sent = capture?.sent || 0;
+  const text = sent > 0 ? String(Math.min(sent, 99)) : capture?.lastError ? "!" : "";
+  try {
+    await chrome.action.setBadgeText({ text });
+    await chrome.action.setBadgeBackgroundColor({ color: capture?.lastError ? "#8f2d2d" : "#12775b" });
+    const title = capture?.lastError
+      ? `Enlaza · ${capture.lastError}`
+      : sent
+        ? `Enlaza · ${sent} eventos enviados`
+        : "Enlaza";
+    await chrome.action.setTitle({ title });
+  } catch {
+    // El badge es una ayuda visual. Si el navegador lo rechaza, el panel igual muestra el conteo.
+  }
+}
+
+async function writeCapture(patch) {
+  const next = { ...(await readCapture()), ...patch };
+  await chrome.storage.local.set({ capture: next });
+  await paintBadge(next);
+  return next;
+}
+
+async function noteSent(event) {
+  const capture = await readCapture();
+  const preview = String(event.texto || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  await writeCapture({
+    sent: (capture.sent || 0) + 1,
+    lastError: "",
+    lastSentAt: Date.now(),
+    lastTipo: event.tipo || "",
+    lastPreview: preview,
+  });
+}
+
+async function noteFailure(error) {
+  if (!error) return;
+  await writeCapture({ lastError: error });
+}
+
 async function rememberSent(eventId) {
   const ids = await readSentIds();
   if (!ids.includes(eventId)) ids.push(eventId);
@@ -135,41 +185,47 @@ async function flushOutbox() {
   const sentIds = new Set(await readSentIds());
   const outbox = await readOutbox();
   const remain = [];
-  let lastError = "";
+  let freshError = "";
   for (const item of outbox) {
     if (!item?.event?.event_id) continue;
     if (item.status === "failed") {
       remain.push(item);
-      if (item.error) lastError = item.error;
       continue;
     }
     if (sentIds.has(item.event.event_id)) continue;
     const result = await postEvent(session, item.event);
     if (result.ok) {
+      const fresh = !sentIds.has(item.event.event_id);
       sentIds.add(item.event.event_id);
+      if (fresh) await noteSent(item.event);
       continue;
     }
     item.status = "failed";
     item.error = result.error;
     item.attempts = RETRIES;
-    lastError = result.error;
+    freshError = result.error;
     remain.push(item);
   }
   await chrome.storage.local.set({
     outbox: remain.slice(-10),
     sentIds: [...sentIds].slice(-400),
-    lastSendError: lastError,
+    lastSendError: freshError,
   });
+  if (freshError) await noteFailure(freshError);
 }
 
 async function onCapture(capture) {
   const session = await readSession();
   if (!session?.connected || !session.consent) {
+    await noteFailure("Sin conexión.");
     return { ok: false, error: "Sin conexión.", retry: false };
   }
   const event = core.buildEvent({ ...capture, miembro: session.member });
   const problem = core.validateEvent(event);
-  if (problem) return { ok: false, error: problem, retry: false };
+  if (problem) {
+    await noteFailure(problem);
+    return { ok: false, error: problem, retry: false };
+  }
   const sentIds = await readSentIds();
   if (sentIds.includes(event.event_id)) return { ok: true, duplicate: true };
   const outbox = await readOutbox();
@@ -205,6 +261,7 @@ async function onConnect(input) {
     patch.contextMeta = null;
     patch.outbox = [];
     patch.sentIds = [];
+    patch.capture = emptyCapture();
   } else {
     const outbox = await readOutbox();
     for (const item of outbox) {
@@ -217,6 +274,8 @@ async function onConnect(input) {
     patch.outbox = outbox;
   }
   await chrome.storage.local.set(patch);
+  if (changed) await paintBadge(emptyCapture());
+  else await paintBadge(await readCapture());
   lastFetch = 0;
   await ensureAlarm(true);
   await refreshContext(true);
@@ -281,6 +340,41 @@ async function onInsert(text) {
   }
 }
 
+async function onWatch(watch) {
+  await writeCapture({
+    watch: {
+      ia: watch?.ia || "",
+      active: Boolean(watch?.active),
+      users: Number(watch?.users) || 0,
+      assistants: Number(watch?.assistants) || 0,
+      href: String(watch?.href || ""),
+      error: String(watch?.error || ""),
+      at: Date.now(),
+    },
+  });
+  return { ok: true };
+}
+
+async function onStatus() {
+  const capture = await readCapture();
+  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  let tab = tabs.find((item) => item.id && item.url) || tabs[0] || null;
+  if (!tab?.url) {
+    const all = await chrome.tabs.query({ active: true });
+    tab = all.find((item) => /chatgpt\.com|gemini\.google\.com/.test(item.url || "")) || null;
+  }
+  const host = chatHost(tab?.url || "");
+  if (!tab?.id || (host !== "chatgpt.com" && host !== "gemini.google.com")) {
+    return { ok: true, capture, page: { ok: false, reason: "otra" } };
+  }
+  try {
+    const page = await chrome.tabs.sendMessage(tab.id, { type: "enlaza.ping" });
+    return { ok: true, capture, page: page?.ok ? page : { ok: false, reason: "sin lector", host } };
+  } catch {
+    return { ok: true, capture, page: { ok: false, reason: "sin lector", host } };
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const type = message?.type;
   const task = () => {
@@ -290,6 +384,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (type === "enlaza.retry") return onRetry();
     if (type === "enlaza.refresh") return refreshContext(true);
     if (type === "enlaza.insert") return onInsert(message.text);
+    if (type === "enlaza.watch") return onWatch(message.watch);
+    if (type === "enlaza.status") return onStatus();
     return Promise.resolve({ ok: false, error: "Acción desconocida." });
   };
   enqueue(task)
@@ -315,6 +411,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
 async function ensureAlarmFromSession() {
   const session = await readSession();
+  await paintBadge(await readCapture());
   await ensureAlarm(Boolean(session?.connected && session?.consent));
   if (session?.connected && session?.consent) await refreshContext(false);
 }
