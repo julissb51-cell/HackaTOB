@@ -77,6 +77,13 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
     },
     completeAnalyst,
   );
+  if (produced.fuente === "reglas" && previous?.fuente === "ia" && analystConfigured()) {
+    // La IA falló esta vez: se deja el último análisis de IA en vez de cambiarlo por reglas.
+    console.error("analisis", "se mantiene el análisis de IA anterior");
+    await rememberEventCount(roomId, events.length);
+    if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
+    return true;
+  }
   await saveAnalysis({
     roomId,
     report: produced.report,

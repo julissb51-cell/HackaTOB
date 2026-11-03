@@ -10,6 +10,7 @@ type AnalysisRow = {
   chats: unknown;
   sugerencia: unknown;
   sugerencia_estado: string;
+  consejo?: string | null;
   fuente: string;
   idioma: string;
   ran_at: string;
@@ -21,7 +22,7 @@ export async function readSavedAnalysis(roomId: string): Promise<SavedAnalysis |
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("room_analysis")
-      .select("resumen, miembros, alertas, chats, sugerencia, sugerencia_estado, fuente, idioma, ran_at, pending")
+      .select("resumen, miembros, alertas, chats, sugerencia, sugerencia_estado, consejo, fuente, idioma, ran_at, pending")
       .eq("room_id", roomId)
       .maybeSingle();
     if (error) {
@@ -102,6 +103,7 @@ export async function saveAnalysis(input: {
     chats: input.report.chats,
     sugerencia: input.report.sugerencia,
     sugerencia_estado: input.sugerenciaEstado,
+    consejo: input.report.consejo,
     fuente: input.fuente,
     idioma: input.idioma,
     eventos: input.eventos,
@@ -167,6 +169,7 @@ function parseRow(row: AnalysisRow): SavedAnalysis | null {
     chats: Array.isArray(row.chats) ? (row.chats as SavedAnalysis["chats"]) : [],
     sugerencia: isSuggestion(row.sugerencia) ? row.sugerencia : null,
     sugerenciaEstado: estado,
+    consejo: typeof row.consejo === "string" ? row.consejo : "",
     idioma: row.idioma === "en" ? "en" : "es",
     pending: row.pending === true,
     ranAt: typeof row.ran_at === "string" ? row.ran_at : new Date(0).toISOString(),

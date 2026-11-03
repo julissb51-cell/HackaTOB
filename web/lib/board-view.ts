@@ -24,6 +24,7 @@ export type RoomBoard = {
   language: "es" | "en";
   members: { name: string; part: string | null }[];
   resumen: string;
+  consejo: string;
   alertas: RoomWarning[];
   miembros: { nombre: string; parte: string; prompt_sugerido: string; resumen: string }[];
   chats: { conversationId: string; nombre: string }[];
@@ -61,6 +62,7 @@ export function toBoard(input: {
         alertas: input.saved.alertas,
         chats: input.saved.chats,
         sugerencia: input.saved.sugerencia,
+        consejo: input.saved.consejo,
       }
     : live;
   const suggestion = visibleSuggestion(input.saved, useAi ? input.saved?.sugerencia ?? null : live.sugerencia);
@@ -76,6 +78,7 @@ export function toBoard(input: {
     language: input.room.language,
     members: input.members.map((member) => ({ name: member.name, part: member.part })),
     resumen: report.resumen,
+    consejo: report.consejo,
     alertas: report.alertas,
     miembros: report.miembros.map((member) => ({
       nombre: member.nombre,

@@ -176,6 +176,12 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
           <h3 className="text-sm font-semibold">{text.summary}</h3>
           <p className="text-sm leading-6">{context.resumen}</p>
         </div>
+        {analysis.board.consejo ? (
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold">{text.teamAdvice}</h3>
+            <p className="text-sm leading-6">{analysis.board.consejo}</p>
+          </div>
+        ) : null}
         <div className="space-y-1">
           <h3 className="text-sm font-semibold">{text.yourPart}</h3>
           <p className="text-sm">{context.parte}</p>

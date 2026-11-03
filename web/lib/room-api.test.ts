@@ -305,6 +305,7 @@ test("GET context usa el análisis de la IA y, si la fuente son reglas, conserva
     chats: [],
     sugerencia: null,
     sugerenciaEstado: "ninguna" as const,
+    consejo: "",
     idioma: "es" as const,
     pending: false,
     ranAt: "2026-11-03T12:00:00.000Z",

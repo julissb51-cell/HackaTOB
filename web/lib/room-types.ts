@@ -90,6 +90,7 @@ export type SavedAnalysis = {
   chats: AnalysisChat[];
   sugerencia: AnalysisSuggestion | null;
   sugerenciaEstado: SuggestionStatus;
+  consejo: string;
   idioma: "es" | "en";
   pending: boolean;
   ranAt: string;

@@ -165,6 +165,7 @@ function contradictions(memberName: string, members: MemberRecord[], events: Sto
       if (!authors.includes(claim.member)) authors.push(claim.member);
     }
     if (values.length < 2 || !authors.includes(memberName)) continue;
+    if (!peopleDisagree(claims)) continue;
     warnings.push({
       tipo: "contradiccion",
       mensaje: `Hay cifras distintas para «${keyword}»: ${joinEs(values)}.`,
@@ -187,7 +188,12 @@ function claimsFrom(event: StoredEvent): Array<{ keyword: string; value: string;
     }
     const value = normalizeNumber(raw);
     if (!value) continue;
+    const before = text.slice(Math.max(0, (match.index ?? 0) - 1), match.index ?? 0);
+    // RF1, v2, item_3: es un identificador, no una cifra.
+    if (/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9_#-]/.test(before)) continue;
     const start = (match.index ?? 0) + raw.length;
+    // "1. registrar" o "2) buscar": es un número de lista.
+    if (/^[.)]\s/.test(text.slice(start, start + 2))) continue;
     const word = text.slice(start, start + 30).match(/^\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{5,})/);
     if (!word) continue;
     const keyword = fold(word[1]);
@@ -195,6 +201,22 @@ function claimsFrom(event: StoredEvent): Array<{ keyword: string; value: string;
     found.push({ keyword, value, member: event.member });
   }
   return found;
+}
+
+// Con cifras chicas (1, 2, 3...) solo hay contradicción si personas distintas dan cifras distintas y cada una
+// sostiene una sola cifra. Si alguien ya usa varias, son números sueltos.
+function peopleDisagree(claims: Array<{ value: string; member: string }>): boolean {
+  // Cifras grandes (100.000 vs 10.000) sí cuentan aunque las diga la misma persona.
+  if (claims.every((claim) => Number(claim.value) >= 10)) return true;
+  const byMember = new Map<string, Set<string>>();
+  for (const claim of claims) {
+    const set = byMember.get(claim.member) ?? new Set<string>();
+    set.add(claim.value);
+    byMember.set(claim.member, set);
+  }
+  if (byMember.size < 2) return false;
+  if ([...byMember.values()].some((set) => set.size > 1)) return false;
+  return new Set([...byMember.values()].map((set) => [...set][0])).size > 1;
 }
 
 function normalizeNumber(raw: string): string | null {

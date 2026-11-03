@@ -8,6 +8,12 @@ export type AiMessage = {
 };
 
 const GEMINI_MODEL = "gemini-3.5-flash";
+// Modelos gratis de respaldo, más livianos, para cuando el principal está saturado.
+const GEMINI_FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+const GEMINI_PRIMARY_TRIES = 3;
+const GEMINI_ATTEMPT_MS = 20_000;
+const GEMINI_FALLBACK_RESERVE_MS = 15_000;
+const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 const XAI_MODEL = "grok-4.7";
 const XAI_URL = "https://api.x.ai/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -28,6 +34,12 @@ export function geminiModel(): string {
   const configured = process.env.GEMINI_MODEL?.trim() ?? "";
   if (/^[A-Za-z0-9._-]{1,80}$/.test(configured)) return configured;
   return GEMINI_MODEL;
+}
+
+export function geminiFallbackModels(primary: string): string[] {
+  const configured = process.env.GEMINI_FALLBACK_MODEL?.trim() ?? "";
+  const list = /^[A-Za-z0-9._-]{1,80}$/.test(configured) ? [configured, ...GEMINI_FALLBACK_MODELS] : GEMINI_FALLBACK_MODELS;
+  return [...new Set(list)].filter((model) => model !== primary);
 }
 
 export async function complete(messages: AiMessage[], options: CompleteOptions = {}): Promise<string> {
@@ -68,18 +80,21 @@ async function completeWithGemini(messages: AiMessage[], options: CompleteOption
     body.generationConfig = { responseMimeType: "application/json" };
   }
 
-  const payload = (await postJson(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel()}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify(body),
+  const init: RequestInit = {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-goog-api-key": apiKey,
     },
-    "Gemini",
-    options.timeoutMs,
+    body: JSON.stringify(body),
+  };
+  const payload = (await withGeminiRetries(options.timeoutMs ?? REQUEST_TIMEOUT_MS, (model, timeoutMs) =>
+    postJson(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      init,
+      "Gemini",
+      timeoutMs,
+    ),
   )) as GeminiResponse;
 
   const parts = payload.candidates?.[0]?.content?.parts ?? [];
@@ -90,6 +105,56 @@ async function completeWithGemini(messages: AiMessage[], options: CompleteOption
     .trim();
   if (!text) throw new Error("Gemini respondió vacío");
   return text;
+}
+
+// Reintenta el modelo principal con espera exponencial y después prueba los
+// modelos de respaldo, todo dentro del tiempo total pedido.
+export async function withGeminiRetries<T>(
+  totalMs: number,
+  call: (model: string, timeoutMs: number) => Promise<T>,
+  now: () => number = Date.now,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+): Promise<T> {
+  const deadline = now() + totalMs;
+  const primary = geminiModel();
+  const plan: Array<{ model: string; reserve: number }> = [];
+  for (let i = 0; i < GEMINI_PRIMARY_TRIES; i += 1) plan.push({ model: primary, reserve: GEMINI_FALLBACK_RESERVE_MS });
+  for (const model of geminiFallbackModels(primary)) plan.push({ model, reserve: 0 });
+
+  let lastError: unknown = new Error("Gemini no respondió");
+  let backoff = 1_000;
+  for (let index = 0; index < plan.length; index += 1) {
+    const step = plan[index];
+    const budget = Math.min(GEMINI_ATTEMPT_MS, deadline - now() - step.reserve);
+    if (budget < 3_000) continue;
+    try {
+      const result = await call(step.model, budget);
+      if (index > 0) console.error("analisis", `Gemini respondió en el intento ${index + 1} con ${step.model}`);
+      return result;
+    } catch (error) {
+      lastError = error;
+      console.error("analisis", step.model, error instanceof Error ? error.message : error);
+      if (!isRetryable(error)) throw error;
+      const next = plan[index + 1];
+      if (next && next.model === step.model) {
+        const wait = Math.min(backoff, deadline - now() - next.reserve - 3_000);
+        if (wait > 0) await sleep(wait);
+        backoff *= 2;
+      }
+    }
+  }
+  throw lastError;
+}
+
+function isRetryable(error: unknown): boolean {
+  if (error instanceof ProviderError) return error.status === null || RETRYABLE_STATUS.has(error.status);
+  return false;
+}
+
+class ProviderError extends Error {
+  constructor(message: string, readonly status: number | null) {
+    super(message);
+  }
 }
 
 type XaiResponse = {
@@ -151,13 +216,13 @@ async function postJson(url: string, init: RequestInit, label: string, timeoutMs
     });
   } catch (error) {
     if (error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError")) {
-      throw new Error("el analista no respondió a tiempo");
+      throw new ProviderError("el analista no respondió a tiempo", null);
     }
-    throw new Error("el analista no respondió");
+    throw new ProviderError("el analista no respondió", null);
   }
 
   if (!response.ok) {
-    throw new Error(`${label} respondió ${response.status}`);
+    throw new ProviderError(`${label} respondió ${response.status}`, response.status);
   }
 
   try {

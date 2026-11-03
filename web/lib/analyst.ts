@@ -46,6 +46,7 @@ export type AnalystReport = {
   alertas: RoomWarning[];
   chats: AnalysisChat[];
   sugerencia: AnalysisSuggestion | null;
+  consejo: string;
 };
 
 type TextComplete = (messages: AnalystMessage[]) => Promise<string>;
@@ -93,13 +94,19 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         "No inventes eventos ni personas. Usa los nombres tal como aparecen.",
         "Escribe resumen, partes, avisos, prompts y títulos en el idioma pedido.",
         "tipo de un aviso es falta, contradiccion o duplicado.",
-        "falta: una parte sin cubrir, la fecha sin definir, o alguien que no compartió trabajo.",
-        "contradiccion: dos personas afirman cosas que no pueden ser ciertas a la vez.",
-        "duplicado: dos personas pidieron o hicieron el mismo trabajo.",
+        "En cada análisis revisa siempre estas tres cosas, comparando a todos los miembros entre sí:",
+        "1. contradiccion: dos personas afirman o deciden cosas que no pueden ser ciertas a la vez (tecnología, formato de datos, alcance, fechas, nombres). Cita qué dijo cada uno.",
+        "2. duplicado: dos o más personas hicieron o pidieron el mismo entregable o la misma sección (por ejemplo requisitos, diagrama de clases, introducción). Nombra a quiénes y qué se repite.",
+        "3. falta: un entregable que el proyecto necesita y nadie está cubriendo. Compara con las partes de la sala y con lo típico del tipo de proyecto (por ejemplo pruebas o casos de prueba, manual de usuario, conclusiones, bibliografía, presentación, despliegue). También cuenta la fecha sin definir o alguien que no compartió trabajo.",
+        "Solo avisa de lo que se apoya en los eventos o en lo que el proyecto claramente necesita. No avises por números sueltos que no se contradicen.",
+        "Cada aviso va al miembro que debe actuar (destinatario), con un mensaje concreto de una o dos frases y un prompt_sugerido que esa persona pueda pegar en su IA.",
+        "Pon los avisos de cada miembro en su lista advertencias y todos los avisos del equipo, sin repetir, en alertas.",
+        "prompt_sugerido de cada miembro: el siguiente paso más útil para su parte, que tenga en cuenta los avisos y lo que hacen los demás.",
+        "consejo: siempre una o dos frases para todo el equipo con la acción más importante ahora (por ejemplo quién se queda con qué para no duplicar y qué falta asignar). Nunca vacío.",
         "Si la sala ya tiene partes, sugerencia.partes y sugerencia.asignaciones van vacías.",
         "Si la fecha ya está definida, sugerencia.fecha_entrega es null.",
         "Cada chat recibe un nombre corto, de hasta 6 palabras.",
-        'Forma: {"resumen":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}]}],"alertas":[],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]}}',
+        'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]}}',
       ].join("\n"),
     },
     { role: "user", content: fitPrompt(lines.join("\n")) },
@@ -113,11 +120,12 @@ export function parseAnalystOutput(raw: string, knownConversationIds: readonly s
   const resumen = cleanText(record.resumen, 2_000);
   const miembros = readMembers(record.miembros);
   const chats = readChats(record.chats, knownConversationIds);
-  const fromList = readWarnings(record.alertas, 8);
-  const alertas = fromList.length > 0 ? fromList : dedupeWarnings(miembros.flatMap((member) => member.advertencias)).slice(0, 8);
+  const fromList = readWarnings(record.alertas, 12);
+  const alertas = dedupeWarnings([...fromList, ...miembros.flatMap((member) => member.advertencias)]).slice(0, 12);
   const sugerencia = readSuggestion(record.sugerencia);
+  const consejo = cleanText(record.consejo, 600);
   if (!resumen && miembros.length === 0 && chats.length === 0) return null;
-  return { resumen, miembros, alertas, chats, sugerencia };
+  return { resumen, miembros, alertas, chats, sugerencia, consejo };
 }
 
 export function buildFallbackReport(input: AnalysisInput): AnalystReport {
@@ -131,6 +139,7 @@ export function buildFallbackReport(input: AnalysisInput): AnalystReport {
     alertas: dedupeWarnings(miembros.flatMap((member) => member.advertencias)).slice(0, 12),
     chats: fallbackChats(input.events),
     sugerencia: limitSuggestion(detectSuggestion(input), input.room),
+    consejo: "",
   };
 }
 
@@ -270,6 +279,7 @@ function mergeWithFallback(parsed: AnalystReport, rules: AnalystReport, input: A
     alertas: parsed.alertas,
     chats: mergeChats(parsed.chats, rules.chats),
     sugerencia: limitSuggestion(parsed.sugerencia, input.room),
+    consejo: parsed.consejo || teamAdvice(parsed.alertas),
   };
 }
 
@@ -513,4 +523,10 @@ function unique(items: string[]): string[] {
 
 function normalizeList(items: string[]): string {
   return [...items].sort((a, b) => a.localeCompare(b, "es")).join("\u0000");
+}
+
+function teamAdvice(alertas: RoomWarning[]): string {
+  const first = alertas[0];
+  if (!first) return "";
+  return first.prompt_sugerido || first.mensaje;
 }
