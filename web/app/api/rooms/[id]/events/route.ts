@@ -1,7 +1,9 @@
 import { after, connection } from "next/server";
 import { optionsResponse, postEvent } from "@/lib/room-api";
-import { scheduleRoomAnalysis } from "@/lib/run-analysis";
+import { trackAnalysis } from "@/lib/run-analysis";
 import { supabaseRoomStore } from "@/lib/room-store";
+
+export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -15,9 +17,7 @@ export async function POST(request: Request, context: RouteContext) {
   const { id } = await context.params;
   const response = await postEvent(request, id, supabaseRoomStore);
   if (response.status === 200) {
-    after(() => {
-      void scheduleRoomAnalysis(id, { markPending: true });
-    });
+    after(() => trackAnalysis(id, { markPending: true }));
   }
   return response;
 }

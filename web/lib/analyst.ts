@@ -141,9 +141,13 @@ export async function produceReport(
   const rules = buildFallbackReport(input);
   try {
     const parsed = parseAnalystOutput(await completeText(buildAnalystMessages(input)), conversationIds(input.events));
-    if (!parsed) return { report: rules, fuente: "reglas" };
+    if (!parsed) {
+      console.error("analisis", "respuesta ilegible");
+      return { report: rules, fuente: "reglas" };
+    }
     return { report: mergeWithFallback(parsed, rules, input), fuente: "ia" };
-  } catch {
+  } catch (error) {
+    console.error("analisis", error instanceof Error ? error.message : error);
     return { report: rules, fuente: "reglas" };
   }
 }

@@ -132,7 +132,7 @@ Si hay un análisis de la IA guardado para esa persona, la respuesta usa ese res
 - Dos textos dan cifras distintas para la misma palabra, por ejemplo `10.000 caracteres` y `100.000 caracteres`.
 - Dos miembros mandaron prompts muy parecidos.
 
-El analista corre al llegar un evento, como máximo una vez cada 30 segundos por sala, al abrir la sala si ya toca, o con «Analizar ahora». El texto que se manda se corta para el nivel gratuito: a lo sumo 40 eventos y unos 24.000 caracteres. Los textos del modelo salen en `rooms.language` (`es` por defecto). El botón ES/EN solo cambia la interfaz.
+El analista corre al llegar un evento, como máximo una vez cada 30 segundos por sala, al abrir la sala si ya toca, con «Analizar ahora» o con `POST /api/rooms/:id/analyze` (el mismo header `x-room-token`). Esa llamada espera a que el análisis termine. El texto que se manda se corta para el nivel gratuito: a lo sumo 40 eventos y unos 24.000 caracteres. Los textos del modelo salen en `rooms.language` (`es` por defecto). El botón ES/EN solo cambia la interfaz. El modelo tiene unos 50 segundos; si no responde, quedan las reglas. `room_analysis.eventos` es el número de eventos leídos.
 
 Con los tres eventos de ejemplo y la sala demo, Ana recibe esto:
 
@@ -233,7 +233,7 @@ En local van en `web/.env.local`. En Vercel se cargan en Environment Variables d
 
 La clave gratuita de Gemini se crea en [Google AI Studio](https://aistudio.google.com/apikey).
 
-`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.5-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. El análisis pide JSON, espera como máximo 25 segundos y, si algo falla, deja el contexto de las reglas.
+`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.5-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. El análisis pide JSON, espera como máximo 50 segundos y, si algo falla, deja el contexto de las reglas. El error queda en el log del servidor.
 
 `lib/supabase/client.ts` crea el cliente con la clave anónima. `lib/supabase/server.ts` crea el cliente con la clave de servicio. La sesión de Google usa otro cliente, el de `@supabase/ssr`, con la misma clave anónima y cookies. La clave de servicio no entra en esa sesión.
 

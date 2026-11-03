@@ -1,11 +1,18 @@
 import "server-only";
-import { applyChatNames, claimAnalysisRun, markAnalysisPending, readSavedAnalysis, saveAnalysis } from "./analysis-db";
+import {
+  applyChatNames,
+  claimAnalysisRun,
+  markAnalysisPending,
+  readSavedAnalysis,
+  rememberEventCount,
+  saveAnalysis,
+} from "./analysis-db";
 import { complete, getAiProvider, type AiMessage } from "./ai";
 import { nextSuggestionStatus, produceReport, type AnalystMessage } from "./analyst";
 import { supabaseMembershipStore } from "./room-membership-db";
 import { supabaseRoomStore } from "./room-store";
 
-const ANALYSIS_TIMEOUT_MS = 25_000;
+const ANALYSIS_TIMEOUT_MS = 50_000;
 const inflight = new Map<string, Promise<boolean>>();
 const dirty = new Map<string, number>();
 
@@ -21,7 +28,7 @@ export function scheduleRoomAnalysis(
     if (current) return current;
   }
   const run = execute(roomId, force, markPending).catch((error: unknown) => {
-    console.error("analisis", error instanceof Error ? error.name : "error");
+    console.error("analisis", error instanceof Error ? error.message : error);
     return false;
   });
   if (!force) inflight.set(roomId, run);
@@ -29,6 +36,12 @@ export function scheduleRoomAnalysis(
     if (inflight.get(roomId) === run) inflight.delete(roomId);
   });
   return run;
+}
+
+export function trackAnalysis(roomId: string, options?: { force?: boolean; markPending?: boolean }): Promise<void> {
+  return scheduleRoomAnalysis(roomId, options).then((ok) => {
+    if (!ok) console.error("analisis", "no corrió");
+  });
 }
 
 async function execute(roomId: string, force: boolean, markPending: boolean): Promise<boolean> {
@@ -40,11 +53,15 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
   }
 
   const room = await supabaseMembershipStore.getRoom(roomId);
-  if (!room) return false;
+  if (!room) {
+    console.error("analisis", "sala inexistente");
+    return false;
+  }
   const [members, events] = await Promise.all([
     supabaseMembershipStore.listMembers(roomId),
     supabaseRoomStore.listEvents(roomId),
   ]);
+  await rememberEventCount(roomId, events.length);
   const previous = await readSavedAnalysis(roomId);
   const produced = await produceReport(
     {
@@ -84,7 +101,8 @@ function analystConfigured(): boolean {
     const provider = getAiProvider();
     const key = provider === "gemini" ? process.env.GEMINI_API_KEY : process.env.XAI_API_KEY;
     return Boolean(key?.trim());
-  } catch {
+  } catch (error) {
+    console.error("analisis", error instanceof Error ? error.message : error);
     return false;
   }
 }
