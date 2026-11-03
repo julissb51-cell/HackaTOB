@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  addMissedOverlaps,
+  deliverableOverlaps,
   ANALYSIS_INTERVAL_MS,
   ANALYST_LIMITS,
   acceptedRoomUpdate,
@@ -224,3 +226,27 @@ function event(overrides: Partial<StoredEvent> & { eventId: string; text: string
     createdAt: overrides.createdAt ?? "2026-11-03T09:15:00-06:00",
   };
 }
+
+test("deliverableOverlaps flags each deliverable two members asked for", () => {
+  const ev = (id: string, member: string, text: string, min: number): StoredEvent => ({
+    eventId: id, roomId: "r", member, ai: "chatgpt", type: "prompt", conversationId: "c-" + member,
+    conversationName: null, text, createdAt: new Date(Date.UTC(2026, 0, 1, 0, min)).toISOString(),
+  }) as StoredEvent;
+  const input = {
+    room: { id: "r", topic: "Biblioteca", dueDate: null, parts: [], language: "es" as const },
+    members: [{ name: "Ana", part: "Informe" }, { name: "Luis", part: "Código" }],
+    events: [
+      ev("1", "Luis", "Escríbeme los requisitos funcionales y un diagrama de clases.", 1),
+      ev("2", "Ana", "Escribe la sección de requisitos y descríbeme el diagrama de clases.", 2),
+      ev("3", "Ana", "Ayúdame con la introducción.", 3),
+    ],
+  };
+  const found = deliverableOverlaps(input);
+  assert.equal(found.length, 2);
+  assert.ok(found.every((w) => w.tipo === "duplicado" && w.destinatario === "Ana"));
+  const report = { resumen: "x", miembros: [], chats: [], sugerencia: null, consejo: "",
+    alertas: [{ tipo: "duplicado" as const, destinatario: "Ana", partes: [], mensaje: "Ana repite los requisitos de Luis.", prompt_sugerido: "" }] };
+  const merged = addMissedOverlaps(report, input);
+  assert.equal(merged.alertas.length, 2);
+  assert.ok(merged.alertas[1].mensaje.includes("diagrama de clases"));
+});

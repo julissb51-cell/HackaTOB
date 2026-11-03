@@ -158,7 +158,7 @@ export async function produceReport(
       console.error("analisis", "respuesta ilegible");
       return { report: rules, fuente: "reglas" };
     }
-    return { report: mergeWithFallback(parsed, rules, input), fuente: "ia" };
+    return { report: addMissedOverlaps(mergeWithFallback(parsed, rules, input), input), fuente: "ia" };
   } catch (error) {
     console.error("analisis", error instanceof Error ? error.message : error);
     return { report: rules, fuente: "reglas" };
@@ -179,8 +179,81 @@ export function contextFromSaved(
     resumen: found.resumen || saved.resumen || fallback.resumen,
     parte: found.parte || fallback.parte,
     prompt_sugerido: found.prompt_sugerido || fallback.prompt_sugerido,
-    advertencias: found.advertencias,
+    advertencias: warningsFor(saved.alertas, found.advertencias, found.nombre),
   };
+}
+
+function warningsFor(alertas: readonly RoomWarning[], own: readonly RoomWarning[], member: string): RoomWarning[] {
+  const key = member.toLocaleLowerCase("es");
+  const shared = alertas.filter((warning) => {
+    const to = warning.destinatario.toLocaleLowerCase("es");
+    return to === key || to === "equipo";
+  });
+  return dedupeWarnings([...own, ...shared]);
+}
+
+const DELIVERABLES: Array<{ es: string; en: string; pattern: RegExp; stems: string[] }> = [
+  { es: "los requisitos", en: "the requirements", pattern: /\b(requisitos|requerimientos|requirements)\b/, stems: ["requisito", "requerimiento", "requirement"] },
+  { es: "el diagrama de clases", en: "the class diagram", pattern: /diagrama de clases?|class diagram/, stems: ["diagrama de clase", "class diagram"] },
+  { es: "los casos de uso", en: "the use cases", pattern: /casos? de uso|use cases?/, stems: ["caso de uso", "casos de uso", "use case"] },
+  { es: "el diagrama entidad-relación", en: "the ER diagram", pattern: /entidad[ -]relacion|\ber diagram|diagrama er\b/, stems: ["entidad", "er diagram"] },
+  { es: "la introducción", en: "the introduction", pattern: /\b(introduccion|introduction)\b/, stems: ["introduc"] },
+  { es: "las conclusiones", en: "the conclusions", pattern: /\b(conclusiones|conclusions?)\b/, stems: ["conclusi"] },
+  { es: "el manual de usuario", en: "the user manual", pattern: /manual de usuario|user manual/, stems: ["manual"] },
+  { es: "los casos de prueba", en: "the test cases", pattern: /casos? de prueba|plan de pruebas|test cases?|test plan/, stems: ["prueba", "test"] },
+  { es: "la pantalla de lista de tareas", en: "the task list screen", pattern: /lista de tareas|task ?list/, stems: ["lista de tareas", "tasklist", "task list"] },
+];
+
+/** Busca, en los prompts de cada miembro, entregables que pidieron dos o más personas. */
+export function deliverableOverlaps(input: AnalysisInput): RoomWarning[] {
+  const english = input.room.language === "en";
+  const result: RoomWarning[] = [];
+  const prompts = sortedByTime(input.events.filter((event) => event.type === "prompt"));
+  for (const item of DELIVERABLES) {
+    const who: string[] = [];
+    for (const event of prompts) {
+      if (!item.pattern.test(foldText(event.text))) continue;
+      if (!who.includes(event.member)) who.push(event.member);
+    }
+    if (who.length < 2) continue;
+    const later = who[who.length - 1];
+    const others = who.slice(0, -1).join(english ? " and " : " y ");
+    const parts = who.map((name) => input.members.find((m) => m.name === name)?.part).filter((p): p is string => Boolean(p));
+    result.push({
+      tipo: "duplicado",
+      destinatario: later,
+      partes: parts,
+      mensaje: english
+        ? `${later} and ${others} both asked their AI for ${item.en}. Agree on who keeps it so it is not done twice.`
+        : `${later} y ${others} le pidieron a su IA ${item.es}. Pónganse de acuerdo en quién se lo queda para no hacerlo dos veces.`,
+      prompt_sugerido: english
+        ? `My teammate ${others} is already working on ${item.en}. Help me reuse their version instead of writing my own, and focus on my part.`
+        : `Mi compañero ${others} ya está haciendo ${item.es}. Ayúdame a reutilizar su versión en vez de hacer la mía y a concentrarme en mi parte.`,
+    });
+  }
+  return result;
+}
+
+/** Agrega los duplicados que la IA no mencionó. */
+export function addMissedOverlaps(report: AnalystReport, input: AnalysisInput): AnalystReport {
+  const said = report.alertas
+    .concat(report.miembros.flatMap((member) => member.advertencias))
+    .filter((warning) => warning.tipo === "duplicado")
+    .map((warning) => foldText(warning.mensaje));
+  const missing = deliverableOverlaps(input).filter((warning) => {
+    const item = DELIVERABLES.find((d) => warning.mensaje.includes(d.es) || warning.mensaje.includes(d.en));
+    return !item || !said.some((text) => item.stems.some((stem) => text.includes(stem)));
+  });
+  if (missing.length === 0) return report;
+  return { ...report, alertas: dedupeWarnings([...report.alertas, ...missing]).slice(0, 12) };
+}
+
+function foldText(value: string): string {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function sortedByTime(events: readonly StoredEvent[]): StoredEvent[] {
+  return [...events].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }
 
 export function limitSuggestion(
