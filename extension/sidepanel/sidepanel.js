@@ -75,7 +75,7 @@ function pageLine(page) {
   if (!page.ok || page.reason === "sin lector") {
     return "No está el lector en esta pestaña. En Extensiones pulsa Actualizar en Enlaza y recarga el chat.";
   }
-  const ia = page.ia === "gemini" ? "Gemini" : "ChatGPT";
+  const ia = page.ia === "gemini" ? "Gemini" : page.ia === "chatgpt" ? "ChatGPT" : "Este chat";
   const mode = page.active ? "La sesión está conectada." : "Falta conectar la sala para enviar.";
   if (!page.users && !page.assistants) {
     return `${ia}: el lector está, pero no ve mensajes en esta página. ${mode}`;

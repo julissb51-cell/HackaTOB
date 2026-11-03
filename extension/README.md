@@ -4,7 +4,7 @@
 
 Extensión de Chrome (Manifest V3) para Enlaza. Lee los prompts que envías y las respuestas que terminan en ChatGPT y Gemini en la web, los manda a la sala y pide el contexto al conectar y cada 30 segundos.
 
-Los ganchos de Cursor y Claude Code están en `hooks/` y no se cargan: el manifiesto no los incluye.
+Los ganchos de Cursor y Claude Code están en `hooks/`. No van en el manifiesto: son scripts de Node que cada persona activa en su máquina.
 
 `mock/context.json` es la respuesta de ejemplo de `GET /api/rooms/:id/context?member=Ana`, la misma del contrato.
 
@@ -22,8 +22,8 @@ El ícono de Enlaza queda en la barra. No hace falta compilar nada. Si ChatGPT o
 Después de un `git pull`:
 
 1. Abre `edge://extensions` (o `chrome://extensions`).
-2. En la tarjeta de Enlaza pulsa **Actualizar**. La versión tiene que decir 1.1.0.
-3. Recarga la pestaña de ChatGPT con F5.
+2. En la tarjeta de Enlaza pulsa **Actualizar**. La versión tiene que decir 1.2.0.
+3. Recarga las pestañas de ChatGPT y de Gemini con F5.
 
 El ícono muestra cuántos eventos se enviaron. El panel, arriba, dice «Eventos enviados: N» y si el lector ve los mensajes de esa pestaña. El resumen de la sala también cuenta los eventos guardados («Hay N eventos») mientras el analista no lo reescriba; el número del ícono no depende de ese texto.
 
@@ -73,9 +73,48 @@ El contexto (`resumen`, `parte`, `prompt_sugerido`, `advertencias`) se pide al c
 
 Solo se captura con la sesión conectada y el consentimiento aceptado. Lo que ya estaba en el chat al conectar no se reenvía: cuentan los prompts y las respuestas que aparecen después.
 
+## Hooks
+
+Cursor y Claude Code no los carga el navegador. Cada persona copia la config y crea `extension/hooks/enlaza.local.json` (está en `.gitignore`; no subas el token). El ejemplo es `hooks/enlaza.local.example.json`. También valen las variables `ENLAZA_SALA`, `ENLAZA_TOKEN`, `ENLAZA_MEMBER` y `ENLAZA_BASE_URL`.
+
+El evento usa el contrato: `ia` es `cursor` o `claude`.
+
+Cursor, en `.cursor/hooks.json` de tu proyecto (los comandos corren desde la raíz). `beforeSubmitPrompt` manda el prompt y `afterAgentResponse` manda la respuesta. Guía: https://cursor.com/docs/hooks
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      { "command": "node extension/hooks/cursor.mjs prompt" }
+    ],
+    "afterAgentResponse": [
+      { "command": "node extension/hooks/cursor.mjs response" }
+    ]
+  }
+}
+```
+
+Claude Code, en `.claude/settings.json`. `UserPromptSubmit` manda el prompt. `Stop` manda la respuesta: usa `last_assistant_message` y, si no viene, lee la última respuesta de `transcript_path`. Guía: https://code.claude.com/docs/en/hooks
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      { "hooks": [{ "type": "command", "command": "node extension/hooks/claude.mjs", "timeout": 20 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command", "command": "node extension/hooks/claude.mjs", "timeout": 20 }] }
+    ]
+  }
+}
+```
+
+En Windows hace falta `node` en el PATH. El script no bloquea el prompt si el envío falla: el error queda en stderr y el agente sigue. Hay copias en `hooks/cursor.hooks.example.json` y `hooks/claude.settings.example.json`.
+
 ## Limitaciones
 
-- Los selectores del DOM están aislados en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. El chat de ChatGPT de noviembre 2026 usa `[data-user-message-bubble]` y `[data-content-search-unit-key$=":assistant"]`. Si la página cambia otra vez, se ajustan ahí. El prompt también se lee de la caja al pulsar Enter o Enviar, por si el globo cambia de nuevo.
+- Los selectores del DOM están aislados en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. ChatGPT usa `[data-user-message-bubble]`. Gemini usa `user-query`, `model-response`, `message-content` y la caja `rich-textarea .ql-editor`. En los dos, Enter o Enviar también manda el prompt. Si la página cambia, se ajustan esos archivos.
 - Si no aparece el botón de parar, la extensión espera a que el texto deje de cambiar unos 2,5 segundos antes de mandar la respuesta.
 - En un chat nuevo, espera hasta 12 segundos a que la página ponga el id en la URL. Si no aparece, usa un id local de esa pestaña (`chatgpt_local_…` o `gemini_local_…`). Enlaza no inventa el id cuando el sitio sí lo trae.
 - Insertar el prompt depende de la caja de texto (`#prompt-textarea` en ChatGPT, el editor de Gemini). No aprieta Enviar.

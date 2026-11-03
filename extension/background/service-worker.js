@@ -51,7 +51,8 @@ async function readCapture() {
 
 async function paintBadge(capture) {
   const sent = capture?.sent || 0;
-  const text = sent > 0 ? String(Math.min(sent, 99)) : capture?.lastError ? "!" : "";
+  const unauthorized = /token no es válido/i.test(capture?.lastError || "");
+  const text = unauthorized ? "!" : sent > 0 ? String(Math.min(sent, 99)) : capture?.lastError ? "!" : "";
   try {
     await chrome.action.setBadgeText({ text });
     await chrome.action.setBadgeBackgroundColor({ color: capture?.lastError ? "#8f2d2d" : "#12775b" });
@@ -121,7 +122,7 @@ async function withRetries(run) {
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
     last = await run();
     if (last.ok) return last;
-    if (last.status === 400) return last;
+    if (last.status === 400 || last.status === 401) return last;
     if (attempt < RETRIES) await delay(350 * attempt);
   }
   return last;
@@ -167,11 +168,14 @@ async function refreshContext(force) {
   lastFetch = now;
   const result = await fetchContext(session);
   if (!result.ok) {
+    await noteFailure(result.error);
     await chrome.storage.local.set({
       contextMeta: { ok: false, error: result.error, at: Date.now() },
     });
     return result;
   }
+  const capture = await readCapture();
+  if (/token no es válido/i.test(capture.lastError || "")) await writeCapture({ lastError: "" });
   await chrome.storage.local.set({
     context: result.body,
     contextMeta: { ok: true, error: "", at: Date.now() },
@@ -202,6 +206,7 @@ async function flushOutbox() {
     }
     item.status = "failed";
     item.error = result.error;
+    item.auth = result.status === 401;
     item.attempts = RETRIES;
     freshError = result.error;
     remain.push(item);
@@ -409,11 +414,29 @@ chrome.runtime.onInstalled.addListener(() => {
   enqueue(() => ensureAlarmFromSession());
 });
 
+async function requeueAfterRestart() {
+  const outbox = await readOutbox();
+  let changed = false;
+  for (const item of outbox) {
+    if (item?.status === "failed" && !item.auth) {
+      item.status = "pending";
+      item.attempts = 0;
+      item.error = "";
+      changed = true;
+    }
+  }
+  if (changed) await chrome.storage.local.set({ outbox });
+}
+
 async function ensureAlarmFromSession() {
   const session = await readSession();
   await paintBadge(await readCapture());
+  await requeueAfterRestart();
   await ensureAlarm(Boolean(session?.connected && session?.consent));
-  if (session?.connected && session?.consent) await refreshContext(false);
+  if (session?.connected && session?.consent) {
+    await flushOutbox();
+    await refreshContext(false);
+  }
 }
 
 enqueue(() => ensureAlarmFromSession());

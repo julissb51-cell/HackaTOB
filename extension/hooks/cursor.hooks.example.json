@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      { "command": "node extension/hooks/cursor.mjs prompt" }
+    ],
+    "afterAgentResponse": [
+      { "command": "node extension/hooks/cursor.mjs response" }
+    ]
+  }
+}

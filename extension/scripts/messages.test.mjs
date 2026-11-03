@@ -66,5 +66,21 @@ const legacy = parseHTML(`<!doctype html><body>
 const old = messages.listChatMessages(legacy.document, site).map((item) => `${item.role}:${item.text}`);
 if (old.join("|") !== "user:hola|assistant:respuesta") throw new Error(old.join("|"));
 
+const gemini = {
+  userSelectors: ["user-query", "user-query-content", ".query-text", '[data-test-id="user-query"]'],
+  assistantSelectors: ["model-response", "message-content.model-response-text", "message-content", '[data-test-id="model-response"]'],
+  userTextSelectors: [".query-text", ".query-text-line", "user-query-content"],
+  assistantTextSelectors: ["message-content.model-response-text", "message-content", ".markdown"],
+};
+const geminiDom = parseHTML(`<!doctype html><body>
+  <user-query><div class="query-text">que hora es</div></user-query>
+  <model-response>
+    <message-content class="model-response-text markdown">Son las tres.</message-content>
+  </model-response>
+  <rich-textarea><div class="ql-editor" contenteditable="true"></div></rich-textarea>
+</body>`);
+const geminiMessages = messages.listChatMessages(geminiDom.document, gemini).map((item) => `${item.role}:${item.text}`);
+if (geminiMessages.join("|") !== "user:que hora es|assistant:Son las tres.") throw new Error(geminiMessages.join("|"));
+
 console.log("messages ok");
 console.log(roles.join(" | "));

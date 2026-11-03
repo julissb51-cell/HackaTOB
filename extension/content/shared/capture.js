@@ -52,13 +52,20 @@
 
     function isPlaceholder(text) {
       const value = text.trim().toLowerCase();
-      return (
-        !value ||
-        value === "pregunta a chatgpt" ||
-        value === "message chatgpt" ||
-        value === "ask chatgpt" ||
-        value === "ask anything"
-      );
+      if (!value) return true;
+      const known = [
+        "pregunta a chatgpt",
+        "message chatgpt",
+        "ask chatgpt",
+        "ask anything",
+        ...(site.placeholders || []),
+      ];
+      return known.includes(value);
+    }
+
+    function eventPath(event) {
+      if (typeof event.composedPath === "function") return event.composedPath();
+      return [event.target];
     }
 
     function queuePromptFromComposer() {
@@ -74,26 +81,29 @@
       enqueue({ tipo: "prompt", texto: core.truncateText(text) });
     }
 
-    function isSendControl(target) {
-      if (!target?.closest) return false;
-      for (const selector of site.sendSelectors || []) {
-        try {
-          if (target.closest(selector)) return true;
-        } catch {
-          // Sigue con el resto de selectores.
+    function isSendControl(event) {
+      const path = eventPath(event);
+      for (const node of path) {
+        if (!node?.matches) continue;
+        for (const selector of site.sendSelectors || []) {
+          try {
+            if (node.matches(selector)) return true;
+          } catch {
+            // Sigue con el resto de selectores.
+          }
+        }
+        const label = `${node.getAttribute?.("aria-label") || ""} ${node.getAttribute?.("data-testid") || ""} ${node.getAttribute?.("data-test-id") || ""}`.toLowerCase();
+        if (/\b(send prompt|send message|enviar prompt|enviar mensaje)\b/.test(label) || label.includes("send-button")) {
+          return true;
         }
       }
-      const button = target.closest("button, [role='button']");
-      if (!button) return false;
-      const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
-      return /\b(send prompt|send message|enviar prompt|enviar mensaje|enviar)\b/.test(label) || label.includes("send-button");
+      return false;
     }
 
     function eventInComposer(event) {
       const composer = findComposer();
       if (!composer) return false;
-      const node = event.target;
-      return node === composer || (node && composer.contains(node));
+      return eventPath(event).some((node) => node === composer || (node?.nodeType === 1 && composer.contains(node)));
     }
 
     function reportWatch() {
@@ -379,7 +389,7 @@
     }
 
     function onComposerClick(event) {
-      if (!isSendControl(event.target)) return;
+      if (!isSendControl(event)) return;
       queuePromptFromComposer();
     }
 
