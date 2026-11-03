@@ -1,18 +1,26 @@
 import type { ReactNode } from "react";
 import { AppHeader } from "./app-header";
 
-export function Shell({ signedIn, children }: { signedIn: boolean; children: ReactNode }) {
+export function Shell({
+  signedIn,
+  wide = false,
+  children,
+}: {
+  signedIn: boolean;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-8">
+    <main className={`mx-auto flex w-full flex-1 flex-col px-6 py-8 ${wide ? "max-w-6xl" : "max-w-xl"}`}>
       <AppHeader signedIn={signedIn} />
       <div className="flex flex-1 flex-col pt-10">{children}</div>
     </main>
   );
 }
 
-export function ScreenFallback() {
+export function ScreenFallback({ wide = false }: { wide?: boolean }) {
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-8">
+    <main className={`mx-auto flex w-full flex-1 flex-col px-6 py-8 ${wide ? "max-w-6xl" : "max-w-xl"}`}>
       <p className="font-display text-2xl font-medium tracking-tight">Enlaza</p>
     </main>
   );

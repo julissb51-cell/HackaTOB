@@ -1,8 +1,10 @@
 "use server";
 
 import { currentAccount } from "./current-account";
-import { createRoomFor, joinRoomFor } from "./room-membership";
+import { sortEventsNewestFirst } from "./room-feed";
+import { createRoomFor, joinRoomFor, readRoomForMember } from "./room-membership";
 import { supabaseMembershipStore } from "./room-membership-db";
+import { supabaseRoomStore } from "./room-store";
 import {
   isInviteToken,
   parseDueDate,
@@ -12,6 +14,7 @@ import {
   type CreateState,
   type JoinState,
 } from "./room-fields";
+import type { StoredEvent } from "./room-types";
 import { rememberRoomToken } from "./room-token-cookie";
 
 export async function createRoomAction(_prev: CreateState, formData: FormData): Promise<CreateState> {
@@ -36,6 +39,27 @@ export async function createRoomAction(_prev: CreateState, formData: FormData): 
     return { status: "created", id: created.id, token: created.token, path: created.path };
   } catch {
     return { status: "error", code: "save" };
+  }
+}
+
+export async function readRoomSnapshotAction(
+  roomId: string,
+): Promise<{ ok: true; events: StoredEvent[]; members: { name: string; part: string | null }[] } | { ok: false }> {
+  const id = parseRoomId(roomId);
+  if (!id) return { ok: false };
+  const account = await currentAccount();
+  if (!account) return { ok: false };
+  try {
+    const view = await readRoomForMember(supabaseMembershipStore, account.id, id);
+    if (!view.ok) return { ok: false };
+    const events = sortEventsNewestFirst(await supabaseRoomStore.listEvents(id));
+    return {
+      ok: true,
+      events,
+      members: view.members.map((member) => ({ name: member.name, part: member.part })),
+    };
+  } catch {
+    return { ok: false };
   }
 }
 

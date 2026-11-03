@@ -29,7 +29,7 @@ export default function RootLayout({
       className={`${sourceSans.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <LanguageProvider>{children}</LanguageProvider>
+        <LanguageProvider initialLang="es">{children}</LanguageProvider>
       </body>
     </html>
   );

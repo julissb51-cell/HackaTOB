@@ -1,9 +1,9 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
-import { copy, type Lang } from "./copy";
+import { LANG_STORAGE_KEY, langCookie, langFromCookieHeader, type Lang } from "@/lib/i18n";
+import { copy } from "./copy";
 
-const STORAGE_KEY = "enlaza.lang";
 const CHANGE_EVENT = "enlaza-lang";
 
 const LanguageContext = createContext<{
@@ -11,15 +11,20 @@ const LanguageContext = createContext<{
   setLang: (lang: Lang) => void;
 } | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const lang = useSyncExternalStore(subscribeLanguage, readLanguage, readServerLanguage);
+export function LanguageProvider({ initialLang, children }: { initialLang: Lang; children: ReactNode }) {
+  const lang = useSyncExternalStore(subscribeLanguage, () => readLanguage(initialLang), () => initialLang);
 
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
 
   const setLang = useCallback((next: Lang) => {
-    localStorage.setItem(STORAGE_KEY, next);
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, next);
+    } catch {
+      // El modo privado puede bloquear el almacenamiento.
+    }
+    document.cookie = langCookie(next, window.location.protocol === "https:");
     window.dispatchEvent(new Event(CHANGE_EVENT));
   }, []);
 
@@ -46,12 +51,14 @@ function subscribeLanguage(onStoreChange: () => void) {
   };
 }
 
-function readLanguage(): Lang {
-  return localStorage.getItem(STORAGE_KEY) === "en" ? "en" : "es";
-}
-
-function readServerLanguage(): Lang {
-  return "es";
+function readLanguage(fallback: Lang): Lang {
+  try {
+    const stored = localStorage.getItem(LANG_STORAGE_KEY);
+    if (stored === "es" || stored === "en") return stored;
+  } catch {
+    // El modo privado puede bloquear el almacenamiento.
+  }
+  return langFromCookieHeader(document.cookie) ?? fallback;
 }
 
 export function LanguageToggle() {

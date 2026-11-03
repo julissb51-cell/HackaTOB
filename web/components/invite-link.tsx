@@ -56,7 +56,7 @@ function readServerOrigin() {
   return "";
 }
 
-function CopyButton({ value }: { value: string }) {
+export function CopyButton({ value }: { value: string }) {
   const text = useCopy();
   const [copied, setCopied] = useState(false);
 

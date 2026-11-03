@@ -32,13 +32,15 @@ Base nueva:
 
 Si las tablas ya existían con el esquema anterior, no vuelvas a correr `schema.sql`. Pega y ejecuta `supabase/phase-3-rooms.sql`. Ese archivo agrega `rooms.created_by`, `rooms.parts` y `members.user_id`, y se puede ejecutar más de una vez. La fecha de entrega sigue en `rooms.due_date`. No hay una columna `rooms.date`.
 
+Si la base ya existía antes de la vista en vivo, pega y ejecuta `supabase/phase-4-realtime.sql` después de la fase 3. Se puede correr más de una vez. Agrega `events` a la publicación `supabase_realtime` y una política de `SELECT` para que un miembro autenticado lea solo los eventos de su sala. También deja la lectura de `rooms` (sin `token`) y de `members`. `anon` no lee nada. La clave de servicio no se usa en el navegador.
+
 El script crea `rooms`, `members` y `events`, y activa Realtime en `events`.
 
 `rooms.due_date` acepta una fecha `AAAA-MM-DD`, el texto `sin fecha`, o queda vacío. `events.created_at` guarda la hora local en ISO 8601 con desfase, por ejemplo `2026-11-03T09:15:00-06:00`. `events.text` admite hasta 100.000 caracteres. `events.type` es `prompt`, `respuesta` o `archivo`. `events.event_id` es el id del contrato, por ejemplo `evt_demo_001`. Si el envío se reintenta, usa el mismo id y no crea otra fila.
 
 Si `events` ya existía con `event_id` de tipo uuid, `supabase/seed-demo.sql` lo pasa a text. Sin ese cambio, un id como `evt_demo_001` no se puede guardar.
 
-Las tablas tienen Row Level Security. `anon` no puede leerlas ni escribirlas. `authenticated` solo puede leer, y solo las salas en las que participa: columnas de la sala sin `token`, y las filas de `members`. No puede insertar ni cambiar nada. Así `rooms.token` no queda abierto en la Data API. La API usa la clave de servicio, solo en el servidor, y compara `x-room-token` con `rooms.token`. La función `private.can_read_room` vive fuera de `public` para que la política no se llame a sí misma. No expongas el esquema `private` en la Data API.
+Las tablas tienen Row Level Security. `anon` no puede leerlas ni escribirlas. `authenticated` solo puede leer, y solo las salas en las que participa: columnas de la sala sin `token`, las filas de `members` y los eventos de esa sala. No puede insertar ni cambiar nada. Así `rooms.token` no queda abierto en la Data API. La API usa la clave de servicio, solo en el servidor, y compara `x-room-token` con `rooms.token`. La vista en vivo usa la clave anónima con la sesión de Google para escuchar `events`. Si Realtime no conecta, la sala vuelve a pedir los eventos cada 5 segundos por una acción del servidor, que revisa la membresía y usa la clave de servicio. La función `private.can_read_room` vive fuera de `public` para que la política no se llame a sí misma. No expongas el esquema `private` en la Data API.
 
 Los endpoints de eventos y de contexto no cambian en esta fase.
 
@@ -69,7 +71,19 @@ Después se muestra el enlace `/join/{id}?t={token}`, un botón para copiarlo, y
 
 `/room/{id}?token={token}`, el enlace del contrato, entra por el mismo camino. También vale `?t=`.
 
-Si la persona no tiene sesión, el enlace la manda a Google y la regresa. Al volver queda como miembro y la app abre `/rooms/{id}`. Esa pantalla lista miembros y partes. La vista en vivo llega en la siguiente fase.
+Si la persona no tiene sesión, el enlace la manda a Google y la regresa. Al volver queda como miembro y la app abre `/rooms/{id}`.
+
+## Vista en vivo
+
+`/rooms/{id}` muestra el tema, la fecha (o «Sin fecha»), el enlace de invitación con botón para copiarlo y la lista de miembros. Al lado, cada parte dice quién la tiene y cuántos eventos lleva.
+
+El feed lista prompts, respuestas y archivos de todos, el más nuevo primero. Se puede filtrar por miembro. Los eventos llegan por Supabase Realtime: `postgres_changes` sobre `events`, filtrado por la sala. Hace falta `supabase/phase-4-realtime.sql` (o un `schema.sql` nuevo, que ya trae esa política). Si la suscripción falla, la pantalla pide los eventos cada 5 segundos.
+
+El panel de contexto muestra, para quien está dentro, `resumen`, `parte`, `prompt_sugerido` y `advertencias`. Es lo mismo que devolvería `GET /api/rooms/:id/context`. El prompt sugerido se puede copiar. El recuadro de la fase 5 es el lugar del analista: hoy la función `previewMemberContext` llama a la lógica fija, y la fase 5 la cambia por Gemini o Grok sin mover el panel.
+
+Quien no tiene sesión ve un aviso y pasa a Google. Quien tiene sesión pero no es de la sala ve un aviso y pasa a `/join/{id}`. Si el navegador ya guardó el token de esa sala, ese enlace lo usa para entrar.
+
+El idioma está en español y en inglés, con el control de la cabecera. La elección queda en `localStorage` y en la cookie `enlaza_lang`, y el navegador la vuelve a aplicar al abrir la página. Si no hay elección, la app queda en español. El mismo texto cubre el inicio, crear sala, entrar y la sala.
 
 ## Endpoints
 
@@ -157,7 +171,7 @@ Desde `web`:
 npm test
 ```
 
-Esas pruebas cubren el 200 `{ "ok": true }`, el 401 `{ "error": "no autorizado" }`, la validación de `ia`, `tipo` y el largo del texto, la forma del contexto y el CORS de la extensión. También cubren el alta de la sala, el enlace de invitación y el ingreso del miembro. No llaman a Supabase.
+Esas pruebas cubren el 200 `{ "ok": true }`, el 401 `{ "error": "no autorizado" }`, la validación de `ia`, `tipo` y el largo del texto, la forma del contexto y el CORS de la extensión. También cubren el alta de la sala, el enlace de invitación, el ingreso del miembro, el idioma y el armado del feed. No llaman a Supabase.
 
 ### Con el servidor
 
