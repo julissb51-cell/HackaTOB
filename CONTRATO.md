@@ -50,6 +50,14 @@ Reglas de cada evento:
 - Cada chat (un `conversation_id`) tiene `nombre_chat`, `resumen` y `palabra_clave`.
 - Si el chat no tiene nombre, `nombre_chat` se arma solo a partir de lo que la persona preguntó.
 
+### Nombres oficiales y alias
+
+El formato oficial del evento es el de este contrato, en español: `event_id`, `tipo`, `miembro`, `ia`, `conversation_id`, `texto`, `tiempo`, y como opcionales `proyecto`, `nombre_chat`, `resumen` y `palabra_clave`. Todo código nuevo debe mandar estos nombres.
+
+Por compatibilidad, el servidor también acepta estos nombres en inglés **solo como alias**: `type` (= `tipo`), `member` (= `miembro`), `ai` (= `ia`), `text` (= `texto`), `created_at` (= `tiempo`), `conversation_name` (= `nombre_chat`) y `project` (= `proyecto`). No forman parte del contrato y no hay que usarlos en código nuevo.
+
+`source` **no** es parte del contrato: el campo correcto para la IA es `ia`.
+
 Ejemplo de evento (`prompt`):
 
 ```json
