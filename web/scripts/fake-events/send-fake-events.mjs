@@ -1,7 +1,11 @@
 // Envía eventos de prueba a POST /api/rooms/:id/events
 //
-// Uso:
-//   BASE_URL=https://webhook.site/tu-id ROOM_ID=demo ROOM_TOKEN=token-de-prueba node send-fake-events.mjs
+// Antes, crea la sala demo (id demo, token token-de-prueba):
+//   npm run seed
+// o pega web/supabase/seed-demo.sql en el SQL Editor.
+//
+// Uso, desde web/, con `npm run dev` en otra terminal:
+//   node scripts/fake-events/send-fake-events.mjs
 //
 // BASE_URL por defecto: http://localhost:3000
 // ROOM_ID por defecto: demo
@@ -67,8 +71,23 @@ for (const event of events) {
     const body = await response.text();
     console.log(`${response.status} ${event.tipo} ${event.event_id}`);
     console.log(body);
+    if (!accepted(response.status, body)) {
+      if (response.status === 401) {
+        console.error("El token no coincide con la sala. Crea la sala demo con npm run seed.");
+      }
+      process.exitCode = 1;
+    }
   } catch (error) {
     console.error(`No se pudo enviar ${event.event_id}: ${error.message}`);
     process.exitCode = 1;
+  }
+}
+
+function accepted(status, body) {
+  if (status !== 200) return false;
+  try {
+    return JSON.parse(body).ok === true;
+  } catch {
+    return false;
   }
 }
