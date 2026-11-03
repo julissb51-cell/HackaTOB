@@ -1,24 +1,32 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { analyzeNowAction, readRoomBoardAction, type SettingsState } from "@/lib/room-actions";
 import { previewMemberContext } from "@/lib/room-analysis";
+import type { RoomBoard } from "@/lib/board-view";
 import { NO_DATE } from "@/lib/room-fields";
 import {
   feedMembers,
   filterEvents,
   formatEventTime,
+  POLL_MS,
+  realtimeFailed,
+  realtimeFilter,
   summarizeParts,
   type LiveStatus,
   type PartStatus,
 } from "@/lib/room-feed";
-import type { StoredEvent, WarningType } from "@/lib/room-types";
+import type { ContextResponse, StoredEvent, WarningType } from "@/lib/room-types";
+import { browserSupabase } from "@/lib/supabase/browser";
 import { CopyButton, CopyValue, InviteLink, RememberToken } from "./invite-link";
 import { useCopy } from "./language";
-import { fieldClass, secondaryButton } from "./styles";
+import { RoomSettings } from "./room-settings";
+import { fieldClass, primaryButton, secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
 
 const PREVIEW = 420;
+const idleSettings: SettingsState = { status: "idle" };
 
 export type RoomView = {
   id: string;
@@ -32,16 +40,21 @@ export type RoomView = {
   events: StoredEvent[];
 };
 
-export function RoomScreen({ room }: { room: RoomView }) {
+export function RoomScreen({ room, board: initialBoard }: { room: RoomView; board: RoomBoard }) {
   const text = useCopy();
   const feed = useRoomFeed(room.id, room.events, room.members);
+  const analysis = useRoomAnalysis(room.id, initialBoard, feed.status === "polling" || feed.status === "offline");
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
-  const due = !room.dueDate || room.dueDate === NO_DATE ? text.noDate : room.dueDate;
+  const due = !room.dueDate ? text.dueUnset : room.dueDate === NO_DATE ? text.noDate : room.dueDate;
   const names = feedMembers(feed.members, feed.events);
   const activeFilter = memberFilter && names.includes(memberFilter) ? memberFilter : null;
   const visible = filterEvents(feed.events, activeFilter);
   const parts = summarizeParts(room.parts, feed.members, feed.events);
-  const context = useMemo(
+  const chatNames = useMemo(
+    () => new Map(analysis.board.chats.map((chat) => [chat.conversationId, chat.nombre])),
+    [analysis.board.chats],
+  );
+  const rules = useMemo(
     () =>
       previewMemberContext({
         room: { id: room.id, topic: room.topic, projectName: null, dueDate: room.dueDate },
@@ -51,15 +64,24 @@ export function RoomScreen({ room }: { room: RoomView }) {
       }),
     [feed.events, feed.members, room.dueDate, room.id, room.topic, room.viewerName],
   );
+  const context = memberContext(analysis.board, room.viewerName, rules);
 
   return (
     <div className="space-y-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8 lg:space-y-0">
       <RememberToken roomId={room.id} token={room.token} />
       <header className="min-w-0 space-y-6 lg:col-span-2">
-        <div>
-          <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">{due}</p>
-          <h1 className="mt-3 font-display text-4xl font-medium tracking-tight break-words sm:text-5xl">{room.topic}</h1>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">{due}</p>
+            <h1 className="mt-3 font-display text-4xl font-medium tracking-tight break-words sm:text-5xl">{room.topic}</h1>
+          </div>
+          <AnalyzeButton roomId={room.id} onDone={analysis.refresh} />
         </div>
+        {analysis.board.pending && feed.events.length > 0 ? (
+          <p role="status" className="text-sm text-muted">
+            {text.pendingNote}
+          </p>
+        ) : null}
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <InviteLink path={room.path} />
           <section className="min-w-0 space-y-3">
@@ -130,7 +152,7 @@ export function RoomScreen({ room }: { room: RoomView }) {
           <ol className="space-y-3">
             {visible.map((event) => (
               <li key={event.eventId}>
-                <EventCard event={event} />
+                <EventCard event={event} chatName={event.conversationName?.trim() || chatNames.get(event.conversationId) || null} />
               </li>
             ))}
           </ol>
@@ -138,16 +160,18 @@ export function RoomScreen({ room }: { room: RoomView }) {
       </section>
 
       <section className="min-w-0 space-y-4 rounded-2xl border border-line bg-surface/70 p-4 lg:col-start-2 lg:row-start-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.contextTitle}</h2>
-          <p className="mt-2 text-sm text-muted">
-            {text.forMember} <span className="text-foreground">{room.viewerName}</span>
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.contextTitle}</h2>
+            <p className="mt-2 text-sm text-muted">
+              {text.forMember} <span className="text-foreground">{room.viewerName}</span>
+            </p>
+          </div>
+          <span className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">
+            {analysis.board.fuente === "ia" ? text.fromAi : text.fromRules}
+          </span>
         </div>
-        <div className="rounded-xl border border-dashed border-line px-3 py-3">
-          <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">{text.phase5}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">{text.phase5Note}</p>
-        </div>
+        <p className="text-sm leading-6 text-muted">{text.phase5Note}</p>
         <div className="space-y-1">
           <h3 className="text-sm font-semibold">{text.summary}</h3>
           <p className="text-sm leading-6">{context.resumen}</p>
@@ -186,14 +210,45 @@ export function RoomScreen({ room }: { room: RoomView }) {
             </ul>
           )}
         </div>
+        {analysis.board.chats.length > 0 ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{text.chats}</h3>
+            <ul className="space-y-1 text-sm">
+              {analysis.board.chats.map((chat) => (
+                <li key={chat.conversationId} className="flex items-baseline justify-between gap-3">
+                  <span className="font-semibold">{chat.nombre}</span>
+                  <span className="truncate font-mono text-xs text-muted">{chat.conversationId}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {analysis.board.miembros.length > 1 ? (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">{text.prompts}</h3>
+            <ul className="space-y-2">
+              {analysis.board.miembros
+                .filter((member) => member.nombre !== room.viewerName)
+                .map((member) => (
+                  <li key={member.nombre} className="text-sm leading-6">
+                    <span className="font-semibold">{member.nombre}.</span> {member.prompt_sugerido}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : null}
       </section>
+
+      <div className="lg:col-span-2">
+        <RoomSettings initial={initialBoard} live={analysis.board} onSaved={analysis.refresh} />
+      </div>
 
       <details className="rounded-2xl border border-line px-4 py-3 lg:col-span-2">
         <summary className="cursor-pointer text-sm font-semibold">{text.extensionDetails}</summary>
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-6 text-muted">{text.extensionHelp}</p>
           <CopyValue id="room-id" label={text.idLabel} value={room.id} />
-          <CopyValue id="room-token" label={text.tokenLabel} value={room.token} />
+          <CopyValue id="room-token" label={text.tokenLabel} value={analysis.board.token || room.token} />
           <p className="text-sm leading-6 text-muted">{text.tokenHelp}</p>
         </div>
       </details>
@@ -204,6 +259,130 @@ export function RoomScreen({ room }: { room: RoomView }) {
         </Link>
       </div>
     </div>
+  );
+}
+
+function useRoomAnalysis(roomId: string, initial: RoomBoard, fallback: boolean) {
+  const [board, setBoard] = useState(initial);
+  const revision = boardRevision(initial);
+  const [seen, setSeen] = useState(revision);
+  if (seen !== revision) {
+    setSeen(revision);
+    setBoard(initial);
+  }
+
+  const refresh = useCallback(async () => {
+    try {
+      const result = await readRoomBoardAction(roomId);
+      if (result.ok) setBoard(result.board);
+    } catch {
+      // El siguiente intento, o Realtime, vuelve a pedir el análisis.
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    let stopped = false;
+    let pollId = 0;
+    const stopPoll = () => {
+      if (!pollId) return;
+      window.clearInterval(pollId);
+      pollId = 0;
+    };
+    const startPoll = () => {
+      if (pollId || stopped) return;
+      pollId = window.setInterval(() => {
+        void refresh();
+      }, POLL_MS);
+    };
+
+    if (fallback) {
+      startPoll();
+      return () => {
+        stopped = true;
+        stopPoll();
+      };
+    }
+
+    const client = browserSupabase();
+    const filter = realtimeFilter(roomId);
+    if (!client || !filter) {
+      startPoll();
+      return () => {
+        stopped = true;
+        stopPoll();
+      };
+    }
+
+    const channel = client
+      .channel(`enlaza-analysis-${roomId}-${Math.random().toString(36).slice(2, 8)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_analysis", filter }, () => {
+        void refresh();
+      })
+      .subscribe((status: string) => {
+        if (stopped) return;
+        if (status === "SUBSCRIBED") {
+          stopPoll();
+          void refresh();
+          return;
+        }
+        if (realtimeFailed(status)) startPoll();
+      });
+
+    return () => {
+      stopped = true;
+      stopPoll();
+      void client.removeChannel(channel);
+    };
+  }, [fallback, refresh, roomId]);
+
+  return { board, refresh };
+}
+
+function memberContext(board: RoomBoard, viewerName: string, rules: ContextResponse): ContextResponse {
+  if (board.fuente !== "ia") return rules;
+  const mine = board.miembros.find((member) => member.nombre === viewerName);
+  const advertencias = board.alertas.filter(
+    (warning) => warning.destinatario === viewerName || warning.destinatario === "equipo",
+  );
+  return {
+    resumen: mine?.resumen || board.resumen || rules.resumen,
+    parte: mine?.parte || rules.parte,
+    prompt_sugerido: mine?.prompt_sugerido || rules.prompt_sugerido,
+    advertencias: advertencias.length > 0 ? advertencias : mine ? [] : rules.advertencias,
+  };
+}
+
+function boardRevision(board: RoomBoard): string {
+  return [
+    board.id,
+    board.topic,
+    board.dueDate ?? "",
+    board.parts.join("\u0001"),
+    board.language,
+    board.token,
+    board.members.map((member) => `${member.name}:${member.part ?? ""}`).join("\u0001"),
+  ].join("\u0002");
+}
+
+function AnalyzeButton({ roomId, onDone }: { roomId: string; onDone: () => void }) {
+  const text = useCopy();
+  const [state, action, pending] = useActionState(analyzeNowAction, idleSettings);
+  useEffect(() => {
+    if (state.status === "saved") onDone();
+  }, [state, onDone]);
+
+  return (
+    <form action={action} className="space-y-2">
+      <input type="hidden" name="room_id" value={roomId} />
+      <button type="submit" className={primaryButton} disabled={pending}>
+        {pending ? text.analyzing : text.analyze}
+      </button>
+      {state.status === "error" ? (
+        <p role="alert" className="text-sm text-danger">
+          {text.settingsError}
+        </p>
+      ) : null}
+    </form>
   );
 }
 
@@ -265,7 +444,7 @@ function FilterChip({
   );
 }
 
-function EventCard({ event }: { event: StoredEvent }) {
+function EventCard({ event, chatName }: { event: StoredEvent; chatName: string | null }) {
   const text = useCopy();
   const [open, setOpen] = useState(false);
   const long = event.text.length > PREVIEW;
@@ -286,7 +465,7 @@ function EventCard({ event }: { event: StoredEvent }) {
           {formatEventTime(event.createdAt)}
         </time>
       </div>
-      {event.conversationName ? <p className="mt-1 text-sm text-muted">{event.conversationName}</p> : null}
+      {chatName ? <p className="mt-1 text-sm text-muted">{chatName}</p> : null}
       <p className="mt-2 text-sm leading-6 break-words whitespace-pre-wrap">{body}</p>
       {long ? (
         <button type="button" className="mt-2 cursor-pointer text-sm font-semibold text-accent" onClick={() => setOpen((value) => !value)}>

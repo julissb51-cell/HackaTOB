@@ -1,3 +1,4 @@
+import { contextFromSaved } from "./analyst";
 import { buildContext } from "./context-from-events";
 import { parseEvent } from "./event-body";
 import { json, optionsResponse } from "./http";
@@ -57,21 +58,19 @@ export async function getRoomContext(request: Request, roomId: string, store: Ro
 
   try {
     const [members, events] = await Promise.all([store.listMembers(roomId), store.listEvents(roomId)]);
-    return json(
-      request,
-      buildContext({
-        room: {
-          id: room.id,
-          topic: room.topic,
-          projectName: room.projectName,
-          dueDate: room.dueDate,
-        },
-        members,
-        events,
-        member,
-      }),
-      200,
-    );
+    const fallback = buildContext({
+      room: {
+        id: room.id,
+        topic: room.topic,
+        projectName: room.projectName,
+        dueDate: room.dueDate,
+      },
+      members,
+      events,
+      member,
+    });
+    const saved = store.readAnalysis ? await store.readAnalysis(roomId) : null;
+    return json(request, contextFromSaved(saved, member, fallback), 200);
   } catch (error) {
     return failure(request, error, "no se pudo leer la sala");
   }

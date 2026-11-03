@@ -1,7 +1,8 @@
 import "server-only";
+import { readSavedAnalysis } from "./analysis-db";
 import { createSupabaseServiceClient } from "./supabase/server";
 import { RoomStoreError } from "./room-store-error";
-import { isAiName, isEventType, type RoomRecord, type RoomStore, type StoredEvent } from "./room-types";
+import { isAiName, isEventType, type RoomRecord, type RoomStore, type SavedAnalysis, type StoredEvent } from "./room-types";
 
 const EVENT_COLUMNS =
   "event_id, room_id, member, ai, type, conversation_id, conversation_name, text, created_at";
@@ -38,6 +39,7 @@ export const supabaseRoomStore: RoomStore = {
   ensureMember,
   listMembers,
   listEvents,
+  readAnalysis,
 };
 
 async function getRoom(id: string): Promise<RoomRecord | null> {
@@ -173,4 +175,8 @@ async function listEvents(roomId: string): Promise<StoredEvent[]> {
     });
   }
   return events;
+}
+
+async function readAnalysis(roomId: string): Promise<SavedAnalysis | null> {
+  return readSavedAnalysis(roomId);
 }

@@ -75,4 +75,11 @@ begin
     execute 'grant select (id, topic, project_name, due_date, created_by, parts, created_at) on table public.rooms to authenticated';
     execute 'grant select (id, room_id, name, part, user_id, created_at) on table public.members to authenticated';
   end if;
+
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'rooms' and column_name = 'language'
+  ) then
+    execute 'grant select (language) on table public.rooms to authenticated';
+  end if;
 end $$;

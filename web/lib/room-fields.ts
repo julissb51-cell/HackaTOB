@@ -51,6 +51,23 @@ export function parseDueDate(date: string, noDate: boolean): string | null {
   return value;
 }
 
+export function parseCustomToken(value: string): string | null {
+  const token = value.trim();
+  if (!/^[A-Za-z0-9_-]{8,200}$/.test(token)) return null;
+  return token;
+}
+
+export function parseMemberPart(value: string): string | null | "invalid" {
+  const part = value.trim().replace(/\s+/g, " ");
+  if (!part) return null;
+  if (part.length > 120 || CONTROL.test(part)) return "invalid";
+  return part;
+}
+
+export function parseRoomLanguage(value: string): "es" | "en" {
+  return value === "en" ? "en" : "es";
+}
+
 export function parseRoomId(value: string): string | null {
   const id = value.trim().toLowerCase();
   if (!ROOM_ID_RE.test(id) || RESERVED_IDS.has(id)) return null;

@@ -263,6 +263,47 @@ test("un miembro nuevo toma la parte del nombre del chat", async () => {
   assert.equal(body.parte, "API");
 });
 
+test("GET context usa el análisis de la IA y, si la fuente son reglas, conserva el cálculo local", async () => {
+  const { store } = demoStore();
+  const saved = {
+    fuente: "ia" as const,
+    resumen: "Resumen de la IA",
+    miembros: [
+      {
+        nombre: "Ana",
+        resumen: "Ana arma la pantalla.",
+        parte: "Pantalla de la sala",
+        prompt_sugerido: "Sigue con la pantalla.",
+        advertencias: [],
+      },
+    ],
+    alertas: [],
+    chats: [],
+    sugerencia: null,
+    sugerenciaEstado: "ninguna" as const,
+    idioma: "es" as const,
+    pending: false,
+    ranAt: "2026-11-03T12:00:00.000Z",
+  };
+  const withAi: RoomStore = { ...store, async readAnalysis() { return saved; } };
+  const aiBody = await (await getRoomContext(contextRequest(), "demo", withAi)).json();
+  assert.equal(aiBody.resumen, "Ana arma la pantalla.");
+  assert.equal(aiBody.parte, "Pantalla de la sala");
+  assert.equal(aiBody.prompt_sugerido, "Sigue con la pantalla.");
+  assert.deepEqual(aiBody.advertencias, []);
+  assert.deepEqual(Object.keys(aiBody).sort(), ["advertencias", "parte", "prompt_sugerido", "resumen"]);
+
+  const withRules: RoomStore = {
+    ...store,
+    async readAnalysis() {
+      return { ...saved, fuente: "reglas", resumen: "no debe usarse" };
+    },
+  };
+  const rulesBody = await (await getRoomContext(contextRequest(), "demo", withRules)).json();
+  assert.match(rulesBody.resumen, /El equipo trabaja en App para repartir/);
+  assert.equal(rulesBody.resumen.includes("no debe usarse"), false);
+});
+
 function demoRoom(): RoomRecord {
   return {
     id: "demo",

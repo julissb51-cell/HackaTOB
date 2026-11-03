@@ -4,7 +4,7 @@
 
 App de Next.js (App Router, TypeScript y Tailwind) para Enlaza. Se publica en Vercel con el directorio raíz `web`. Supabase guarda la sala. El analista usa la API gratuita de Gemini. Para pasar a Grok basta con cambiar variables de entorno.
 
-Los endpoints de [CONTRATO.md](../CONTRATO.md) viven en `app/api/rooms/[id]/events` y `app/api/rooms/[id]/context`. El contexto de esta fase se arma con los eventos guardados, sin llamar al analista. Gemini o Grok entran en una fase posterior.
+Los endpoints de [CONTRATO.md](../CONTRATO.md) viven en `app/api/rooms/[id]/events` y `app/api/rooms/[id]/context`. Al guardar un evento, el analista resume la sala. Si Gemini o Grok fallan, falta la clave o la respuesta no es JSON, el contexto sigue saliendo de las reglas sobre los eventos guardados.
 
 El script `scripts/fake-events/send-fake-events.mjs` manda los tres eventos de ejemplo a `POST /api/rooms/:id/events`.
 
@@ -30,13 +30,13 @@ Base nueva:
 4. Ejecuta la consulta.
 5. Pega `supabase/seed-demo.sql` y ejecútalo para crear la sala de prueba.
 
-Si las tablas ya existían con el esquema anterior, no vuelvas a correr `schema.sql`. Pega y ejecuta `supabase/phase-3-rooms.sql`. Ese archivo agrega `rooms.created_by`, `rooms.parts` y `members.user_id`, y se puede ejecutar más de una vez. La fecha de entrega sigue en `rooms.due_date`. No hay una columna `rooms.date`.
+Si las tablas ya existían con el esquema anterior, no vuelvas a correr `schema.sql`. Pega y ejecuta `supabase/phase-3-rooms.sql` y después `supabase/phase-5.sql`. Los dos se pueden ejecutar más de una vez. `phase-3-rooms.sql` agrega `rooms.created_by`, `rooms.parts` y `members.user_id`. `phase-5.sql` deja `parts` y `due_date` vacíos por defecto, agrega `rooms.language` (`es` o `en`) y crea `room_analysis`. La fecha de entrega sigue en `rooms.due_date`. No hay una columna `rooms.date`.
 
-Si la base ya existía antes de la vista en vivo, pega y ejecuta `supabase/phase-4-realtime.sql` después de la fase 3. Se puede correr más de una vez. Agrega `events` a la publicación `supabase_realtime` y una política de `SELECT` para que un miembro autenticado lea solo los eventos de su sala. También deja la lectura de `rooms` (sin `token`) y de `members`. `anon` no lee nada. La clave de servicio no se usa en el navegador.
+Si la base ya existía antes de la vista en vivo, pega y ejecuta `supabase/phase-4-realtime.sql` después de la fase 3 y, enseguida, `supabase/phase-5.sql`. Los dos se pueden correr más de una vez. La fase 4 agrega `events` a la publicación `supabase_realtime` y una política de `SELECT` para que un miembro autenticado lea solo los eventos de su sala. La fase 5 hace lo mismo con `room_analysis`. `anon` no lee nada. La clave de servicio no se usa en el navegador.
 
-El script crea `rooms`, `members` y `events`, y activa Realtime en `events`.
+El script crea `rooms`, `members`, `events` y `room_analysis`, y activa Realtime en `events` y en `room_analysis`. Los eventos llegan por Realtime. Si esa suscripción falla, la sala pide los datos cada 5 segundos.
 
-`rooms.due_date` acepta una fecha `AAAA-MM-DD`, el texto `sin fecha`, o queda vacío. `events.created_at` guarda la hora local en ISO 8601 con desfase, por ejemplo `2026-11-03T09:15:00-06:00`. `events.text` admite hasta 100.000 caracteres. `events.type` es `prompt`, `respuesta` o `archivo`. `events.event_id` es el id del contrato, por ejemplo `evt_demo_001`. Si el envío se reintenta, usa el mismo id y no crea otra fila.
+`rooms.due_date` acepta una fecha `AAAA-MM-DD`, el texto `sin fecha`, o queda vacío (`null`). Vacío significa que nadie la eligió: el analista puede sugerir una. `sin fecha` es una decisión del equipo y no se reemplaza sola. `rooms.parts` es una lista y, si falta, se lee como vacía. `events.created_at` guarda la hora local en ISO 8601 con desfase, por ejemplo `2026-11-03T09:15:00-06:00`. `events.text` admite hasta 100.000 caracteres. `events.type` es `prompt`, `respuesta` o `archivo`. `events.event_id` es el id del contrato, por ejemplo `evt_demo_001`. Si el envío se reintenta, usa el mismo id y no crea otra fila. `room_analysis` guarda el resumen, los avisos, el contexto de cada miembro, el nombre de cada chat y la sugerencia de partes o fecha.
 
 Si `events` ya existía con `event_id` de tipo uuid, `supabase/seed-demo.sql` lo pasa a text. Sin ese cambio, un id como `evt_demo_001` no se puede guardar.
 
@@ -65,7 +65,7 @@ Las dos direcciones con `/**` dejan volver a la invitación después de Google. 
 
 ## Salas
 
-Con la sesión iniciada, `/rooms/new` pide tema, partes y fecha de entrega. Las partes son la lista de tareas. Puede ir vacía. Si no hay fecha, se guarda `sin fecha`. El código de la sala es opcional: si se deja vacío, se genera solo. El token se genera una vez, es largo y no vence. Quien crea la sala queda como miembro, con el nombre de su cuenta de Google.
+Con la sesión iniciada, `/rooms/new` pide solo el tema. El id y el token se generan solos. Las partes y la fecha quedan vacías. Quien crea la sala queda como miembro, con el nombre de su cuenta de Google.
 
 Después se muestra el enlace `/join/{id}?t={token}`, un botón para copiarlo, y el id y el token para la extensión. La web guarda el token al crear la sala y al abrir el enlace.
 
@@ -75,15 +75,17 @@ Si la persona no tiene sesión, el enlace la manda a Google y la regresa. Al vol
 
 ## Vista en vivo
 
-`/rooms/{id}` muestra el tema, la fecha (o «Sin fecha»), el enlace de invitación con botón para copiarlo y la lista de miembros. Al lado, cada parte dice quién la tiene y cuántos eventos lleva.
+`/rooms/{id}` muestra el tema, la fecha (o «Sin definir» / «Sin fecha»), el enlace de invitación con botón para copiarlo y la lista de miembros. Al lado, cada parte dice quién la tiene y cuántos eventos lleva.
 
-El feed lista prompts, respuestas y archivos de todos, el más nuevo primero. Se puede filtrar por miembro. Los eventos llegan por Supabase Realtime: `postgres_changes` sobre `events`, filtrado por la sala. Hace falta `supabase/phase-4-realtime.sql` (o un `schema.sql` nuevo, que ya trae esa política). Si la suscripción falla, la pantalla pide los eventos cada 5 segundos.
+El feed lista prompts, respuestas y archivos de todos, el más nuevo primero. Se puede filtrar por miembro. Los eventos llegan por Supabase Realtime: `postgres_changes` sobre `events`, filtrado por la sala. Hace falta `supabase/phase-4-realtime.sql` (o un `schema.sql` nuevo, que ya trae esa política). Si la suscripción falla, la pantalla pide los eventos cada 5 segundos. El análisis guardado en `room_analysis` también llega por Realtime. Si esa suscripción falla, el panel pide el análisis en ese mismo intervalo.
 
-El panel de contexto muestra, para quien está dentro, `resumen`, `parte`, `prompt_sugerido` y `advertencias`. Es lo mismo que devolvería `GET /api/rooms/:id/context`. El prompt sugerido se puede copiar. El recuadro de la fase 5 es el lugar del analista: hoy la función `previewMemberContext` llama a la lógica fija, y la fase 5 la cambia por Gemini o Grok sin mover el panel.
+El panel de contexto muestra, para quien está dentro, `resumen`, `parte`, `prompt_sugerido` y `advertencias`, más el nombre de cada chat. Si el analista ya corrió, usa ese texto. Si no, `previewMemberContext` arma lo mismo que `GET /api/rooms/:id/context` con las reglas. El prompt sugerido se puede copiar. «Analizar ahora» pide un análisis en ese momento.
+
+En **Ajustes**, cualquier miembro puede editar el tema, las partes, la parte de cada persona, la fecha, el idioma del análisis y el código de la sala. El token sigue generándose solo. Ahí también se puede generar otro o escribir un código propio: el enlace anterior deja de servir. Si la sala no tiene partes o no tiene fecha, aparece una sugerencia. Un clic la acepta. Otro la descarta. Una fecha `sin fecha` no se reemplaza.
 
 Quien no tiene sesión ve un aviso y pasa a Google. Quien tiene sesión pero no es de la sala ve un aviso y pasa a `/join/{id}`. Si el navegador ya guardó el token de esa sala, ese enlace lo usa para entrar.
 
-El idioma está en español y en inglés, con el control de la cabecera. La elección queda en `localStorage` y en la cookie `enlaza_lang`, y el navegador la vuelve a aplicar al abrir la página. Si no hay elección, la app queda en español. El mismo texto cubre el inicio, crear sala, entrar y la sala.
+El idioma está en español y en inglés, con el control de la cabecera. La elección queda en `localStorage` y en la cookie `enlaza_lang`, y el navegador la vuelve a aplicar al abrir la página. Si no hay elección, la app queda en español. El mismo texto cubre el inicio, crear sala, entrar y la sala. El analista escribe en `rooms.language`, no en el idioma de la interfaz.
 
 ## Endpoints
 
@@ -109,7 +111,7 @@ Si el token es válido y el cuerpo cumple esas reglas:
 { "ok": true }
 ```
 
-`proyecto`, `resumen` y `palabra_clave` se aceptan y se revisan, pero esta fase no los guarda. El nombre del chat se guarda en `events.conversation_name`. Si el miembro no tenía parte, ese nombre se usa como parte.
+`proyecto`, `resumen` y `palabra_clave` se aceptan y se revisan, pero esta fase no los guarda. El nombre del chat se guarda en `events.conversation_name`. Si el miembro no tenía parte, ese nombre se usa como parte. Si el chat llega sin nombre, el analista le pone un título corto y lo guarda en esa columna.
 
 Un cuerpo imposible de leer o un campo inválido responde 400 con `{ "error": "..." }`.
 
@@ -124,11 +126,13 @@ Devuelve el contexto de esa persona. Las claves son las de CONTRATO.md:
 
 `tipo` de un aviso es `falta`, `contradiccion` o `duplicado`.
 
-La lógica es fija, sin el analista:
+Si hay un análisis de la IA guardado para esa persona, la respuesta usa ese resumen, esa parte, ese prompt y esos avisos. La forma no cambia. Si no hay análisis, si la clave falta, si el modelo no responde a tiempo o si el JSON no sirve, se usan las reglas:
 
 - Falta la fecha, o alguien de la sala todavía no envió eventos.
 - Dos textos dan cifras distintas para la misma palabra, por ejemplo `10.000 caracteres` y `100.000 caracteres`.
 - Dos miembros mandaron prompts muy parecidos.
+
+El analista corre al llegar un evento, como máximo una vez cada 30 segundos por sala, al abrir la sala si ya toca, o con «Analizar ahora». El texto que se manda se corta para el nivel gratuito: a lo sumo 40 eventos y unos 24.000 caracteres. Los textos del modelo salen en `rooms.language` (`es` por defecto). El botón ES/EN solo cambia la interfaz.
 
 Con los tres eventos de ejemplo y la sala demo, Ana recibe esto:
 
@@ -222,13 +226,14 @@ En local van en `web/.env.local`. En Vercel se cargan en Environment Variables d
 - `SUPABASE_URL`: URL del proyecto de Supabase.
 - `SUPABASE_ANON_KEY`: clave anónima. Puede usarse en el navegador. Con este esquema no abre las tablas.
 - `SUPABASE_SERVICE_ROLE_KEY`: clave de servicio. Solo en el servidor (`lib/supabase/server.ts`). Las rutas de la sala la usan para leer y escribir.
-- `AI_PROVIDER`: `gemini` o `xai`. Si se omite, queda `gemini`.
+- `AI_PROVIDER`: `gemini` o `xai`. `grok` es lo mismo que `xai`. Si se omite, queda `gemini`.
 - `GEMINI_API_KEY`: clave de Gemini. Hace falta cuando el proveedor es `gemini`.
+- `GEMINI_MODEL`: opcional. Si se omite, el modelo es `gemini-3.5-flash`. `gemini-3.8-flash` responde 503 cuando hay mucha demanda y `gemini-2.5-flash` ya no está.
 - `XAI_API_KEY`: clave de Grok. Hace falta cuando el proveedor es `xai`.
 
 La clave gratuita de Gemini se crea en [Google AI Studio](https://aistudio.google.com/apikey).
 
-`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.8-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. Estas rutas todavía no llaman al analista.
+`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.5-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. El análisis pide JSON, espera como máximo 25 segundos y, si algo falla, deja el contexto de las reglas.
 
 `lib/supabase/client.ts` crea el cliente con la clave anónima. `lib/supabase/server.ts` crea el cliente con la clave de servicio. La sesión de Google usa otro cliente, el de `@supabase/ssr`, con la misma clave anónima y cookies. La clave de servicio no entra en esa sesión.
 
