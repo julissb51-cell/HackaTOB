@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Enlaza</title>
+    <link rel="stylesheet" href="../ui/base.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="top">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <p class="brand">Enlaza</p>
+        <p class="tag">Tu sala, dentro del chat</p>
+      </div>
+    </header>
+
+    <section id="view-form" class="panel">
+      <label>
+        Enlace de invitación
+        <textarea id="invite" rows="3" spellcheck="false" placeholder="https://enlaza-green.vercel.app/join/sala?t=…"></textarea>
+      </label>
+      <label>
+        Tu nombre
+        <input id="member" type="text" maxlength="120" autocomplete="name" placeholder="Ana" />
+      </label>
+      <p class="hint">Pega el enlace una vez. De ahí Enlaza lee la sala y el token.</p>
+      <p id="form-error" class="banner" hidden></p>
+      <div class="row">
+        <button id="connect" class="primary" type="button">Conectar</button>
+      </div>
+    </section>
+
+    <section id="view-consent" class="panel" hidden>
+      <div class="card">
+        <h2>Antes de conectar</h2>
+        <p id="consent-copy">
+          Enlaza va a leer los prompts que envías y las respuestas que terminan en ChatGPT y en Gemini, y los comparte con esta sala. No lee otras páginas. No se envía nada hasta que aceptes. Puedes desconectarte cuando quieras.
+        </p>
+        <p id="consent-summary" class="meta"></p>
+      </div>
+      <div class="row">
+        <button id="accept" class="primary" type="button">Aceptar y conectar</button>
+        <button id="cancel" class="secondary" type="button">Cancelar</button>
+      </div>
+    </section>
+
+    <section id="view-connected" class="panel" hidden>
+      <p class="status">Conectado</p>
+      <p id="who" class="who"></p>
+      <p id="send-status" class="status" aria-live="polite"></p>
+      <div class="row">
+        <button id="open-context" class="primary" type="button">Ver contexto</button>
+        <button id="retry" class="secondary" type="button" hidden>Reintentar envíos</button>
+        <button id="disconnect" class="ghost" type="button">Desconectar</button>
+      </div>
+      <p class="hint">Desconectar para y deja el enlace listo si quieres cambiar de sala o de nombre.</p>
+    </section>
+
+    <script src="../lib/core.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

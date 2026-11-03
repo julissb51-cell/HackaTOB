@@ -1,0 +1,9 @@
+body { min-height: 100vh; }
+
+.panel { padding-bottom: 28px; }
+
+.small {
+  font-size: 12px;
+}
+
+.prompt-actions { margin-top: 4px; }

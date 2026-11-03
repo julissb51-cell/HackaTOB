@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "Enlaza",
+  "version": "1.0.0",
+  "description": "Comparte prompts y respuestas de ChatGPT y Gemini con tu sala de Enlaza.",
+  "permissions": ["storage", "sidePanel", "alarms", "tabs"],
+  "host_permissions": [
+    "https://enlaza-green.vercel.app/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_title": "Enlaza",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": [
+        "lib/core.js",
+        "content/shared/dom.js",
+        "content/shared/capture.js",
+        "content/chatgpt/selectors.js",
+        "content/chatgpt/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": [
+        "lib/core.js",
+        "content/shared/dom.js",
+        "content/shared/capture.js",
+        "content/gemini/selectors.js",
+        "content/gemini/content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
