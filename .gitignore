@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Chrome extension builds
+*.crx
+*.pem
+extension/dist/
+extension/build/
+extension/*.zip
+web-ext-artifacts/
