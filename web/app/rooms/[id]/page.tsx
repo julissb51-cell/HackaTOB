@@ -1,3 +1,4 @@
+import { AccountSlot } from "@/components/app-header";
 import { Suspense } from "react";
 import { after, connection } from "next/server";
 import { RedirectNotice } from "@/components/redirect-notice";
@@ -86,8 +87,9 @@ async function RoomContent({ params }: PageProps) {
   after(() => trackAnalysis(id, { markPending: false }));
 
   return (
-    <Shell signedIn wide>
+    <Shell signedIn bare>
       <RoomScreen
+        account={<AccountSlot signedIn />}
         key={view.room.id}
         room={{
           id: view.room.id,

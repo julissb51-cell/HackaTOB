@@ -2,28 +2,34 @@
 
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
+import { Brand } from "./brand";
 import { EditableTitle } from "./editable-title";
 import { useCopy } from "./language";
 
-/** Barra superior fija de la sala: volver, título editable, analizar y Ajustes. */
+/** Barra superior de la sala (no fija, a todo el ancho, con el logo): volver, título editable, analizar y Ajustes. */
 export function RoomTopBar({
   roomId,
   topic,
   due,
   analyze,
   onSettings,
+  account,
 }: {
   roomId: string;
   topic: string;
   due: string;
   analyze: ReactNode;
   onSettings: () => void;
+  account?: ReactNode;
 }) {
   const text = useCopy();
   return (
-    <div className="sticky top-0 z-30 order-0 -mx-4 -mt-6 lg:col-span-2 sm:-mx-6">
-      <div className="relative bg-structural/85 px-4 py-3 backdrop-blur-md supports-[backdrop-filter]:bg-structural/75 sm:rounded-b-2xl sm:px-6">
+    <header className="relative z-30 w-full bg-gradient-to-b from-structural via-structural/50 to-background pb-8">
+      <div className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 sm:pt-5">
         <div className="flex items-center gap-2 sm:gap-3">
+          <div className="mr-1 hidden shrink-0 sm:mr-3 sm:block">
+            <Brand />
+          </div>
           <Link
             href="/rooms"
             aria-label={text.backToRooms}
@@ -47,16 +53,17 @@ export function RoomTopBar({
             className="grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-background/70 hover:text-foreground focus-visible:outline-2 focus-visible:outline-link"
           >
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+              <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
+              <circle cx="16" cy="6" r="2" />
+              <circle cx="10" cy="12" r="2" />
+              <circle cx="18" cy="18" r="2" />
             </svg>
           </button>
+          <div className="ml-1 shrink-0 sm:ml-2">{account}</div>
         </div>
         <div className="mt-2 sm:hidden">{analyze}</div>
-        {/* Borde suave: degradado del tono de la barra hacia el fondo, sin línea dura. */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-full h-6 bg-gradient-to-b from-structural/70 to-transparent" />
       </div>
-    </div>
+    </header>
   );
 }
 

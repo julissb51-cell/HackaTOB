@@ -1,25 +1,22 @@
-"use client";
+import type { ReactNode } from "react";
+import { currentProfile } from "@/lib/current-profile";
+import { AccountMenu } from "./account-menu";
+import { Brand } from "./brand";
 
-import Link from "next/link";
-import { LanguageToggle, useCopy } from "./language";
 
-export function AppHeader({ signedIn }: { signedIn: boolean }) {
-  const text = useCopy();
+/** Menú de cuenta (avatar) o, sin sesión, solo el selector de idioma. */
+export async function AccountSlot({ signedIn }: { signedIn: boolean }) {
+  const profile = signedIn ? await currentProfile() : null;
+  return <AccountMenu profile={profile} />;
+}
 
+export function AppHeader({ signedIn, children }: { signedIn: boolean; children?: ReactNode }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <Link href="/" className="font-display text-2xl font-medium tracking-tight">
-        Enlaza
-      </Link>
+      <Brand />
       <div className="flex items-center gap-3">
-        {signedIn ? (
-          <form action="/auth/logout" method="post">
-            <button type="submit" className="cursor-pointer text-sm font-semibold text-muted hover:text-foreground">
-              {text.signOut}
-            </button>
-          </form>
-        ) : null}
-        <LanguageToggle />
+        {children}
+        <AccountSlot signedIn={signedIn} />
       </div>
     </header>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { analyzeNowAction, readRoomBoardAction, type SettingsState } from "@/lib/room-actions";
 import { previewMemberContext } from "@/lib/room-analysis";
@@ -42,7 +42,15 @@ export type RoomView = {
   events: StoredEvent[];
 };
 
-export function RoomScreen({ room, board: initialBoard }: { room: RoomView; board: RoomBoard }) {
+export function RoomScreen({
+  room,
+  board: initialBoard,
+  account,
+}: {
+  room: RoomView;
+  board: RoomBoard;
+  account?: ReactNode;
+}) {
   const text = useCopy();
   const feed = useRoomFeed(room.id, room.events, room.members);
   const analysis = useRoomAnalysis(room.id, initialBoard, feed.status === "polling" || feed.status === "offline");
@@ -70,15 +78,17 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
   const context = memberContext(analysis.board, room.viewerName, rules);
 
   return (
-    <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <RememberToken roomId={room.id} token={room.token} />
+    <>
       <RoomTopBar
         roomId={room.id}
         topic={room.topic}
         due={due}
         analyze={<AnalyzeButton roomId={room.id} onDone={analysis.refresh} />}
         onSettings={() => setSettingsOpen(true)}
+        account={account}
       />
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 pb-10 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <RememberToken roomId={room.id} token={room.token} />
       <header className="order-1 min-w-0 space-y-6 lg:order-none lg:col-span-2">
         {analysis.board.pending && feed.events.length > 0 ? (
           <p role="status" className="text-sm text-muted">
@@ -280,7 +290,8 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
       </details>
 
       </SettingsDrawer>
-    </div>
+      </div>
+    </>
   );
 }
 
