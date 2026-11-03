@@ -2,6 +2,8 @@
 -- Pegar en el SQL Editor de Supabase y ejecutar.
 -- La columna events.ai es la IA de la persona (chatgpt, gemini, cursor,
 -- claude, copilot). El analista de la sala no se guarda aquí.
+-- events.event_id es el id del contrato, por ejemplo evt_demo_001.
+-- Si el envío falla, se reintenta con ese mismo id.
 
 create table public.rooms (
   id text primary key,
@@ -26,7 +28,7 @@ create table public.members (
 );
 
 create table public.events (
-  event_id uuid primary key default gen_random_uuid(),
+  event_id text primary key,
   room_id text not null references public.rooms (id) on delete cascade,
   member text not null,
   ai text not null,
@@ -65,3 +67,18 @@ begin
     alter publication supabase_realtime add table public.events;
   end if;
 end $$;
+
+-- La clave anónima llega al navegador. Sin estas revocaciones, cualquiera
+-- podría leer rooms.token por la Data API. La API de Enlaza usa la clave
+-- de servicio, que no pasa por estas políticas, y revisa x-room-token.
+alter table public.rooms enable row level security;
+alter table public.members enable row level security;
+alter table public.events enable row level security;
+
+revoke all on table public.rooms from anon, authenticated;
+revoke all on table public.members from anon, authenticated;
+revoke all on table public.events from anon, authenticated;
+
+grant select, insert, update, delete on table public.rooms to service_role;
+grant select, insert, update, delete on table public.members to service_role;
+grant select, insert, update, delete on table public.events to service_role;
