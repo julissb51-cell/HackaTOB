@@ -1,51 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { isEmail } from "@/lib/invite-email";
-import { useCopy } from "./language";
+import { useState, useSyncExternalStore } from "react";
+import { gmailHref, inviteEmailText, isEmail, mailtoHref } from "@/lib/invite-email";
+import { useCopy, useLanguage } from "./language";
 import { fieldClass, secondaryButton } from "./styles";
 
-type Status = { kind: "idle" | "sending" } | { kind: "sent"; email: string } | { kind: "error"; code: string };
-
-/** "Invitar por correo": manda el enlace de invitación (si el correo del proyecto está configurado). */
-export function InviteByEmail({ roomId }: { roomId: string }) {
+/** "Invitar por correo": abre el cliente de correo (mailto:) o Gmail con la invitación ya escrita. */
+export function InviteByEmail({ topic, path }: { topic: string; path: string }) {
   const text = useCopy();
+  const { lang } = useLanguage();
+  const origin = useSyncExternalStore(noop, () => window.location.origin, () => "");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [error, setError] = useState(false);
 
-  async function send(event: React.FormEvent) {
+  const value = email.trim();
+  const valid = isEmail(value);
+  const message = inviteEmailText(lang === "en" ? "en" : "es", topic, `${origin}${path}`);
+  const gmail = valid ? gmailHref(value, message.subject, message.body) : undefined;
+
+  function send(event: React.FormEvent) {
     event.preventDefault();
-    const value = email.trim();
-    if (!isEmail(value)) return setStatus({ kind: "error", code: "invalid" });
-    setStatus({ kind: "sending" });
-    try {
-      const response = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/invite`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: value }),
-      });
-      const body = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      if (response.ok && body.ok) {
-        setStatus({ kind: "sent", email: value });
-        setEmail("");
-      } else setStatus({ kind: "error", code: body.error ?? "failed" });
-    } catch {
-      setStatus({ kind: "error", code: "failed" });
-    }
+    if (!valid) return setError(true);
+    setError(false);
+    window.location.href = mailtoHref(value, message.subject, message.body);
   }
-
-  const message =
-    status.kind === "sent"
-      ? text.inviteEmailSent(status.email)
-      : status.kind === "error"
-        ? status.code === "invalid"
-          ? text.inviteEmailInvalid
-          : status.code === "not_configured"
-            ? text.inviteEmailNotConfigured
-            : status.code === "rate_limited"
-              ? text.inviteEmailLimited
-              : text.inviteEmailFailed
-        : null;
 
   return (
     <form onSubmit={send} className="space-y-2" noValidate>
@@ -60,18 +38,46 @@ export function InviteByEmail({ roomId }: { roomId: string }) {
           inputMode="email"
           value={email}
           placeholder={text.inviteEmailPlaceholder}
-          onChange={(event) => setEmail(event.target.value)}
+          aria-invalid={error}
+          aria-describedby={error ? "invite-email-error" : undefined}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setError(false);
+          }}
           className={`${fieldClass} min-w-0 flex-1`}
         />
-        <button type="submit" className={secondaryButton} disabled={status.kind === "sending"}>
-          {status.kind === "sending" ? text.inviteEmailSending : text.inviteEmailSend}
+        <button type="submit" className={secondaryButton}>
+          {text.inviteEmailSend}
         </button>
       </div>
-      {message ? (
-        <p role="status" className={`text-sm ${status.kind === "sent" ? "text-link" : "text-muted"}`}>
-          {message}
-        </p>
-      ) : null}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+        {error ? (
+          <p id="invite-email-error" role="alert" className="text-muted">
+            {text.inviteEmailInvalid}
+          </p>
+        ) : (
+          <p className="text-muted">{text.inviteEmailHint}</p>
+        )}
+        <a
+          href={gmail}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-disabled={!valid}
+          onClick={(event) => {
+            if (!valid) {
+              event.preventDefault();
+              setError(true);
+            }
+          }}
+          className={`font-semibold text-link underline-offset-4 hover:underline ${valid ? "" : "opacity-60"}`}
+        >
+          {text.inviteEmailGmail} ↗
+        </a>
+      </div>
     </form>
   );
+}
+
+function noop() {
+  return () => {};
 }

@@ -88,7 +88,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <div className="min-w-0 space-y-5">
             <InviteLink path={room.path} />
-            <InviteByEmail roomId={room.id} />
+            <InviteByEmail topic={room.topic} path={room.path} />
           </div>
           <section className="min-w-0 space-y-3">
             <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.members}</h2>
