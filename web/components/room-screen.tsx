@@ -67,13 +67,13 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
   const context = memberContext(analysis.board, room.viewerName, rules);
 
   return (
-    <div className="space-y-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-8 lg:space-y-0">
+    <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
       <RememberToken roomId={room.id} token={room.token} />
-      <header className="min-w-0 space-y-6 lg:col-span-2">
+      <header className="order-1 min-w-0 space-y-6 lg:order-none lg:col-span-2">
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">{due}</p>
-            <h1 className="mt-3 font-display text-4xl font-medium tracking-tight break-words sm:text-5xl">{room.topic}</h1>
+            <h1 className="mt-3 font-display text-3xl font-medium tracking-tight break-words sm:text-5xl">{room.topic}</h1>
           </div>
           <AnalyzeButton roomId={room.id} onDone={analysis.refresh} />
         </div>
@@ -103,7 +103,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         </div>
       </header>
 
-      <section className="min-w-0 space-y-3 lg:col-start-2 lg:row-start-2">
+      <section className="order-3 min-w-0 space-y-3 lg:order-none lg:col-start-2 lg:row-start-2">
         <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.parts}</h2>
         {parts.length === 0 ? (
           <p className="text-sm text-muted">{text.partsEmpty}</p>
@@ -125,7 +125,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         )}
       </section>
 
-      <section className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2 lg:row-span-2" aria-live="polite">
+      <section className="order-4 min-w-0 space-y-4 lg:order-none lg:col-start-1 lg:row-start-2 lg:row-span-2" aria-live="polite">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.feed}</h2>
           <LiveStatusLabel status={feed.status} />
@@ -159,8 +159,8 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         )}
       </section>
 
-      <section className="min-w-0 space-y-4 rounded-2xl border border-line bg-surface/70 p-4 lg:col-start-2 lg:row-start-3">
-        <div className="flex items-start justify-between gap-3">
+      <section className="order-2 min-w-0 space-y-4 rounded-2xl border border-line bg-surface/70 p-4 lg:order-none lg:col-start-2 lg:row-start-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.contextTitle}</h2>
             <p className="mt-2 text-sm text-muted">
@@ -171,7 +171,13 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
             {analysis.board.fuente === "ia" ? text.fromAi : text.fromRules}
           </span>
         </div>
-        <p className="text-sm leading-6 text-muted">{text.phase5Note}</p>
+        {feed.events.length === 0 ? (
+          <p className="text-sm leading-6 text-muted">{text.noEventsYet}</p>
+        ) : analysis.board.fuente !== "ia" ? (
+          <p role="status" className="rounded-xl border border-warm/40 px-3 py-2 text-sm leading-6 text-warm">
+            {text.aiBusy}
+          </p>
+        ) : null}
         <div className="space-y-1">
           <h3 className="text-sm font-semibold">{text.summary}</h3>
           <p className="text-sm leading-6">{context.resumen}</p>
@@ -243,13 +249,18 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
             </ul>
           </div>
         ) : null}
+        <CopyButton
+          value={summaryMarkdown(room, analysis.board, context, text)}
+          label={text.exportSummary}
+          doneLabel={text.exportCopied}
+        />
       </section>
 
-      <div className="lg:col-span-2">
+      <div className="order-5 lg:order-none lg:col-span-2">
         <RoomSettings initial={initialBoard} live={analysis.board} onSaved={analysis.refresh} />
       </div>
 
-      <details className="rounded-2xl border border-line px-4 py-3 lg:col-span-2">
+      <details className="order-6 rounded-2xl border border-line px-4 py-3 lg:order-none lg:col-span-2">
         <summary className="cursor-pointer text-sm font-semibold">{text.extensionDetails}</summary>
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-6 text-muted">{text.extensionHelp}</p>
@@ -259,7 +270,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         </div>
       </details>
 
-      <div className="lg:col-span-2">
+      <div className="order-7 lg:order-none lg:col-span-2">
         <Link href="/" className={secondaryButton}>
           {text.back}
         </Link>
@@ -358,6 +369,41 @@ function memberContext(board: RoomBoard, viewerName: string, rules: ContextRespo
   };
 }
 
+type Copy = ReturnType<typeof useCopy>;
+
+function summaryMarkdown(room: RoomView, board: RoomBoard, context: ContextResponse, text: Copy): string {
+  const lines = [`# ${room.topic}`, ""];
+  if (room.dueDate && room.dueDate !== NO_DATE) lines.push(`**${text.exportDue}:** ${room.dueDate}`, "");
+  lines.push(`## ${text.exportHeading}`, "", board.resumen || context.resumen, "");
+  if (board.consejo) lines.push(`## ${text.teamAdvice}`, "", board.consejo, "");
+  const members = board.members.length > 0 ? board.members : room.members;
+  if (members.length > 0) {
+    lines.push(`## ${text.exportMembers}`, "");
+    for (const member of members) lines.push(`- **${member.name}**: ${member.part ?? text.memberPart}`);
+    lines.push("");
+  }
+  const warnings = board.fuente === "ia" ? board.alertas : context.advertencias;
+  if (warnings.length > 0) {
+    lines.push(`## ${text.exportWarnings}`, "");
+    for (const warning of warnings) {
+      const label =
+        warning.tipo === "contradiccion"
+          ? text.warningContradiccion
+          : warning.tipo === "duplicado"
+            ? text.warningDuplicado
+            : text.warningFalta;
+      lines.push(`- **${label}** (${warning.destinatario}): ${warning.mensaje}`);
+    }
+    lines.push("");
+  }
+  if (board.miembros.length > 0) {
+    lines.push(`## ${text.exportPrompts}`, "");
+    for (const member of board.miembros) lines.push(`- **${member.nombre}**: ${member.prompt_sugerido}`);
+    lines.push("");
+  }
+  return lines.join("\n").trim() + "\n";
+}
+
 function boardRevision(board: RoomBoard): string {
   return [
     board.id,
@@ -378,14 +424,19 @@ function AnalyzeButton({ roomId, onDone }: { roomId: string; onDone: () => void 
   }, [state, onDone]);
 
   return (
-    <form action={action} className="space-y-2">
+    <form action={action} className="w-full space-y-2 sm:w-auto">
       <input type="hidden" name="room_id" value={roomId} />
-      <button type="submit" className={primaryButton} disabled={pending}>
+      <button type="submit" className={`${primaryButton} w-full sm:w-auto`} disabled={pending} aria-busy={pending}>
         {pending ? text.analyzing : text.analyze}
       </button>
-      {state.status === "error" ? (
-        <p role="alert" className="text-sm text-danger">
-          {text.settingsError}
+      {pending ? (
+        <p role="status" className="max-w-xs text-sm text-muted">
+          {text.analyzingNote}
+        </p>
+      ) : null}
+      {state.status === "error" && !pending ? (
+        <p role="alert" className="max-w-xs text-sm text-danger">
+          {text.analyzeError}
         </p>
       ) : null}
     </form>

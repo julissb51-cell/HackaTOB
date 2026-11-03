@@ -16,7 +16,17 @@ export function InviteLink({ path }: { path: string }) {
         {text.invite}
       </label>
       <input id="invite-link" readOnly value={href} className={`${fieldClass} font-mono text-sm`} />
-      <CopyButton value={href} />
+      <div className="flex flex-wrap gap-2">
+        <CopyButton value={href} label={text.copyInvite} />
+        <a
+          className={secondaryButton}
+          href={`https://wa.me/?text=${encodeURIComponent(href)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {text.shareWhatsapp}
+        </a>
+      </div>
     </div>
   );
 }
@@ -56,14 +66,14 @@ function readServerOrigin() {
   return "";
 }
 
-export function CopyButton({ value }: { value: string }) {
+export function CopyButton({ value, label, doneLabel }: { value: string; label?: string; doneLabel?: string }) {
   const text = useCopy();
   const [copied, setCopied] = useState(false);
 
   return (
     <button
       type="button"
-      className={secondaryButton}
+      className={`${secondaryButton} w-full sm:w-auto`}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
@@ -74,7 +84,7 @@ export function CopyButton({ value }: { value: string }) {
         }
       }}
     >
-      {copied ? text.copied : text.copy}
+      {copied ? doneLabel ?? text.copied : label ?? text.copy}
     </button>
   );
 }
