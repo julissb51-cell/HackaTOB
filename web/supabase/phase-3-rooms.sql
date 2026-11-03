@@ -6,6 +6,32 @@
 -- rooms.parts es la lista de tareas. rooms.created_by y members.user_id
 -- apuntan a la cuenta de Google. El token sigue fuera de la Data API.
 
+-- Postgres no acepta una subconsulta dentro de CHECK. La lista de partes
+-- se valida en esta función y la restricción solo la llama.
+-- El privilegio por defecto es de public; sin quitarlo, anon y authenticated
+-- seguirían pudiendo ejecutarla. La API inserta con la clave de servicio.
+create or replace function public.enlaza_parts_valid(parts jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when jsonb_typeof(parts) is distinct from 'array' then false
+    when jsonb_array_length(parts) > 30 then false
+    else not exists (
+      select 1
+      from jsonb_array_elements(parts) as elem
+      where jsonb_typeof(elem) <> 'string'
+        or char_length(elem #>> '{}') < 1
+        or char_length(elem #>> '{}') > 120
+    )
+  end;
+$$;
+
+revoke execute on function public.enlaza_parts_valid(jsonb) from public, anon, authenticated;
+grant execute on function public.enlaza_parts_valid(jsonb) to service_role;
+
 alter table public.rooms add column if not exists created_by uuid;
 alter table public.rooms add column if not exists parts jsonb;
 
@@ -37,17 +63,7 @@ begin
     select 1 from pg_constraint where conname = 'rooms_parts_check'
   ) then
     alter table public.rooms
-      add constraint rooms_parts_check check (
-        jsonb_typeof(parts) = 'array'
-        and jsonb_array_length(parts) <= 30
-        and not exists (
-          select 1
-          from jsonb_array_elements(parts) as elem
-          where jsonb_typeof(elem) <> 'string'
-            or char_length(elem #>> '{}') < 1
-            or char_length(elem #>> '{}') > 120
-        )
-      );
+      add constraint rooms_parts_check check (public.enlaza_parts_valid(parts));
   end if;
 end $$;
 

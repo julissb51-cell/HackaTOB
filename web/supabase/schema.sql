@@ -5,6 +5,32 @@
 -- events.event_id es el id del contrato, por ejemplo evt_demo_001.
 -- Si el envío falla, se reintenta con ese mismo id.
 
+-- Postgres no acepta una subconsulta dentro de CHECK. La lista de partes
+-- se valida en esta función y la restricción solo la llama.
+-- El privilegio por defecto es de public; sin quitarlo, anon y authenticated
+-- seguirían pudiendo ejecutarla. La API inserta con la clave de servicio.
+create or replace function public.enlaza_parts_valid(parts jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when jsonb_typeof(parts) is distinct from 'array' then false
+    when jsonb_array_length(parts) > 30 then false
+    else not exists (
+      select 1
+      from jsonb_array_elements(parts) as elem
+      where jsonb_typeof(elem) <> 'string'
+        or char_length(elem #>> '{}') < 1
+        or char_length(elem #>> '{}') > 120
+    )
+  end;
+$$;
+
+revoke execute on function public.enlaza_parts_valid(jsonb) from public, anon, authenticated;
+grant execute on function public.enlaza_parts_valid(jsonb) to service_role;
+
 create table public.rooms (
   id text primary key,
   topic text not null,
@@ -19,17 +45,7 @@ create table public.rooms (
     or due_date = 'sin fecha'
     or due_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
   ),
-  constraint rooms_parts_check check (
-    jsonb_typeof(parts) = 'array'
-    and jsonb_array_length(parts) <= 30
-    and not exists (
-      select 1
-      from jsonb_array_elements(parts) as elem
-      where jsonb_typeof(elem) <> 'string'
-        or char_length(elem #>> '{}') < 1
-        or char_length(elem #>> '{}') > 120
-    )
-  )
+  constraint rooms_parts_check check (public.enlaza_parts_valid(parts))
 );
 
 create table public.members (
