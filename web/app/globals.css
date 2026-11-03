@@ -3,15 +3,15 @@
 /* Paleta oficial "jade": claro por defecto, oscuro según el sistema. El jade es el único color fuerte. */
 :root {
   color-scheme: light;
-  --background: #faf9f7;
+  --background: #f8f9fa;
   --surface: #ffffff;
-  --structural: #f0eeea;
-  --line: #e7e4de;
-  --foreground: #1f1e1d;
-  --muted: #6b6862;
+  --structural: #f1f3f4;
+  --line: #e3e5e8;
+  --foreground: #1f1f1f;
+  --muted: #5f6368;
   --accent: #00d68f;
   --accent-hover: #33e0a6;
-  --accent-ink: #1f1e1d;
+  --accent-ink: #1f1f1f;
   --link: #007a52;
   --contra-bg: #f6edec;
   --contra-ink: #8a4b45;
@@ -27,21 +27,21 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --background: #1c1c1b;
-    --surface: #262624;
-    --structural: #2f2e2c;
-    --line: #3a3936;
-    --foreground: #eceae6;
-    --muted: #a8a49c;
+    --background: #0f0f0f;
+    --surface: #1f1f1f;
+    --structural: #2a2a2a;
+    --line: #333333;
+    --foreground: #e8e8e8;
+    --muted: #a0a0a0;
     --accent: #00e0a0;
     --accent-hover: #4debb8;
-    --accent-ink: #1f1e1d;
+    --accent-ink: #0f0f0f;
     --link: #2ee6aa;
-    --contra-bg: #33292a;
+    --contra-bg: #2e2424;
     --contra-ink: #d9a9a3;
-    --dup-bg: #322e25;
+    --dup-bg: #2c2a22;
     --dup-ink: #d2bf95;
-    --falta-bg: #2a2e33;
+    --falta-bg: #22272c;
     --falta-ink: #a9b7c4;
     --danger: #d9a9a3;
     --info: #a9b7c4;
@@ -83,4 +83,18 @@ body {
 :focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 2px;
+}
+
+@keyframes enlaza-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes enlaza-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-pop { animation: enlaza-pop 140ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-fade { animation: enlaza-fade 160ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop, .animate-fade { animation: none; }
 }

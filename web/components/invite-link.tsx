@@ -18,14 +18,6 @@ export function InviteLink({ path }: { path: string }) {
       <input id="invite-link" readOnly value={href} className={`${fieldClass} font-mono text-sm`} />
       <div className="flex flex-wrap gap-2">
         <CopyButton value={href} label={text.copyInvite} />
-        <a
-          className={secondaryButton}
-          href={`https://wa.me/?text=${encodeURIComponent(href)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {text.shareWhatsapp}
-        </a>
       </div>
     </div>
   );

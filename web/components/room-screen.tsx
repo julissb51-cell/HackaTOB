@@ -22,7 +22,8 @@ import { browserSupabase } from "@/lib/supabase/browser";
 import { CopyButton, CopyValue, InviteLink, RememberToken } from "./invite-link";
 import { useCopy } from "./language";
 import { RoomSettings } from "./room-settings";
-import { EditableTitle } from "./editable-title";
+import { RoomTopBar, SettingsDrawer } from "./room-top-bar";
+import { InviteByEmail } from "./invite-email";
 import { fieldClass, primaryButton, secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
 
@@ -46,6 +47,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
   const feed = useRoomFeed(room.id, room.events, room.members);
   const analysis = useRoomAnalysis(room.id, initialBoard, feed.status === "polling" || feed.status === "offline");
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const due = !room.dueDate ? text.dueUnset : room.dueDate === NO_DATE ? text.noDate : room.dueDate;
   const names = feedMembers(feed.members, feed.events);
   const activeFilter = memberFilter && names.includes(memberFilter) ? memberFilter : null;
@@ -70,21 +72,24 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
   return (
     <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem]">
       <RememberToken roomId={room.id} token={room.token} />
+      <RoomTopBar
+        roomId={room.id}
+        topic={room.topic}
+        due={due}
+        analyze={<AnalyzeButton roomId={room.id} onDone={analysis.refresh} />}
+        onSettings={() => setSettingsOpen(true)}
+      />
       <header className="order-1 min-w-0 space-y-6 lg:order-none lg:col-span-2">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-[0.16em] text-link uppercase">{due}</p>
-            <EditableTitle roomId={room.id} topic={room.topic} />
-          </div>
-          <AnalyzeButton roomId={room.id} onDone={analysis.refresh} />
-        </div>
         {analysis.board.pending && feed.events.length > 0 ? (
           <p role="status" className="text-sm text-muted">
             {text.pendingNote}
           </p>
         ) : null}
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
-          <InviteLink path={room.path} />
+          <div className="min-w-0 space-y-5">
+            <InviteLink path={room.path} />
+            <InviteByEmail roomId={room.id} />
+          </div>
           <section className="min-w-0 space-y-3">
             <h2 className="text-sm font-semibold tracking-[0.14em] text-muted uppercase">{text.members}</h2>
             <ul className="divide-y divide-line rounded-2xl border border-line">
@@ -257,11 +262,14 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         />
       </section>
 
-      <div className="order-5 lg:order-none lg:col-span-2">
-        <RoomSettings initial={initialBoard} live={analysis.board} onSaved={analysis.refresh} />
+      <div className="order-7 lg:order-none lg:col-span-2">
+        <Link href="/" className={secondaryButton}>
+          {text.back}
+        </Link>
       </div>
-
-      <details className="order-6 rounded-2xl border border-line px-4 py-3 lg:order-none lg:col-span-2">
+      <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <RoomSettings initial={initialBoard} live={analysis.board} onSaved={analysis.refresh} />
+      <details className="rounded-2xl border border-line px-4 py-3">
         <summary className="cursor-pointer text-sm font-semibold">{text.extensionDetails}</summary>
         <div className="mt-4 space-y-4">
           <p className="text-sm leading-6 text-muted">{text.extensionHelp}</p>
@@ -271,11 +279,7 @@ export function RoomScreen({ room, board: initialBoard }: { room: RoomView; boar
         </div>
       </details>
 
-      <div className="order-7 lg:order-none lg:col-span-2">
-        <Link href="/" className={secondaryButton}>
-          {text.back}
-        </Link>
-      </div>
+      </SettingsDrawer>
     </div>
   );
 }

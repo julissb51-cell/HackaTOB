@@ -22,13 +22,14 @@ async function RoomsContent({ searchParams }: PageProps) {
   if (!account) redirect("/auth/login?next=/rooms");
   let rooms: DashboardRoom[] = [];
   try {
-    rooms = (await listUserRooms(account.id)).map(({ id, topic, token, createdAt, members, events }) => ({
+    rooms = (await listUserRooms(account.id)).map(({ id, topic, token, createdAt, members, events, owner }) => ({
       id,
       topic,
       token,
       createdAt,
       members,
       events,
+      owner,
     }));
   } catch {
     rooms = [];

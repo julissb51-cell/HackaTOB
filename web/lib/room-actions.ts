@@ -28,6 +28,8 @@ import type { StoredEvent } from "./room-types";
 import { rememberRoomToken } from "./room-token-cookie";
 import { createRoomToken } from "./room-token";
 import { scheduleRoomAnalysis } from "./run-analysis";
+import { isProtectedRoom } from "./room-protection";
+import { createSupabaseServiceClient } from "./supabase/server";
 
 export type SettingsState =
   | { status: "idle" }
@@ -270,4 +272,40 @@ async function memberRoom(formData: FormData): Promise<
 
 function strings(formData: FormData, key: string): string[] {
   return formData.getAll(key).filter((value): value is string => typeof value === "string");
+}
+
+/** Borra la sala (y por cascada sus eventos, análisis y miembros). Solo quien la creó; nunca las demo. */
+export async function deleteRoomAction(roomId: string): Promise<{ ok: boolean; code?: "auth" | "forbidden" | "protected" | "save" }> {
+  const account = await currentAccount();
+  if (!account) return { ok: false, code: "auth" };
+  const id = parseRoomId(roomId);
+  if (!id) return { ok: false, code: "forbidden" };
+  if (isProtectedRoom(id)) return { ok: false, code: "protected" };
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { data, error } = await supabase.from("rooms").delete().eq("id", id).eq("created_by", account.id).select("id");
+    if (error) return { ok: false, code: "save" };
+    if (!data || data.length === 0) return { ok: false, code: "forbidden" };
+  } catch {
+    return { ok: false, code: "save" };
+  }
+  revalidatePath("/rooms");
+  return { ok: true };
+}
+
+/** Quita a la persona de una sala ajena (no borra nada más). */
+export async function leaveRoomAction(roomId: string): Promise<{ ok: boolean }> {
+  const account = await currentAccount();
+  if (!account) return { ok: false };
+  const id = parseRoomId(roomId);
+  if (!id) return { ok: false };
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { error } = await supabase.from("members").delete().eq("room_id", id).eq("user_id", account.id);
+    if (error) return { ok: false };
+  } catch {
+    return { ok: false };
+  }
+  revalidatePath("/rooms");
+  return { ok: true };
 }

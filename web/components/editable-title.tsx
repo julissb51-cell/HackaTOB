@@ -7,7 +7,7 @@ import { useCopy } from "./language";
 const UNTITLED = new Set(["Sala sin título", "Untitled room"]);
 
 /** Título de la sala editable en línea: Enter o salir del campo guarda; Esc cancela. */
-export function EditableTitle({ roomId, topic }: { roomId: string; topic: string }) {
+export function EditableTitle({ roomId, topic, compact = false }: { roomId: string; topic: string; compact?: boolean }) {
   const text = useCopy();
   const [saved, setSaved] = useState(topic);
   const [draft, setDraft] = useState(topic);
@@ -35,8 +35,8 @@ export function EditableTitle({ roomId, topic }: { roomId: string; topic: string
   }
 
   return (
-    <div className="mt-3">
-      <h1 className="font-display text-3xl font-medium tracking-tight sm:text-5xl">
+    <div className={compact ? "min-w-0" : "mt-3"}>
+      <h1 className={compact ? "truncate font-display text-xl font-medium tracking-tight sm:text-2xl" : "font-display text-3xl font-medium tracking-tight sm:text-5xl"}>
         <input
           aria-label={text.titleLabel}
           value={draft}
@@ -55,10 +55,10 @@ export function EditableTitle({ roomId, topic }: { roomId: string; topic: string
             }
           }}
           aria-busy={pending}
-          className="w-full rounded-lg border border-transparent bg-transparent px-1 -mx-1 outline-none hover:border-line focus:border-link focus:bg-surface"
+          className="w-full rounded-lg border border-transparent bg-transparent px-1 -mx-1 outline-none hover:border-line focus:border-link focus:bg-surface text-ellipsis"
         />
       </h1>
-      {fresh ? <p className="mt-2 text-sm text-muted">{text.titleHint}</p> : null}
+      {fresh ? <p className={compact ? "mt-0.5 text-xs text-muted" : "mt-2 text-sm text-muted"}>{text.titleHint}</p> : null}
       {error ? (
         <p role="alert" className="mt-2 text-sm text-danger">
           {text.titleSaveError}
