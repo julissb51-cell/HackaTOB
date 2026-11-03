@@ -9,6 +9,8 @@
   --muted: #93a0b5;
   --surface: #161c26;
   --danger: #ffb4ab;
+  --info: #9eb7ff;
+  --warm: #f0c27a;
 }
 
 @theme inline {
@@ -20,6 +22,8 @@
   --color-muted: var(--muted);
   --color-surface: var(--surface);
   --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-warm: var(--warm);
   --font-sans: var(--font-source);
   --font-display: var(--font-fraunces);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;

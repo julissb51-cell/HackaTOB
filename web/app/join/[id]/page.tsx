@@ -5,6 +5,7 @@ import { AutoJoin, JoinMessage } from "@/components/join-panel";
 import { ScreenFallback, Shell } from "@/components/shell";
 import { currentAccount } from "@/lib/current-account";
 import { invitePath, isInviteToken, parseRoomId, readInviteToken } from "@/lib/room-fields";
+import { readRoomToken } from "@/lib/room-token-cookie";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -22,7 +23,7 @@ export default function JoinPage(props: PageProps) {
 async function JoinContent({ params, searchParams }: PageProps) {
   await connection();
   const id = parseRoomId((await params).id);
-  const token = readInviteToken(await searchParams);
+  const token = readInviteToken(await searchParams) || (id ? await readRoomToken(id) : "");
   const account = await currentAccount();
   if (!id || !isInviteToken(token)) {
     return (

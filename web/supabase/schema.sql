@@ -167,3 +167,14 @@ create policy members_select_for_room
   for select
   to authenticated
   using (private.can_read_room(room_id));
+
+-- events no guarda secretos. La política limita cada fila a la sala del
+-- miembro. anon sigue sin permiso. La API escribe con la clave de servicio.
+grant select on table public.events to authenticated;
+
+drop policy if exists events_select_for_room on public.events;
+create policy events_select_for_room
+  on public.events
+  for select
+  to authenticated
+  using (private.can_read_room(room_id));
