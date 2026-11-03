@@ -70,6 +70,16 @@ export async function claimAnalysisRun(roomId: string, force: boolean): Promise<
   return (claimed.data ?? []).length > 0 ? "run" : "skip";
 }
 
+export async function rememberEventCount(roomId: string, eventos: number): Promise<void> {
+  try {
+    const supabase = createSupabaseServiceClient();
+    const { error } = await supabase.from("room_analysis").update({ eventos }).eq("room_id", roomId);
+    if (error && !isMissingTable(error)) console.error("analysis.eventos", error.code);
+  } catch (error) {
+    console.error("analysis.eventos", error instanceof Error ? error.message : error);
+  }
+}
+
 export async function markAnalysisPending(roomId: string): Promise<void> {
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("room_analysis").update({ pending: true }).eq("room_id", roomId);
@@ -98,10 +108,16 @@ export async function saveAnalysis(input: {
     ran_at: new Date().toISOString(),
     pending: false,
   };
-  const { error } = await supabase.from("room_analysis").update(row).eq("room_id", input.roomId);
-  if (error) {
-    console.error("analysis.save", error.code);
-    throw error;
+  const updated = await supabase.from("room_analysis").update(row).eq("room_id", input.roomId).select("room_id");
+  if (updated.error) {
+    console.error("analysis.save", updated.error.code);
+    throw updated.error;
+  }
+  if ((updated.data ?? []).length > 0) return;
+  const inserted = await supabase.from("room_analysis").insert({ room_id: input.roomId, ...row });
+  if (inserted.error && inserted.error.code !== "23505") {
+    console.error("analysis.save", inserted.error.code);
+    throw inserted.error;
   }
 }
 

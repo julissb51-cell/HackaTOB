@@ -8,19 +8,21 @@
 -- los nombres de chat y la sugerencia de partes o fecha.
 -- El id de la sala se puede cambiar: las claves foráneas siguen el cambio.
 
-create or replace function public.enlaza_parts_valid(parts jsonb)
+-- El parámetro sigue llamándose p. CREATE OR REPLACE no puede renombrarlo
+-- (42P13) si la función ya existe en la base.
+create or replace function public.enlaza_parts_valid(p jsonb)
 returns boolean
 language sql
 immutable
 set search_path = ''
 as $$
   select case
-    when parts is null then true
-    when jsonb_typeof(parts) is distinct from 'array' then false
-    when jsonb_array_length(parts) > 30 then false
+    when p is null then true
+    when jsonb_typeof(p) is distinct from 'array' then false
+    when jsonb_array_length(p) > 30 then false
     else not exists (
       select 1
-      from jsonb_array_elements(parts) as elem
+      from jsonb_array_elements(p) as elem
       where jsonb_typeof(elem) <> 'string'
         or char_length(elem #>> '{}') < 1
         or char_length(elem #>> '{}') > 120

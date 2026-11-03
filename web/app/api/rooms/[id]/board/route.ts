@@ -4,7 +4,9 @@ import { currentAccount } from "@/lib/current-account";
 import { readRoomForMember } from "@/lib/room-membership";
 import { supabaseMembershipStore } from "@/lib/room-membership-db";
 import { parseRoomId } from "@/lib/room-fields";
-import { scheduleRoomAnalysis } from "@/lib/run-analysis";
+import { trackAnalysis } from "@/lib/run-analysis";
+
+export const maxDuration = 60;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -20,9 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const board = await loadRoomBoard(account, view.room, view.members);
     if (board.pending) {
-      after(() => {
-        void scheduleRoomAnalysis(id, { markPending: false });
-      });
+      after(() => trackAnalysis(id, { markPending: false }));
     }
     return Response.json(board, { headers: { "cache-control": "private, no-store" } });
   } catch (error) {

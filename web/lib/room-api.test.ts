@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getRoomContext, optionsResponse, postEvent } from "./room-api";
+import { getRoomContext, optionsResponse, postAnalyze, postEvent } from "./room-api";
 import { createMemoryStore } from "./memory-room-store";
 import type { RoomRecord, RoomStore } from "./room-types";
 
@@ -160,6 +160,30 @@ test("GET context responde la forma del contrato para Ana", async () => {
   const body = await response.json();
   assert.deepEqual(body, DEMO_CONTEXT);
   assert.equal(JSON.stringify(body).includes(TOKEN), false);
+});
+
+test("POST analyze exige el token y corre el analista", async () => {
+  const { store } = demoStore();
+  const calls: string[] = [];
+  const bad = await postAnalyze(eventRequest(anaPrompt(), "token-malo"), "demo", store, async (roomId) => {
+    calls.push(roomId);
+    return true;
+  });
+  const missing = await postAnalyze(eventRequest(anaPrompt(), ""), "demo", store, async () => true);
+  const ok = await postAnalyze(eventRequest(anaPrompt()), "demo", store, async (roomId) => {
+    calls.push(roomId);
+    return true;
+  });
+  const failed = await postAnalyze(eventRequest(anaPrompt()), "demo", store, async () => false);
+
+  assert.equal(bad.status, 401);
+  assert.equal(await bad.text(), '{"error":"no autorizado"}');
+  assert.equal(missing.status, 401);
+  assert.equal(ok.status, 200);
+  assert.equal(await ok.text(), '{"ok":true}');
+  assert.deepEqual(calls, ["demo"]);
+  assert.equal(failed.status, 500);
+  assert.equal(await failed.text(), '{"error":"no se pudo analizar"}');
 });
 
 test("GET context con token malo responde 401 y con CORS", async () => {

@@ -46,6 +46,27 @@ export async function postEvent(request: Request, roomId: string, store: RoomSto
   return json(request, { ok: true }, 200);
 }
 
+export async function postAnalyze(
+  request: Request,
+  roomId: string,
+  store: RoomStore,
+  run: (roomId: string) => Promise<boolean>,
+): Promise<Response> {
+  const room = await readRoom(request, roomId, store);
+  if (room instanceof Response) return room;
+  try {
+    const ok = await run(roomId);
+    if (!ok) {
+      console.error("analisis", "no corrió");
+      return json(request, { error: "no se pudo analizar" }, 500);
+    }
+    return json(request, { ok: true }, 200);
+  } catch (error) {
+    console.error("analisis", error instanceof Error ? error.message : error);
+    return json(request, { error: "no se pudo analizar" }, 500);
+  }
+}
+
 export async function getRoomContext(request: Request, roomId: string, store: RoomStore): Promise<Response> {
   const room = await readRoom(request, roomId, store);
   if (room instanceof Response) return room;

@@ -11,8 +11,10 @@ import { invitePath, parseRoomId } from "@/lib/room-fields";
 import { readRoomForMember } from "@/lib/room-membership";
 import { supabaseMembershipStore } from "@/lib/room-membership-db";
 import { supabaseRoomStore } from "@/lib/room-store";
-import { scheduleRoomAnalysis } from "@/lib/run-analysis";
 import type { StoredEvent } from "@/lib/room-types";
+import { trackAnalysis } from "@/lib/run-analysis";
+
+export const maxDuration = 60;
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -81,9 +83,7 @@ async function RoomContent({ params }: PageProps) {
     });
   }
 
-  after(() => {
-    void scheduleRoomAnalysis(id, { markPending: false });
-  });
+  after(() => trackAnalysis(id, { markPending: false }));
 
   return (
     <Shell signedIn wide>
