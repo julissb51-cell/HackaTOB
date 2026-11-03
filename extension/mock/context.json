@@ -1,0 +1,28 @@
+{
+  "resumen": "El equipo arma una app para repartir tareas de un trabajo. Ana hace la pantalla de la sala. Luis guarda los datos. Nadie definió todavía cómo se muestran los avisos.",
+  "parte": "Pantalla de la sala",
+  "prompt_sugerido": "Sigue con la pantalla de la sala en español. Muestra el resumen del equipo, los avisos y el prompt sugerido. No cambies cómo se guardan los datos: eso lo está haciendo Luis.",
+  "advertencias": [
+    {
+      "tipo": "falta",
+      "mensaje": "Nadie dijo cómo se entera el equipo cuando aparece un aviso nuevo.",
+      "destinatario": "Ana",
+      "partes": ["Pantalla de la sala", "Avisos"],
+      "prompt_sugerido": "Propón una forma simple de mostrar un aviso nuevo en la sala y confírmala con el equipo."
+    },
+    {
+      "tipo": "contradiccion",
+      "mensaje": "Ana escribió que el texto máximo es de 10.000 caracteres. El acuerdo es 100.000.",
+      "destinatario": "Ana",
+      "partes": ["Pantalla de la sala", "Límites"],
+      "prompt_sugerido": "Corrige el límite de texto a 100.000 caracteres, como quedó acordado."
+    },
+    {
+      "tipo": "duplicado",
+      "mensaje": "Ana y Luis pidieron a sus IAs el mismo diseño de la lista de miembros.",
+      "destinatario": "Ana",
+      "partes": ["Pantalla de la sala", "Datos"],
+      "prompt_sugerido": "Deja la lista de miembros en la pantalla. Pide a Luis que no la vuelva a diseñar en la parte de datos."
+    }
+  ]
+}
