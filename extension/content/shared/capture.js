@@ -26,6 +26,8 @@
     let lastComposer = "";
     let lastWatchKey = "";
     let lastWatchAt = 0;
+    let settling = false;
+    let armTimer = 0;
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -126,12 +128,21 @@
       chrome.runtime.sendMessage({ type: "enlaza.watch", watch: snapshot }).catch(() => {});
     }
 
+    function normalize(text) {
+      return globalThis.EnlazaMessages.normalizeMessageText(text);
+    }
+
     function countKey(role, text) {
-      return `${role}|${core.hashText(text)}`;
+      return `${role}|${core.hashText(normalize(text))}`;
     }
 
     function countInDom(messages, role, text) {
-      return messages.filter((message) => message.role === role && message.text === text).length;
+      const wanted = normalize(text);
+      return messages.filter((message) => message.role === role && normalize(message.text) === wanted).length;
+    }
+
+    function snapshot() {
+      return listMessages().map((message) => `${message.role}:${normalize(message.text)}`).join("\n");
     }
 
     function arm(key) {
@@ -146,7 +157,7 @@
         if (streamingTail && message.node === streamingTail.node) continue;
         const keyName = countKey(message.role, message.text);
         sentCounts.set(keyName, (sentCounts.get(keyName) || 0) + 1);
-        nodeSent.set(message.node, message.text);
+        nodeSent.set(message.node, normalize(message.text));
       }
       armedKey = key;
     }
@@ -175,7 +186,24 @@
         armedKey = key;
         return;
       }
+      settling = true;
+      armedKey = key;
+      const previous = snapshot();
+      clearTimeout(armTimer);
+      armTimer = setTimeout(() => finishArm(key, previous, 0), 350);
+    }
+
+    function finishArm(key, previous, tries) {
+      const current = site.conversationId(location.href) || "";
+      if (current !== key) return;
+      const now = snapshot();
+      if (now === previous && tries < 4) {
+        armTimer = setTimeout(() => finishArm(key, previous, tries + 1), 350);
+        return;
+      }
       arm(key);
+      settling = false;
+      scheduleScan();
     }
 
     function deliver(capture, attempt) {
@@ -259,17 +287,18 @@
 
     function claim(message, messages) {
       const previous = nodeSent.get(message.node);
-      if (previous === message.text) return false;
-      if (previous && message.text.length <= previous.length) return false;
+      const next = normalize(message.text);
+      if (previous && normalize(previous) === next) return false;
+      if (previous && next.length <= normalize(previous).length) return false;
       const keyName = countKey(message.role, message.text);
       const inDom = countInDom(messages, message.role, message.text);
       const already = sentCounts.get(keyName) || 0;
       if (inDom <= already) {
-        nodeSent.set(message.node, message.text);
+        nodeSent.set(message.node, next);
         return false;
       }
       sentCounts.set(keyName, already + 1);
-      nodeSent.set(message.node, message.text);
+      nodeSent.set(message.node, next);
       return true;
     }
 
@@ -282,6 +311,10 @@
       noteConversationChange();
       attachShadows(document);
       const messages = listMessages();
+      if (settling) {
+        reportWatch();
+        return;
+      }
       const tail = lastAssistant(messages);
       const streaming = isStreaming();
       let nextWait = 0;
@@ -341,15 +374,9 @@
         element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
         return "";
       }
-      const selection = window.getSelection();
-      if (!selection || !element.contains(selection.anchorNode)) {
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        range.collapse(false);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      }
-      if (document.execCommand("insertText", false, value)) return "";
+      placeCaret(element);
+      const landed = () => composerText(element).includes(value.slice(0, Math.min(40, value.length)));
+      if (document.execCommand("insertText", false, value) && landed()) return "";
       const before = new InputEvent("beforeinput", {
         bubbles: true,
         cancelable: true,
@@ -357,8 +384,19 @@
         data: value,
       });
       element.dispatchEvent(before);
-      if (before.defaultPrevented) return "";
+      if (before.defaultPrevented || landed()) return "";
       return "Encontré la caja, pero este chat no dejó insertar el texto.";
+    }
+
+    function placeCaret(element) {
+      const root = element.getRootNode?.() || document;
+      const selection = typeof root.getSelection === "function" ? root.getSelection() : window.getSelection();
+      if (!selection) return;
+      const range = typeof root.createRange === "function" ? root.createRange() : document.createRange();
+      range.selectNodeContents(element);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
 
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -411,6 +449,8 @@
       const becameActive = next && !active;
       active = next;
       if (!active) {
+        settling = false;
+        clearTimeout(armTimer);
         armedKey = null;
         waiting = [];
         return;
@@ -421,9 +461,8 @@
 
     function boot() {
       observer = new MutationObserver(() => scheduleScan());
-      if (document.body) {
-        observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-      }
+      const root = document.documentElement || document.body;
+      if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
       pollTimer = setInterval(scan, 1000);
       document.addEventListener("keydown", onComposerKey, true);
       document.addEventListener("click", onComposerClick, true);

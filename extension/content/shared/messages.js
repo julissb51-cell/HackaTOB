@@ -49,8 +49,12 @@
     return deepest(found);
   }
 
+  function normalizeMessageText(text) {
+    return String(text || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+  }
+
   function plain(node) {
-    return (node?.innerText || node?.textContent || "").replace(/\u00a0/g, " ").trim();
+    return normalizeMessageText(node?.innerText || node?.textContent || "");
   }
 
   function textFrom(node, selectors) {
@@ -102,5 +106,5 @@
     return messages;
   }
 
-  return { listChatMessages, textFrom, collect, queryAll, queryOne };
+  return { listChatMessages, textFrom, collect, queryAll, queryOne, normalizeMessageText };
 });

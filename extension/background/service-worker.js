@@ -274,6 +274,7 @@ async function onConnect(input) {
         item.status = "pending";
         item.attempts = 0;
         item.error = "";
+        item.auth = false;
       }
     }
     patch.outbox = outbox;
@@ -297,6 +298,7 @@ async function onDisconnect() {
     contextMeta: null,
     lastSendError: "",
   });
+  await writeCapture({ lastError: "" });
   await ensureAlarm(false);
   return { ok: true };
 }

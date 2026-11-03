@@ -1,9 +1,4 @@
-const TIPO = {
-  falta: "Falta",
-  contradiccion: "Contradicción",
-  duplicado: "Duplicado",
-};
-
+const core = globalThis.EnlazaCore;
 const app = document.querySelector("#app");
 const tagline = document.querySelector("#tagline");
 
@@ -134,9 +129,9 @@ function render(state, page) {
       avisos.append(el("p", "", "No hay avisos."));
     } else {
       for (const warning of warnings) {
-        const block = el("div", "aviso");
-        const tipo = TIPO[warning?.tipo] || "Aviso";
-        const pill = el("span", `pill ${warning?.tipo || ""}`, tipo);
+        const kind = core.warningKind(warning?.tipo);
+        const block = el("div", `aviso ${kind}`);
+        const pill = el("span", `pill ${kind}`, core.warningLabel(warning?.tipo));
         block.append(pill, el("p", "", warning?.mensaje || ""));
         if (Array.isArray(warning?.partes) && warning.partes.length) {
           block.append(el("p", "meta", warning.partes.join(" · ")));
@@ -191,3 +186,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 paint().then(() => {
   chrome.runtime.sendMessage({ type: "enlaza.refresh" }).catch(() => {});
 });
+
+setInterval(() => {
+  chrome.runtime.sendMessage({ type: "enlaza.refresh" }).catch(() => {});
+}, 30000);

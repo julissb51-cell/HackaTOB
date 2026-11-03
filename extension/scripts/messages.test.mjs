@@ -5,11 +5,22 @@ import { fileURLToPath } from "node:url";
 const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const messages = require(path.join(root, "content/shared/messages.js"));
+const core = require(path.join(root, "lib/core.js"));
+
+if (messages.normalizeMessageText("  que   dia\nes ") !== "que dia es") {
+  throw new Error("normalize");
+}
+if (core.warningKind("Contradicción") !== "contradiccion") throw new Error("contradiccion");
+if (core.warningKind("duplicado") !== "duplicado") throw new Error("duplicado");
+if (core.warningKind("falta") !== "falta") throw new Error("falta");
+if (core.warningLabel("contradiccion") !== "Contradicción") throw new Error("etiqueta");
+console.log("avisos ok");
+
 let parseHTML;
 try {
   ({ parseHTML } = require(process.env.LINKEDOM || "/tmp/enlaza-dom/node_modules/linkedom"));
 } catch {
-  console.log("messages.test omitido: falta linkedom");
+  console.log("messages.test: sin linkedom, se omitió el DOM");
   process.exit(0);
 }
 

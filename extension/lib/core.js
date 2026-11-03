@@ -205,6 +205,26 @@
     return "";
   }
 
+  function warningKind(tipo) {
+    const value = String(tipo || "")
+      .trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (value.startsWith("contrad")) return "contradiccion";
+    if (value.startsWith("dupl")) return "duplicado";
+    if (value.startsWith("falt")) return "falta";
+    return "aviso";
+  }
+
+  function warningLabel(tipo) {
+    const kind = warningKind(tipo);
+    if (kind === "contradiccion") return "Contradicción";
+    if (kind === "duplicado") return "Duplicado";
+    if (kind === "falta") return "Falta";
+    return "Aviso";
+  }
+
   function explainHttp(status, serverError) {
     if (status === 401 || serverError === "no autorizado") {
       return "El token no es válido. Revisa el enlace de invitación.";
@@ -238,5 +258,7 @@
     buildEvent,
     validateEvent,
     explainHttp,
+    warningKind,
+    warningLabel,
   };
 });

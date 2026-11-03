@@ -178,6 +178,9 @@ textarea { min-height: 74px; }
 }
 
 .aviso:first-of-type { border-top: 0; padding-top: 0; }
+.aviso.falta { border-left: 3px solid var(--warm); padding-left: 8px; }
+.aviso.contradiccion { border-left: 3px solid var(--danger); padding-left: 8px; }
+.aviso.duplicado { border-left: 3px solid var(--info); padding-left: 8px; }
 
 .pill {
   display: inline-flex;
@@ -187,10 +190,11 @@ textarea { min-height: 74px; }
   padding: 2px 8px;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(240, 194, 122, 0.16);
+  background: rgba(240, 194, 122, 0.2);
   color: var(--warm);
 }
 
+.pill.falta { background: rgba(240, 194, 122, 0.2); color: var(--warm); }
 .pill.contradiccion { background: var(--danger-bg); color: var(--danger); }
 .pill.duplicado { background: rgba(158, 183, 255, 0.16); color: var(--info); }
 

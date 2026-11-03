@@ -1,85 +1,82 @@
-# extension
+# Enlaza, la extensión
 
-**Responsable:** Persona B
+La extensión de Chrome (Manifest V3) lee los prompts y las respuestas que terminan en ChatGPT y Gemini, y los manda a la sala compartida. El panel lateral muestra el resumen del equipo, los avisos y un prompt listo para copiar o insertar.
 
-Extensión de Chrome (Manifest V3) para Enlaza. Lee los prompts que envías y las respuestas que terminan en ChatGPT y Gemini en la web, los manda a la sala y pide el contexto al conectar y cada 30 segundos.
-
-Los ganchos de Cursor y Claude Code están en `hooks/`. No van en el manifiesto: son scripts de Node que cada persona activa en su máquina.
-
-`mock/context.json` es la respuesta de ejemplo de `GET /api/rooms/:id/context?member=Ana`, la misma del contrato.
+Los ganchos de Cursor y Claude Code hacen lo mismo desde el editor. No van en el manifiesto: son scripts de Node.
 
 ## Instalar
 
-1. Abre `chrome://extensions`.
-2. Activa el **Modo de desarrollador**.
-3. Elige **Cargar extensión sin empaquetar** (Load unpacked).
-4. Selecciona la carpeta `extension` de este repo (la que contiene `manifest.json`).
+En Chrome o en Edge:
 
-El ícono de Enlaza queda en la barra. No hace falta compilar nada. Si ChatGPT o Gemini ya estaban abiertos, recarga esas pestañas.
+1. Abrí `chrome://extensions` o `edge://extensions`.
+2. Activá el **Modo de desarrollador** (en Edge: **Opciones de desarrollador**).
+3. Elegí **Cargar extensión sin empaquetar** (Load unpacked).
+4. Seleccioná la carpeta `extension` de este repo, la que tiene `manifest.json`.
 
-## Actualizar
+No hace falta compilar. La versión actual es 1.3.0. Si ChatGPT o Gemini ya estaban abiertos, recargá esas pestañas.
 
-Después de un `git pull`:
+<!-- TODO: captura de edge://extensions con Enlaza cargada -->
+![Extensión cargada](docs/extensiones.png)
 
-1. Abre `edge://extensions` (o `chrome://extensions`).
-2. En la tarjeta de Enlaza pulsa **Actualizar**. La versión tiene que decir 1.2.0.
-3. Recarga las pestañas de ChatGPT y de Gemini con F5.
+## Entrar a una sala
 
-El ícono muestra cuántos eventos se enviaron. El panel, arriba, dice «Eventos enviados: N» y si el lector ve los mensajes de esa pestaña. El resumen de la sala también cuenta los eventos guardados («Hay N eventos») mientras el analista no lo reescriba; el número del ícono no depende de ese texto.
+1. En la web, copiá el enlace de invitación. Se ve así: `https://enlaza-green.vercel.app/join/{salaId}?t={token}`. También sirve el del contrato, `/room/{salaId}?token={token}`.
+2. Abrí el popup de Enlaza.
+3. Pegá el enlace y escribí tu nombre. Si no tenés el enlace, el popup igual pide el enlace completo: de ahí salen el id de la sala y el token.
+4. Pulsá **Conectar**. La primera vez, para esa sala y ese nombre, Enlaza pide consentimiento.
+5. **Desconectar** deja de capturar y deja el enlace en el formulario por si querés cambiar de sala o de nombre.
 
-## Conectar
+El token queda solo en `chrome.storage.local` de este navegador. No va en el repo.
 
-1. En la web, copia el enlace de invitación. Se ve así: `https://enlaza-green.vercel.app/join/{sala}?t={token}`.
-2. Abre el popup de Enlaza.
-3. Pega el enlace y escribe tu nombre.
-4. Pulsa **Conectar**. La primera vez, Enlaza explica que va a compartir los prompts y las respuestas de ChatGPT y Gemini con la sala. Acepta para empezar.
-5. **Ver contexto** abre el panel lateral: resumen, tu parte, avisos y el prompt sugerido.
-6. **Copiar** copia el prompt. **Insertar en el chat** lo pone en la caja de ChatGPT o Gemini de la pestaña activa, sin enviarlo.
-7. **Desconectar** deja de capturar. El enlace queda en el formulario por si quieres cambiar de sala o de nombre.
+<!-- TODO: captura del popup con el enlace y el nombre -->
+![Conectar](docs/conectar.png)
 
-El token se guarda solo en `chrome.storage.local` de este navegador. No va en el repo.
+## Qué se captura
 
-Si el token no corresponde a la sala, ves: «El token no es válido. Revisa el enlace de invitación.»
+Solo con la sesión conectada y el consentimiento aceptado. Enlaza lee los prompts que enviás y las respuestas que ya terminaron en ChatGPT (`chatgpt.com`) y Gemini (`gemini.google.com`). No lee otras páginas. Lo que ya estaba en el chat al conectar no se reenvía.
+
+Cada evento sigue [CONTRATO.md](../CONTRATO.md): `event_id`, `tipo` (`prompt` o `respuesta`), `miembro`, `ia` (`chatgpt` o `gemini`), `conversation_id`, `texto` (máximo 100.000 caracteres) y `tiempo` (ISO 8601 con desfase). Si salen, también van `nombre_chat`, `resumen` y `palabra_clave`.
+
+El envío sale del service worker, con el header `x-room-token`. Si falla, se reintenta hasta 3 veces con el mismo `event_id`. Lo que no salió queda en `chrome.storage` y se vuelve a intentar cuando el service worker despierta. **Reintentar envíos**, en el popup, lo manda a mano.
+
+## Panel lateral
+
+**Ver contexto**, o el ícono del panel de Chrome, abre el resumen de la sala.
+
+- **Resumen** y **Mi parte**.
+- **Avisos**, con tres tipos distintos: Falta (ámbar), Contradicción (rojo) y Duplicado (azul). Cada uno puede traer su prompt.
+- **Prompt sugerido**, con **Copiar** e **Insertar en el chat**. Insertar lo pone en la caja de ChatGPT o Gemini de la pestaña activa, sin enviarlo.
+- **Eventos enviados: N** y si el lector ve los mensajes de esa pestaña.
+
+El contexto se pide al conectar y otra vez cada 30 segundos. **Actualizar** lo pide en el momento. Los campos son `resumen`, `parte`, `prompt_sugerido` y `advertencias` (`tipo`, `partes`, `mensaje`).
+
+<!-- TODO: captura del panel con resumen, un aviso de contradicción y el prompt sugerido -->
+![Panel lateral](docs/panel.png)
+
+El ícono de la barra muestra cuántos eventos se enviaron. Si el token no sirve, el ícono pasa a **!**.
 
 ## Sala de prueba
 
-Enlace:
-
-`https://enlaza-green.vercel.app/join/demo?t=token-de-prueba`
+Enlace: `https://enlaza-green.vercel.app/join/demo?t=token-de-prueba`
 
 Nombre: `Ana`
 
-Esa sala ya existe en producción (`salaId` `demo`, token `token-de-prueba`). El token de prueba es público; no es una clave del proyecto.
-
-Para probar el formato sin abrir Chrome:
+El token `token-de-prueba` es público. No es una clave del proyecto.
 
 ```bash
 node extension/scripts/smoke.mjs
+node extension/scripts/messages.test.mjs
 ```
 
-El script arma el evento con el mismo código que la extensión (`extension/lib/core.js`), hace `POST /api/rooms/demo/events` y `GET /api/rooms/demo/context?member=Ana`, reenvía el mismo `event_id` y prueba un token malo.
-
-## Qué se envía
-
-`POST /api/rooms/{salaId}/events` con el header `x-room-token`.
-
-El cuerpo sigue el contrato: `event_id`, `tipo` (`prompt` o `respuesta`), `miembro`, `ia` (`chatgpt` o `gemini`), `conversation_id`, `texto` (como máximo 100.000 caracteres), `tiempo` (ISO 8601 con desfase) y, si salen, `nombre_chat`, `resumen` y `palabra_clave`.
-
-El `event_id` se genera en el navegador. Si el envío falla, se reintenta hasta 3 veces con el mismo id. Un id repetido lo ignora el servidor. Después de 3 intentos, el popup muestra el error y **Reintentar envíos** vuelve a mandarlos.
-
-Las peticiones salen del service worker, no de la página, para no depender de CORS.
-
-El contexto (`resumen`, `parte`, `prompt_sugerido`, `advertencias`) se pide al conectar y otra vez cada 30 segundos.
-
-Solo se captura con la sesión conectada y el consentimiento aceptado. Lo que ya estaba en el chat al conectar no se reenvía: cuentan los prompts y las respuestas que aparecen después.
+`smoke.mjs` manda un prompt y una respuesta a la sala demo y lee el contexto. `messages.test.mjs` revisa el texto de los avisos y, si hay `linkedom` instalado, el DOM de ChatGPT y de Gemini.
 
 ## Hooks
 
-Cursor y Claude Code no los carga el navegador. Cada persona copia la config y crea `extension/hooks/enlaza.local.json` (está en `.gitignore`; no subas el token). El ejemplo es `hooks/enlaza.local.example.json`. También valen las variables `ENLAZA_SALA`, `ENLAZA_TOKEN`, `ENLAZA_MEMBER` y `ENLAZA_BASE_URL`.
+Cursor y Claude Code mandan el mismo evento. `ia` es `cursor` o `claude`.
 
-El evento usa el contrato: `ia` es `cursor` o `claude`.
+Copiá `hooks/enlaza.local.example.json` a `hooks/enlaza.local.json` y poné la sala, el token y tu nombre. Ese archivo está en `.gitignore`. También valen `ENLAZA_SALA`, `ENLAZA_TOKEN`, `ENLAZA_MEMBER` y `ENLAZA_BASE_URL`.
 
-Cursor, en `.cursor/hooks.json` de tu proyecto (los comandos corren desde la raíz). `beforeSubmitPrompt` manda el prompt y `afterAgentResponse` manda la respuesta. Guía: https://cursor.com/docs/hooks
+Cursor, en `.cursor/hooks.json` del proyecto. Los comandos corren desde la raíz. `beforeSubmitPrompt` manda el prompt y `afterAgentResponse` la respuesta. [Documentación](https://cursor.com/docs/hooks).
 
 ```json
 {
@@ -95,7 +92,7 @@ Cursor, en `.cursor/hooks.json` de tu proyecto (los comandos corren desde la ra�
 }
 ```
 
-Claude Code, en `.claude/settings.json`. `UserPromptSubmit` manda el prompt. `Stop` manda la respuesta: usa `last_assistant_message` y, si no viene, lee la última respuesta de `transcript_path`. Guía: https://code.claude.com/docs/en/hooks
+Claude Code, en `.claude/settings.json`. `UserPromptSubmit` manda el prompt. `Stop` manda la respuesta: usa `last_assistant_message` y, si no viene, lee la última respuesta de `transcript_path`. [Documentación](https://code.claude.com/docs/en/hooks).
 
 ```json
 {
@@ -110,14 +107,19 @@ Claude Code, en `.claude/settings.json`. `UserPromptSubmit` manda el prompt. `St
 }
 ```
 
-En Windows hace falta `node` en el PATH. El script no bloquea el prompt si el envío falla: el error queda en stderr y el agente sigue. Hay copias en `hooks/cursor.hooks.example.json` y `hooks/claude.settings.example.json`.
+En Windows hace falta `node` en el PATH. Si el envío falla, el error queda en stderr y el agente sigue. Hay copias en `hooks/cursor.hooks.example.json` y `hooks/claude.settings.example.json`.
+
+## Si algo falla
+
+- **El ícono muestra !** y el panel dice que el token no es válido. El enlace no corresponde a la sala. Pegá de nuevo el enlace de invitación y conectá.
+- **Eventos enviados no sube** después de un prompt nuevo. Recargá la pestaña del chat (F5). El panel debe decir que ChatGPT o Gemini ve mensajes. Si dice que no está el lector, en Extensiones pulsá **Actualizar** en Enlaza y volvé a recargar el chat.
+- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.3.0. Después recargá ChatGPT y Gemini.
+- **Insertar no pone el texto.** La pestaña activa tiene que ser ChatGPT o Gemini, y el chat tiene que estar recargado después de instalar.
 
 ## Limitaciones
 
-- Los selectores del DOM están aislados en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. ChatGPT usa `[data-user-message-bubble]`. Gemini usa `user-query`, `model-response`, `message-content` y la caja `rich-textarea .ql-editor`. En los dos, Enter o Enviar también manda el prompt. Si la página cambia, se ajustan esos archivos.
-- Si no aparece el botón de parar, la extensión espera a que el texto deje de cambiar unos 2,5 segundos antes de mandar la respuesta.
-- En un chat nuevo, espera hasta 12 segundos a que la página ponga el id en la URL. Si no aparece, usa un id local de esa pestaña (`chatgpt_local_…` o `gemini_local_…`). Enlaza no inventa el id cuando el sitio sí lo trae.
-- Insertar el prompt depende de la caja de texto (`#prompt-textarea` en ChatGPT, el editor de Gemini). No aprieta Enviar.
-- No captura archivos (`tipo: archivo`) ni otras IAs. Cursor y Claude quedan como ganchos, sin activar.
-- No cubre `chat.openai.com`. La página que vale es `https://chatgpt.com`.
-- En Chrome anterior a la versión 120, la alarma del navegador puede despertar el service worker cada minuto en lugar de cada 30 segundos. Mientras el worker sigue vivo, el intervalo interno sigue siendo de 30 segundos.
+- Los selectores viven en `content/chatgpt/selectors.js` y `content/gemini/selectors.js`. ChatGPT usa `[data-user-message-bubble]`. Gemini usa `user-query`, `model-response`, `message-content` y `rich-textarea .ql-editor`. Si la página cambia, se ajustan ahí.
+- Si no aparece el botón de parar, la respuesta se manda cuando el texto deja de cambiar unos 2,5 segundos.
+- En un chat nuevo, se espera hasta 12 segundos el id de la URL. Si no aparece, se usa un id local de esa pestaña.
+- No se capturan archivos ni `chat.openai.com`.
+- En Chrome anterior a la versión 120, la alarma puede despertar el worker cada minuto. Mientras el panel está abierto, igual pide el contexto cada 30 segundos.
