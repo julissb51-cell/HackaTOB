@@ -57,3 +57,22 @@ insert into public.members (room_id, name, part)
 values
   ('demo', 'Ana', 'Pantalla de la sala'),
   ('demo', 'Luis', 'Datos');
+
+-- El revoke de arriba quita el select por columnas de la fase 3.
+-- Si esas columnas ya existen, se vuelven a conceder. El token no entra.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'rooms' and column_name = 'created_by'
+  ) and exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'rooms' and column_name = 'parts'
+  ) and exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'members' and column_name = 'user_id'
+  ) then
+    execute 'grant select (id, topic, project_name, due_date, created_by, parts, created_at) on table public.rooms to authenticated';
+    execute 'grant select (id, room_id, name, part, user_id, created_at) on table public.members to authenticated';
+  end if;
+end $$;

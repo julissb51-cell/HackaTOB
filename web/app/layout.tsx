@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
+import { LanguageProvider } from "@/components/language";
 import "./globals.css";
 
 const sourceSans = Source_Sans_3({
@@ -27,7 +28,9 @@ export default function RootLayout({
       lang="es"
       className={`${sourceSans.variable} ${fraunces.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        <LanguageProvider>{children}</LanguageProvider>
+      </body>
     </html>
   );
 }
