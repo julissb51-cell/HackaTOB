@@ -96,6 +96,8 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         "tipo de un aviso es falta, contradiccion o duplicado.",
         "En cada análisis revisa siempre estas tres cosas, comparando a todos los miembros entre sí:",
         "1. contradiccion: dos personas afirman o deciden cosas que no pueden ser ciertas a la vez (tecnología, formato de datos, alcance, fechas, nombres). Cita qué dijo cada uno.",
+        "   Revisa sobre todo cómo guarda los datos cada miembro (archivo JSON, CSV, SQLite, MySQL, PostgreSQL, MongoDB, Firebase, Supabase, localStorage). Si dos personas usan formas distintas, es SIEMPRE un aviso propio con tipo contradiccion, aparte de cualquier duplicado, y no basta con mencionarlo dentro de un prompt_sugerido.",
+        "   El mensaje nombra a las dos personas y lo que choca, por ejemplo: «Ana guarda los datos en datos.json, pero Luis usa SQLite». Pon el aviso en las advertencias de cada una de las dos personas.",
         "2. duplicado: dos o más personas hicieron o pidieron el mismo entregable. Hazlo así, en silencio, antes de escribir el JSON:",
         "   a) Para cada miembro, haz la lista de todo lo que pidió o produjo: secciones de documento (introducción, requisitos, objetivos, conclusiones…), diagramas (de clases, casos de uso, entidad-relación, secuencia…), pantallas o componentes de interfaz (por ejemplo una pantalla de lista de tareas en React), endpoints, tablas, pruebas y código. Cuenta también lo que pide de pasada con palabras como «también», «además» o «de paso».",
         "   b) Compara cada par de miembros, elemento por elemento, aunque usen nombres distintos para lo mismo (TaskList y «pantalla de lista de tareas» son lo mismo; «requerimientos» y «requisitos» también).",
@@ -137,14 +139,14 @@ export function buildFallbackReport(input: AnalysisInput): AnalystReport {
   const resumen =
     miembros[0]?.resumen ||
     (input.room.topic.trim() ? `El equipo trabaja en ${input.room.topic.trim()}.` : "La sala todavía no tiene tema.");
-  return {
+  return addMissedOverlaps({
     resumen,
     miembros,
     alertas: dedupeWarnings(miembros.flatMap((member) => member.advertencias)).slice(0, 12),
     chats: fallbackChats(input.events),
     sugerencia: limitSuggestion(detectSuggestion(input), input.room),
     consejo: "",
-  };
+  }, input);
 }
 
 export async function produceReport(
@@ -189,7 +191,7 @@ function warningsFor(alertas: readonly RoomWarning[], own: readonly RoomWarning[
     const to = warning.destinatario.toLocaleLowerCase("es");
     return to === key || to === "equipo";
   });
-  return dedupeWarnings([...own, ...shared]);
+  return dedupeSimilar(dedupeWarnings([...own, ...shared]));
 }
 
 const DELIVERABLES: Array<{ es: string; en: string; pattern: RegExp; stems: string[] }> = [
@@ -201,6 +203,7 @@ const DELIVERABLES: Array<{ es: string; en: string; pattern: RegExp; stems: stri
   { es: "las conclusiones", en: "the conclusions", pattern: /\b(conclusiones|conclusions?)\b/, stems: ["conclusi"] },
   { es: "el manual de usuario", en: "the user manual", pattern: /manual de usuario|user manual/, stems: ["manual"] },
   { es: "los casos de prueba", en: "the test cases", pattern: /casos? de prueba|plan de pruebas|test cases?|test plan/, stems: ["prueba", "test"] },
+  { es: "el script de las tablas de la base de datos", en: "the database tables script", pattern: /create table|crear las tablas|tablas? (de la base|libros)|database tables|esquema de (la )?base/, stems: ["tabla", "table", "esquema"] },
   { es: "la pantalla de lista de tareas", en: "the task list screen", pattern: /lista de tareas|task ?list/, stems: ["lista de tareas", "tasklist", "task list"] },
 ];
 
@@ -234,8 +237,138 @@ export function deliverableOverlaps(input: AnalysisInput): RoomWarning[] {
   return result;
 }
 
-/** Agrega los duplicados que la IA no mencionó. */
+const STORAGE: Array<{ id: string; label: string; pattern: RegExp; family: string }> = [
+  { id: "json", label: "JSON", pattern: /\bjson\b/, family: "archivo-json" },
+  { id: "csv", label: "CSV", pattern: /\bcsv\b/, family: "archivo-csv" },
+  { id: "sqlite", label: "SQLite", pattern: /\bsqlite3?\b/, family: "sqlite" },
+  { id: "mysql", label: "MySQL", pattern: /\bmysql\b|\bmariadb\b/, family: "mysql" },
+  { id: "postgres", label: "PostgreSQL", pattern: /\bpostgres(ql)?\b/, family: "postgres" },
+  { id: "supabase", label: "Supabase", pattern: /\bsupabase\b/, family: "postgres" },
+  { id: "mongodb", label: "MongoDB", pattern: /\bmongo(db)?\b/, family: "mongodb" },
+  { id: "firebase", label: "Firebase", pattern: /\bfirebase\b|\bfirestore\b/, family: "firebase" },
+  { id: "localstorage", label: "localStorage", pattern: /\blocalstorage\b/, family: "localstorage" },
+];
+
+/** La forma de guardar datos que más menciona cada miembro. */
+function storageByMember(events: readonly StoredEvent[]): Map<string, (typeof STORAGE)[number]> {
+  const counts = new Map<string, Map<string, number>>();
+  for (const event of events) {
+    const text = foldText(event.text);
+    for (const item of STORAGE) {
+      const hits = text.match(new RegExp(item.pattern.source, "g"))?.length ?? 0;
+      if (!hits) continue;
+      const mine = counts.get(event.member) ?? new Map<string, number>();
+      mine.set(item.id, (mine.get(item.id) ?? 0) + hits);
+      counts.set(event.member, mine);
+    }
+  }
+  const result = new Map<string, (typeof STORAGE)[number]>();
+  for (const [member, mine] of counts) {
+    const top = [...mine.entries()].sort((a, b) => b[1] - a[1])[0];
+    const item = STORAGE.find((s) => s.id === top[0]);
+    if (item) result.set(member, item);
+  }
+  return result;
+}
+
+/** Contradicción cuando los miembros guardan los datos de formas distintas. Un aviso por miembro afectado. */
+export function storageConflicts(input: AnalysisInput): RoomWarning[] {
+  const english = input.room.language === "en";
+  const byMember = storageByMember(input.events);
+  const families = new Set([...byMember.values()].map((item) => item.family));
+  if (families.size < 2) return [];
+  const join = (names: string[]) => names.join(english ? " and " : " y ");
+  const result: RoomWarning[] = [];
+  for (const [member, mine] of byMember) {
+    const others = [...byMember.entries()].filter(([, item]) => item.family !== mine.family);
+    const otherText = unique(others.map(([, item]) => item.label))
+      .map((label) => `${join(others.filter(([, item]) => item.label === label).map(([name]) => name))} ${english ? "uses" : "usa"} ${label}`)
+      .join("; ");
+    const parts = [member, ...others.map(([name]) => name)]
+      .map((name) => input.members.find((m) => m.name === name)?.part)
+      .filter((part): part is string => Boolean(part));
+    result.push({
+      tipo: "contradiccion",
+      destinatario: member,
+      partes: unique(parts),
+      mensaje: english
+        ? `${member} stores the data in ${mine.label}, but ${otherText}. Agree on one way to store the data.`
+        : `${member} guarda los datos en ${mine.label}, pero ${otherText}. Pónganse de acuerdo en una sola forma de guardar los datos.`,
+      prompt_sugerido: english
+        ? `My team stores the data in ${others[0][1].label} and I used ${mine.label}. Help me compare both and adapt my part to the option we choose.`
+        : `En mi equipo guardan los datos en ${others[0][1].label} y yo usé ${mine.label}. Ayúdame a comparar las dos opciones y a adaptar mi parte a la que elijamos.`,
+    });
+  }
+  return result;
+}
+
+/** Junta avisos casi iguales (mismo tipo y destinatario, y casi las mismas palabras o el mismo entregable). */
+export function dedupeSimilar(warnings: readonly RoomWarning[]): RoomWarning[] {
+  const kept: RoomWarning[] = [];
+  for (const warning of warnings) {
+    const same = kept.find(
+      (other) =>
+        other.tipo === warning.tipo &&
+        other.destinatario.toLocaleLowerCase("es") === warning.destinatario.toLocaleLowerCase("es") &&
+        nearlySame(other.mensaje, warning.mensaje, warning.tipo),
+    );
+    if (!same) kept.push(warning);
+  }
+  return kept;
+}
+
+function nearlySame(left: string, right: string, tipo: WarningType): boolean {
+  const a = foldText(left);
+  const b = foldText(right);
+  if (tipo === "duplicado") {
+    const topic = (text: string) => DELIVERABLES.filter((d) => d.stems.some((stem) => text.includes(stem))).map((d) => d.es);
+    const ta = topic(a);
+    const tb = topic(b);
+    if (ta.length > 0 && ta.length === tb.length && ta.every((t) => tb.includes(t))) return true;
+  }
+  if (tipo === "contradiccion") {
+    const tech = (text: string) => STORAGE.filter((item) => item.pattern.test(text)).map((item) => item.family);
+    const ta = new Set(tech(a));
+    const tb = tech(b);
+    if (ta.size >= 2 && tb.length >= 2 && tb.every((t) => ta.has(t))) return true;
+  }
+  const wa = new Set(a.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  const wb = new Set(b.split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+  if (wa.size === 0 || wb.size === 0) return false;
+  const shared = [...wa].filter((w) => wb.has(w)).length;
+  return shared / (wa.size + wb.size - shared) >= 0.6;
+}
+
+function hasStorageConflict(warnings: readonly RoomWarning[], member: string, wanted: RoomWarning): boolean {
+  const needed = STORAGE.filter((item) => item.pattern.test(foldText(wanted.mensaje))).map((item) => item.family);
+  return warnings.some((warning) => {
+    if (warning.tipo !== "contradiccion") return false;
+    if (warning.destinatario.toLocaleLowerCase("es") !== member.toLocaleLowerCase("es") && warning.destinatario !== "equipo") return false;
+    const text = foldText(warning.mensaje);
+    const found = new Set(STORAGE.filter((item) => item.pattern.test(text)).map((item) => item.family));
+    return needed.every((family) => found.has(family));
+  });
+}
+
+/** Agrega los duplicados y las contradicciones de almacenamiento que la IA no mencionó, y junta avisos repetidos. */
 export function addMissedOverlaps(report: AnalystReport, input: AnalysisInput): AnalystReport {
+  const withConflicts = addStorageConflicts(addMissedDuplicates(report, input), input);
+  return {
+    ...withConflicts,
+    alertas: dedupeSimilar(withConflicts.alertas).slice(0, 12),
+    miembros: withConflicts.miembros.map((member) => ({ ...member, advertencias: dedupeSimilar(member.advertencias) })),
+  };
+}
+
+function addStorageConflicts(report: AnalystReport, input: AnalysisInput): AnalystReport {
+  const all = report.alertas.concat(report.miembros.flatMap((member) => member.advertencias));
+  const missing = storageConflicts(input).filter((warning) => !hasStorageConflict(all, warning.destinatario, warning));
+  if (missing.length === 0) return report;
+  // Las contradicciones van primero para que no las corte el límite de avisos.
+  return { ...report, alertas: dedupeWarnings([...missing, ...report.alertas]) };
+}
+
+function addMissedDuplicates(report: AnalystReport, input: AnalysisInput): AnalystReport {
   const said = report.alertas
     .concat(report.miembros.flatMap((member) => member.advertencias))
     .filter((warning) => warning.tipo === "duplicado")

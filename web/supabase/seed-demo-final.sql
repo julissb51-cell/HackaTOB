@@ -1,6 +1,7 @@
 -- Sala de demo final para la presentación del hackathon.
 -- Id: demo-final  Token: demo-hackatob
 -- Ejecutar en el SQL Editor. Después: node scripts/seed-demo-final.mjs
+-- Para ensayar sin tocar esta sala, usa supabase/seed-demo-ensayo.sql (misma conversación).
 
 insert into public.rooms (id, topic, project_name, due_date, token, parts, language)
 values (
@@ -9,7 +10,7 @@ values (
   'Sistema de biblioteca',
   '2026-11-06',
   'demo-hackatob',
-  '["Informe escrito", "Código"]'::jsonb,
+  '["Informe escrito", "Código", "Presentación"]'::jsonb,
   'es'
 )
 on conflict (id) do update set
@@ -27,4 +28,5 @@ delete from public.members where room_id = 'demo-final';
 insert into public.members (room_id, name, part)
 values
   ('demo-final', 'Ana', 'Informe escrito'),
-  ('demo-final', 'Luis', 'Código');
+  ('demo-final', 'Luis', 'Código'),
+  ('demo-final', 'Sofía', 'Presentación');

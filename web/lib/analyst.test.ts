@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   addMissedOverlaps,
+  dedupeSimilar,
+  storageConflicts,
   deliverableOverlaps,
   ANALYSIS_INTERVAL_MS,
   ANALYST_LIMITS,
@@ -249,4 +251,58 @@ test("deliverableOverlaps flags each deliverable two members asked for", () => {
   const merged = addMissedOverlaps(report, input);
   assert.equal(merged.alertas.length, 2);
   assert.ok(merged.alertas[1].mensaje.includes("diagrama de clases"));
+});
+
+const evt = (id: string, member: string, type: string, text: string, min: number): StoredEvent =>
+  ({
+    eventId: id, roomId: "r", member, ai: "chatgpt", type, conversationId: "c-" + member,
+    conversationName: null, text, createdAt: new Date(Date.UTC(2026, 0, 1, 0, min)).toISOString(),
+  }) as StoredEvent;
+const libraryInput = {
+  room: { id: "r", topic: "Biblioteca", dueDate: null, parts: [], language: "es" as const },
+  members: [{ name: "Ana", part: "Informe escrito" }, { name: "Luis", part: "Código" }],
+  events: [
+    evt("1", "Luis", "prompt", "Quiero guardar los datos en una base SQLite.", 1),
+    evt("2", "Luis", "respuesta", "Usa el módulo sqlite3 de Python.", 2),
+    evt("3", "Ana", "respuesta", "Los datos se guardan en un archivo datos.json. Se eligió JSON.", 3),
+  ],
+};
+
+test("storageConflicts gives each member a contradiccion naming both and both technologies", () => {
+  const found = storageConflicts(libraryInput);
+  assert.deepEqual(found.map((w) => w.destinatario).sort(), ["Ana", "Luis"]);
+  for (const warning of found) {
+    assert.equal(warning.tipo, "contradiccion");
+    assert.match(warning.mensaje, /Ana/);
+    assert.match(warning.mensaje, /Luis/);
+    assert.match(warning.mensaje, /JSON/);
+    assert.match(warning.mensaje, /SQLite/);
+  }
+});
+
+test("storageConflicts stays quiet when everyone uses the same storage or compatible ones", () => {
+  const same = { ...libraryInput, events: [evt("1", "Ana", "prompt", "uso SQLite", 1), evt("2", "Luis", "prompt", "sqlite3 también", 2)] };
+  assert.equal(storageConflicts(same).length, 0);
+  const compatible = { ...libraryInput, events: [evt("1", "Ana", "prompt", "uso Supabase", 1), evt("2", "Luis", "prompt", "PostgreSQL", 2)] };
+  assert.equal(storageConflicts(compatible).length, 0);
+});
+
+test("addMissedOverlaps adds the storage contradiction only where the AI missed it", () => {
+  const aiWarning = { tipo: "contradiccion" as const, destinatario: "Ana", partes: [], mensaje: "Ana usa datos.json pero Luis guarda en SQLite.", prompt_sugerido: "" };
+  const report = { resumen: "x", miembros: [], chats: [], sugerencia: null, consejo: "", alertas: [aiWarning] };
+  const merged = addMissedOverlaps(report, libraryInput);
+  const conflicts = merged.alertas.filter((w) => w.tipo === "contradiccion");
+  assert.equal(conflicts.length, 2);
+  assert.equal(conflicts.filter((w) => w.destinatario === "Ana").length, 1);
+  assert.ok(conflicts.some((w) => w.destinatario === "Luis"));
+});
+
+test("dedupeSimilar folds repeated alerts about the same deliverable", () => {
+  const make = (mensaje: string) => ({ tipo: "duplicado" as const, destinatario: "Ana", partes: [], mensaje, prompt_sugerido: "" });
+  const out = dedupeSimilar([
+    make("Tanto Ana como Luis generaron la lista de requisitos funcionales."),
+    make("Los requisitos funcionales ya fueron solicitados por Luis."),
+    make("Ana y Luis pidieron el diagrama de clases."),
+  ]);
+  assert.equal(out.length, 2);
 });

@@ -1,6 +1,7 @@
 // Llena la sala demo-final con una conversación de ejemplo y pide el análisis.
 // Antes: ejecutar supabase/seed-demo-final.sql (crea la sala y los miembros).
 // Uso: node scripts/seed-demo-final.mjs
+// Ensayo: ENLAZA_ROOM=demo-ensayo ENLAZA_TOKEN=ensayo-hackatob node scripts/seed-demo-final.mjs (antes supabase/seed-demo-ensayo.sql)
 // Variables opcionales: ENLAZA_URL, ENLAZA_ROOM, ENLAZA_TOKEN.
 
 const BASE = (process.env.ENLAZA_URL || "https://enlaza-green.vercel.app").replace(/\/$/, "");
@@ -9,6 +10,7 @@ const TOKEN = process.env.ENLAZA_TOKEN || "demo-hackatob";
 
 const ANA = { miembro: "Ana", ia: "chatgpt", conversation_id: "ana_informe", nombre_chat: "Informe biblioteca" };
 const LUIS = { miembro: "Luis", ia: "gemini", conversation_id: "luis_codigo", nombre_chat: "Código biblioteca" };
+const SOFIA = { miembro: "Sofía", ia: "claude", conversation_id: "sofia_presentacion", nombre_chat: "Presentación biblioteca" };
 
 const script = [
   [ANA, "prompt", "Estoy haciendo el informe escrito de un sistema de gestión de biblioteca para el curso de Programación. Ayúdame con la introducción y el objetivo general."],
@@ -23,6 +25,8 @@ const script = [
   [ANA, "respuesta", "Diseño de persistencia: los datos se guardan en un archivo datos.json con tres listas (libros, usuarios y prestamos). Al iniciar, el programa lee el JSON y al salir lo vuelve a escribir. Se eligió JSON porque no requiere instalar un motor de base de datos."],
   [LUIS, "prompt", "Escríbeme la función prestar_libro(isbn, socio_id) usando sqlite3 que verifique que el libro esté disponible."],
   [LUIS, "respuesta", "def prestar_libro(conn, isbn, socio_id):\n    cur = conn.execute('SELECT disponible FROM libros WHERE isbn = ?', (isbn,))\n    fila = cur.fetchone()\n    if not fila or fila[0] == 0:\n        raise ValueError('Libro no disponible')\n    conn.execute('UPDATE libros SET disponible = 0 WHERE isbn = ?', (isbn,))\n    conn.execute(\"INSERT INTO prestamos (isbn, socio_id, fecha_prestamo) VALUES (?, ?, date('now'))\", (isbn, socio_id))\n    conn.commit()"],
+  [SOFIA, "prompt", "Preparo la presentación del sistema de biblioteca. Escríbeme el script para crear las tablas libros, socios y prestamos en SQLite para mostrarlo en una diapositiva."],
+  [SOFIA, "respuesta", "CREATE TABLE libros (isbn TEXT PRIMARY KEY, titulo TEXT, autor TEXT); CREATE TABLE socios (id INTEGER PRIMARY KEY, nombre TEXT); CREATE TABLE prestamos (id INTEGER PRIMARY KEY, isbn TEXT, socio_id INTEGER, fecha_prestamo TEXT). En la diapositiva explica que cada préstamo une un libro con un socio."],
   [ANA, "prompt", "¿Qué secciones me faltan para entregar el informe el viernes? Ya tengo introducción, requisitos y diseño."],
   [ANA, "respuesta", "Te faltan: conclusiones, bibliografía y referencias al código final. El enunciado del curso también suele pedir un plan de pruebas con casos de prueba y un manual de usuario; confirma con tu compañero quién los hace."],
 ];
