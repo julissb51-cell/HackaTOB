@@ -36,14 +36,14 @@ Los detalles de datos, endpoints y el orden de corte están en [CONTRATO.md](CON
 
 ## Estructura del repo
 
-- `web/` — app de Next.js (Persona A). Vercel, Supabase y la API de Grok como analista.
+- `web/` — app de Next.js (Persona A). Vercel, Supabase y Gemini (nivel gratuito) como analista. Se cambia a Grok con `AI_PROVIDER=xai`.
 - `extension/` — extensión de Chrome Manifest V3 (Persona B). ChatGPT y Gemini en la web, con ganchos para Cursor y Claude Code.
 - `CONTRATO.md` — decisiones ya acordadas y ejemplos en JSON.
 - `.env.example` — nombres de las variables. Las claves reales van en `.env` y no se suben.
 
 ## Cómo correrlo
 
-TODO. Falta el paso a paso cuando la app y la extensión estén listas.
+La app web está en [web/README.md](web/README.md). La extensión sigue en preparación.
 
 ## Equipo
 
