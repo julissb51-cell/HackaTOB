@@ -7,11 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/room-api.test.ts",
+    "test": "tsx --test lib/room-api.test.ts lib/room-fields.test.ts lib/room-membership.test.ts",
     "test:api": "node scripts/test-endpoints.mjs",
     "seed": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "next": "16.4.4",
     "react": "19.3.0",

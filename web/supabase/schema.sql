@@ -11,17 +11,31 @@ create table public.rooms (
   project_name text,
   due_date text,
   token text not null unique,
+  created_by uuid references auth.users (id) on delete set null,
+  parts jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
   constraint rooms_due_date_check check (
     due_date is null
     or due_date = 'sin fecha'
     or due_date ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+  ),
+  constraint rooms_parts_check check (
+    jsonb_typeof(parts) = 'array'
+    and jsonb_array_length(parts) <= 30
+    and not exists (
+      select 1
+      from jsonb_array_elements(parts) as elem
+      where jsonb_typeof(elem) <> 'string'
+        or char_length(elem #>> '{}') < 1
+        or char_length(elem #>> '{}') > 120
+    )
   )
 );
 
 create table public.members (
   id uuid primary key default gen_random_uuid(),
   room_id text not null references public.rooms (id) on delete cascade,
+  user_id uuid references auth.users (id) on delete set null,
   name text not null,
   part text,
   created_at timestamptz not null default now()
@@ -50,6 +64,9 @@ create table public.events (
 );
 
 create index members_room_id_idx on public.members (room_id);
+create index members_user_id_idx on public.members (user_id);
+create unique index members_room_user_uidx on public.members (room_id, user_id) where user_id is not null;
+create index rooms_created_by_idx on public.rooms (created_by);
 create index events_room_id_created_at_idx on public.events (room_id, created_at);
 
 alter table public.events replica identity full;
@@ -82,3 +99,55 @@ revoke all on table public.events from anon, authenticated;
 grant select, insert, update, delete on table public.rooms to service_role;
 grant select, insert, update, delete on table public.members to service_role;
 grant select, insert, update, delete on table public.events to service_role;
+
+-- La fecha sigue en due_date. created_by y members.user_id identifican la
+-- cuenta de Google. parts es la lista de tareas de la sala. El token no se
+-- concede a authenticated: si no, la Data API lo devolvería.
+create schema if not exists private;
+
+create or replace function private.can_read_room(target_room text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.rooms as room
+    where room.id = target_room
+      and (
+        room.created_by = (select auth.uid())
+        or exists (
+          select 1
+          from public.members as member
+          where member.room_id = room.id
+            and member.user_id = (select auth.uid())
+        )
+      )
+  );
+$$;
+
+revoke all on schema private from public, anon, authenticated;
+grant usage on schema private to authenticated;
+revoke all on function private.can_read_room(text) from public, anon, authenticated;
+grant execute on function private.can_read_room(text) to authenticated;
+
+grant select (id, topic, project_name, due_date, created_by, parts, created_at)
+  on table public.rooms to authenticated;
+grant select (id, room_id, name, part, user_id, created_at)
+  on table public.members to authenticated;
+
+drop policy if exists rooms_select_for_member on public.rooms;
+create policy rooms_select_for_member
+  on public.rooms
+  for select
+  to authenticated
+  using (private.can_read_room(id));
+
+drop policy if exists members_select_for_room on public.members;
+create policy members_select_for_room
+  on public.members
+  for select
+  to authenticated
+  using (private.can_read_room(room_id));
