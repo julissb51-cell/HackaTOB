@@ -7,6 +7,7 @@ Decisiones acordadas para HackaToB 2026 (TEC Cartago, 2 al 6 de noviembre). Este
 - El proyecto se llama **Enlaza**.
 - El nombre en código de la sala es `room`.
 - La interfaz está en español y en inglés. Hay un control para cambiar de idioma.
+- El analista de la sala usa Gemini en el nivel gratuito. Con `AI_PROVIDER=xai` pasa a Grok (`https://api.x.ai/v1`) sin cambiar código.
 
 ## Sala
 
