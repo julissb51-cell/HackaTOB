@@ -281,10 +281,10 @@ export function SummaryDrawer({
                       <p className="text-[15px] leading-[1.5]">{alert.mensaje}</p>
                       <p className="mt-2 text-sm">
                         <strong>{text.alertWho}:</strong> {alert.destinatario || "—"}
-                        {alert.partes.length > 0 ? (
+                        {(alert.partes ?? []).length > 0 ? (
                           <>
                             {" · "}
-                            <strong>{text.alertParts}:</strong> {alert.partes.join(", ")}
+                            <strong>{text.alertParts}:</strong> {(alert.partes ?? []).join(", ")}
                           </>
                         ) : null}
                       </p>
