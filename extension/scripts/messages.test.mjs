@@ -168,6 +168,31 @@ const copilotDom = parseHTML(`<!doctype html><body>
 const copilotMessages = messages.listChatMessages(copilotDom.document, copilotSite).map((item) => `${item.role}:${item.text}`);
 if (copilotMessages.join("|") !== "user:que hora es|assistant:Son las tres.") throw new Error(copilotMessages.join("|"));
 
+const echoDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion"><div data-testid="markdown-reply">hoola</div></div>
+  <div data-content="user-message"><div data-testid="markdown-reply">hoola</div></div>
+  <div data-testid="chatOutput"><div data-testid="markdown-reply">hoola</div></div>
+  <div data-content="ai-message"><div data-testid="markdown-reply">¡De nada!</div></div>
+</body>`);
+const echoLine = messages.listChatMessages(echoDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (echoLine !== "user:hoola|assistant:¡De nada!") throw new Error(echoLine);
+
+const history = [
+  { role: "user", text: "hoola" },
+  { role: "assistant", text: "¡De nada!" },
+];
+const seen = messages.mergeSeen(history, []);
+if (messages.freshMessages(history, seen).length !== 0) throw new Error("la línea de base no debía enviar");
+const reloaded = messages.freshMessages(history, seen);
+if (reloaded.length !== 0) throw new Error("la recarga reenvió un turno viejo");
+const later = history.concat([
+  { role: "user", text: "gracias" },
+  { role: "assistant", text: "Con gusto." },
+]);
+const pending = messages.freshMessages(later, seen).map((item) => `${item.role}:${item.text}`).join("|");
+if (pending !== "user:gracias|assistant:Con gusto.") throw new Error(pending);
+if (messages.seenKey("user", "hoola") === messages.seenKey("assistant", "hoola")) throw new Error("la clave no distingue el rol");
+
 const nestedCopilot = {
   userSelectors: ['[data-testid="chatQuestion"]'],
   assistantSelectors: ['[data-testid="chatOutput"]', '[data-testid="copilot-message-reply-div"]'],

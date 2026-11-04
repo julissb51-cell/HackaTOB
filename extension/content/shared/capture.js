@@ -75,11 +75,21 @@
       if (!active) return;
       const text = composerText(findComposer()) || lastComposer;
       if (isPlaceholder(text)) return;
+      sendLivePrompt(text).catch(() => {});
+    }
+
+    async function sendLivePrompt(text) {
+      if (settling) {
+        clearTimeout(armTimer);
+        await arm(site.conversationId(location.href) || "");
+        settling = false;
+      }
       const keyName = countKey("user", text);
       const inDom = countInDom(listMessages(), "user", text);
       const already = sentCounts.get(keyName) || 0;
       if (already > inDom) return;
-      sentCounts.set(keyName, inDom + 1);
+      sentCounts.set(keyName, Math.max(already, inDom) + 1);
+      await saveSeen(site.conversationId(location.href) || "", [...sentCounts.keys()]);
       lastComposer = "";
       enqueue({ tipo: "prompt", texto: core.truncateText(text) });
     }
@@ -146,7 +156,7 @@
     }
 
     function countKey(role, text) {
-      return `${role}|${core.hashText(normalize(text))}`;
+      return globalThis.EnlazaMessages.seenKey(role, text);
     }
 
     function countInDom(messages, role, text) {
@@ -158,21 +168,63 @@
       return listMessages().map((message) => `${message.role}:${normalize(message.text)}`).join("\n");
     }
 
-    function arm(key) {
+    const SEEN_STORE = "enlazaSeen";
+    let seenWrite = Promise.resolve();
+
+    function conversationStoreKey(key) {
+      return `${site.ia}:${key || "sin-id"}`;
+    }
+
+    async function loadSeen(key) {
+      try {
+        const stored = await chrome.storage.local.get(SEEN_STORE);
+        const all = stored?.[SEEN_STORE];
+        const list = all && typeof all === "object" ? all[conversationStoreKey(key)] : null;
+        return Array.isArray(list) ? list.filter((item) => typeof item === "string") : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function saveSeen(key, keys) {
+      const snapshot = (keys || []).slice(-200);
+      seenWrite = seenWrite
+        .then(async () => {
+          const stored = await chrome.storage.local.get(SEEN_STORE);
+          const all = stored?.[SEEN_STORE] && typeof stored[SEEN_STORE] === "object" ? { ...stored[SEEN_STORE] } : {};
+          const name = conversationStoreKey(key);
+          delete all[name];
+          all[name] = snapshot;
+          const names = Object.keys(all);
+          if (names.length > 40) {
+            for (const extra of names.slice(0, names.length - 40)) delete all[extra];
+          }
+          await chrome.storage.local.set({ [SEEN_STORE]: all });
+        })
+        .catch(() => {});
+      return seenWrite;
+    }
+
+    async function arm(key) {
+      const persisted = await loadSeen(key);
+      if ((site.conversationId(location.href) || "") !== key) return;
+      const live = sentCounts;
       const messages = listMessages();
-      const streamingTail = isStreaming() ? lastAssistant(messages) : null;
-      sentCounts = new Map();
       nodeSent = new WeakMap();
-      meta = new WeakMap();
-      waiting = [];
+      const counts = new Map();
+      for (const keyName of persisted) counts.set(keyName, 1);
+      const domCounts = new Map();
       for (const message of messages) {
         if (!message.text) continue;
-        if (streamingTail && message.node === streamingTail.node) continue;
         const keyName = countKey(message.role, message.text);
-        sentCounts.set(keyName, (sentCounts.get(keyName) || 0) + 1);
+        domCounts.set(keyName, (domCounts.get(keyName) || 0) + 1);
         nodeSent.set(message.node, normalize(message.text));
       }
+      for (const [keyName, count] of domCounts) counts.set(keyName, Math.max(counts.get(keyName) || 0, count));
+      for (const [keyName, count] of live) counts.set(keyName, Math.max(counts.get(keyName) || 0, count));
+      sentCounts = counts;
       armedKey = key;
+      await saveSeen(key, [...counts.keys()]);
     }
 
     function fallbackConversationId() {
@@ -190,31 +242,33 @@
 
     function noteConversationChange() {
       const key = site.conversationId(location.href) || "";
-      if (armedKey === null) {
-        arm(key);
+      if (armedKey === null || (armedKey === "" && key)) {
+        beginBaseline(key);
         return;
       }
       if (key === armedKey) return;
-      if (armedKey === "" && key) {
-        armedKey = key;
-        return;
-      }
+      beginBaseline(key);
+    }
+
+    function beginBaseline(key) {
       settling = true;
       armedKey = key;
       const previous = snapshot();
       clearTimeout(armTimer);
-      armTimer = setTimeout(() => finishArm(key, previous, 0), 350);
+      armTimer = setTimeout(() => finishArm(key, previous, 0, 0), 400);
     }
 
-    function finishArm(key, previous, tries) {
+    async function finishArm(key, previous, stable, elapsed) {
       const current = site.conversationId(location.href) || "";
       if (current !== key) return;
       const now = snapshot();
-      if (now === previous && tries < 4) {
-        armTimer = setTimeout(() => finishArm(key, previous, tries + 1), 350);
+      const nextStable = now === previous ? stable + 1 : 0;
+      if (nextStable < 3 && elapsed < 20) {
+        armTimer = setTimeout(() => finishArm(key, now, nextStable, elapsed + 1), 400);
         return;
       }
-      arm(key);
+      await arm(key);
+      if ((site.conversationId(location.href) || "") !== key) return;
       settling = false;
       scheduleScan();
     }
@@ -317,6 +371,7 @@
       }
       sentCounts.set(keyName, already + 1);
       nodeSent.set(message.node, next);
+      saveSeen(site.conversationId(location.href) || armedKey || "", [...sentCounts.keys()]);
       return true;
     }
 
@@ -484,7 +539,10 @@
         waiting = [];
         return;
       }
-      if (becameActive || armedKey === null) arm(site.conversationId(location.href) || "");
+      if (becameActive || armedKey === null) {
+        armedKey = null;
+        settling = true;
+      }
       scheduleScan();
     }
 

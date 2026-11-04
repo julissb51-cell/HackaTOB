@@ -7,8 +7,11 @@
   globalThis.EnlazaCopilotSite = {
     ia: "copilot",
     placeholders: ["enviar un mensaje a copilot"],
-    userSelectors: ['[data-testid="chatQuestion"]'],
+    userSelectors: ['[data-testid="chatQuestion"]', "[data-content='user-message']", "[data-message-author-role='user']"],
     assistantSelectors: [
+      "[data-content='ai-message']",
+      "[data-message-author-role='assistant']",
+      "[data-turn='assistant']",
       '[data-testid="chatOutput"]',
       '[data-testid="copilot-message-reply-div"]',
       '[data-testid="chat-response-message"]',

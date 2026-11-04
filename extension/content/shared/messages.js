@@ -186,6 +186,84 @@
     return unique;
   }
 
+  function hashText(text) {
+    let hash = 2166136261;
+    const value = String(text ?? "");
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(16);
+  }
+
+  function seenKey(role, text) {
+    return `${role}|${hashText(normalizeMessageText(text))}`;
+  }
+
+  function isUserTurn(node) {
+    if (!node || node.nodeType !== 1) return false;
+    const testid = node.getAttribute?.("data-testid") || "";
+    const content = node.getAttribute?.("data-content") || "";
+    const role = node.getAttribute?.("data-message-author-role") || node.getAttribute?.("data-turn") || "";
+    if (testid === "chatQuestion") return true;
+    if (content === "user-message" || content === "user") return true;
+    return role === "user";
+  }
+
+  function insideUserTurn(node) {
+    let current = node;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      if (isUserTurn(current)) return true;
+      if (current.parentElement) {
+        current = current.parentElement;
+        continue;
+      }
+      const root = typeof current.getRootNode === "function" ? current.getRootNode() : null;
+      if (root && root.host) {
+        current = root.host;
+        continue;
+      }
+      break;
+    }
+    return false;
+  }
+
+  function containsUserTurn(node) {
+    if (!node) return false;
+    for (const selector of ["[data-testid='chatQuestion']", "[data-content='user-message']", "[data-content='user']", "[data-message-author-role='user']", "[data-turn='user']"]) {
+      if (queryAll(node, selector).some((found) => found !== node)) return true;
+    }
+    return false;
+  }
+
+  function filterAssistantEchoes(messages) {
+    const users = (messages || []).filter((message) => message?.role === "user");
+    const userTexts = new Set(users.map((message) => normalizeMessageText(message.text)));
+    return (messages || []).filter((message) => {
+      if (message?.role !== "assistant") return true;
+      if (userTexts.has(normalizeMessageText(message.text))) return false;
+      if (insideUserTurn(message.node) || containsUserTurn(message.node)) return false;
+      if (users.some((user) => inside(message.node, user.node) || inside(user.node, message.node))) return false;
+      return true;
+    });
+  }
+
+  function mergeSeen(messages, persisted) {
+    const seen = new Set(Array.isArray(persisted) ? persisted : []);
+    for (const message of messages || []) {
+      if (!message?.text) continue;
+      seen.add(seenKey(message.role, message.text));
+    }
+    return [...seen];
+  }
+
+  function freshMessages(messages, seenKeys) {
+    const seen = new Set(seenKeys || []);
+    return (messages || []).filter((message) => message?.text && !seen.has(seenKey(message.role, message.text)));
+  }
+
   function group(selectors) {
     const list = (selectors || []).filter(Boolean);
     return list.length ? list.join(", ") : "";
@@ -211,7 +289,7 @@
           if (read.text) messages.push({ node: assistantNode || turn, role: "assistant", text: read.text, selector: read.selector });
         }
       }
-      if (messages.length) return dedupeMessages(messages);
+      if (messages.length) return dedupeMessages(filterAssistantEchoes(messages));
     }
 
     for (const node of collect(root, site.userSelectors, false)) {
@@ -229,8 +307,21 @@
       const read = readText(node, site.assistantTextSelectors);
       if (read.text) messages.push({ node, role: "assistant", text: read.text, selector: read.selector || nodeSelector });
     }
-    return dedupeMessages(messages);
+    return dedupeMessages(filterAssistantEchoes(messages));
   }
 
-  return { listChatMessages, dedupeMessages, inside, textFrom, collect, queryAll, queryOne, normalizeMessageText };
+  return {
+    listChatMessages,
+    dedupeMessages,
+    filterAssistantEchoes,
+    seenKey,
+    mergeSeen,
+    freshMessages,
+    inside,
+    textFrom,
+    collect,
+    queryAll,
+    queryOne,
+    normalizeMessageText,
+  };
 });
