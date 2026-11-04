@@ -348,8 +348,22 @@
     return src.startsWith("data:") || src.startsWith("blob:") ? src : "";
   }
 
+  function attachmentName(node) {
+    const label = (node.getAttribute?.("aria-label") || "").trim();
+    if (label) return label;
+    const alt = (node.querySelector?.("img")?.getAttribute?.("alt") || "").trim();
+    if (alt) return alt;
+    const text = (node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
+    const match = text.match(/[^\s/\\]+\.[A-Za-z0-9]{1,8}/);
+    return match ? match[0] : "archivo";
+  }
+
   function visibleAttachments() {
-    const root = queryLast(['[class*="ComposerLayoutRoot"]', '[data-testid="chat-input"]']) || queryLast(site.fileFooterSelectors) || document;
+    const root =
+      queryLast(site.attachmentRootSelectors) ||
+      queryLast(['[class*="ComposerLayoutRoot"]', '[data-testid="chat-input"]']) ||
+      queryLast(site.fileFooterSelectors) ||
+      document;
     const selectors = site.attachmentSelectors || [
       '[class*="ComposerLayoutAttachments"] .composer-attachment-surface[aria-label]',
     ];
@@ -357,7 +371,7 @@
   }
 
   async function fileFromAttachment(node) {
-    const name = (node.getAttribute?.("aria-label") || node.querySelector?.("img")?.getAttribute?.("alt") || "archivo").trim();
+    const name = attachmentName(node);
     const source = limits.chooseAttachmentSource(name, [...pickedFiles.keys()], imageSrc(node));
     if (source === "stored") return { file: storedFile(name) };
     if (source === "image") {

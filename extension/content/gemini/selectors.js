@@ -1,4 +1,6 @@
-// Selectores de gemini.google.com. Si la página cambia, ajusta solo este archivo.
+// Selectores de gemini.google.com. El compositor (nov 2026, Edge, español)
+// es rich-textarea .ql-editor. El + se llama «Cargas y herramientas».
+// La portada usa simplified-input-area; el chat abierto usa la misma caja.
 (function () {
   "use strict";
 
@@ -79,11 +81,43 @@
     composerSelectors: [
       "rich-textarea .ql-editor",
       "rich-textarea div[contenteditable='true']",
+      ".text-input-field .ql-editor",
+      "fieldset.input-area-fieldset .ql-editor",
       '[aria-label="Enter a prompt for Gemini"]',
       '[aria-label="Ingresa una instrucción"]',
-      ".text-input-field .ql-editor",
       "div.ql-editor[contenteditable='true']",
       'div[role="textbox"][contenteditable="true"]',
+    ],
+    fileAnchorSelectors: [
+      'button[aria-label="Cargas y herramientas"]',
+      'button[aria-label="Upload and tools"]',
+      'button[aria-label="Open upload file menu"]',
+      'button[aria-label="Subir archivos"]',
+      'button[aria-label="Upload files"]',
+      'button[aria-label="Subir archivo"]',
+      'button[aria-label="Upload file"]',
+      'button[data-test-id*="upload"]',
+    ],
+    fileFooterSelectors: [
+      ".textarea-wrapper",
+      ".text-input-field",
+      "fieldset.input-area-fieldset",
+      ".input-area-container",
+      "input-area-v2",
+    ],
+    attachmentRootSelectors: [
+      "fieldset.input-area-fieldset",
+      ".input-area-container",
+      "input-area-v2",
+      ".text-input-field",
+    ],
+    attachmentSelectors: [
+      ".file-preview",
+      "[class*='file-preview']",
+      "[class*='preview-chip']",
+      "[class*='file-chip']",
+      "[class*='upload-preview']",
+      "[class*='uploaded-file']",
     ],
     conversationId(href) {
       try {

@@ -62,6 +62,20 @@ if (copilotSite.conversationId("https://copilot.com/chat/conversation/6aea3d77-c
 if (copilotSite.conversationId("https://copilot.microsoft.com/") !== "") throw new Error("conversation copilot vacia");
 if (copilotSite.composerSelectors[0] !== "#m365-chat-editor-target-element") throw new Error("composer copilot");
 if (copilotSite.fileAnchorSelectors[0] !== '[data-testid="PlusMenuButton"]') throw new Error("ancla copilot");
+const geminiSource = readFileSync(path.join(root, "content/gemini/selectors.js"), "utf8");
+const geminiBox = { globalThis: {}, URL };
+geminiBox.globalThis = geminiBox;
+runInNewContext(geminiSource, geminiBox);
+const geminiSite = geminiBox.EnlazaGeminiSite;
+if (geminiSite.fileAnchorSelectors[0] !== 'button[aria-label="Cargas y herramientas"]') throw new Error("ancla gemini");
+if (!geminiSite.fileAnchorSelectors.includes('button[aria-label="Upload and tools"]')) throw new Error("ancla gemini en");
+if (!geminiSite.fileAnchorSelectors.includes('button[aria-label="Open upload file menu"]')) throw new Error("ancla gemini vieja");
+if (geminiSite.fileFooterSelectors[0] !== ".textarea-wrapper") throw new Error("footer gemini");
+if (!geminiSite.fileFooterSelectors.includes(".text-input-field")) throw new Error("campo gemini");
+if (!geminiSite.fileFooterSelectors.includes("fieldset.input-area-fieldset")) throw new Error("fieldset gemini");
+if (geminiSite.composerSelectors[0] !== "rich-textarea .ql-editor") throw new Error("composer gemini");
+if (geminiSite.userSelectors[0] !== "user-query") throw new Error("prompt gemini");
+if (geminiSite.assistantSelectors[0] !== "model-response") throw new Error("respuesta gemini");
 if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
 for (const selector of ['[data-testid="chatOutput"]', '[data-testid="copilot-message-reply-div"]', '[data-testid="markdown-reply"]']) {
   if (!copilotSite.assistantSelectors.includes(selector)) throw new Error("respuesta copilot");
