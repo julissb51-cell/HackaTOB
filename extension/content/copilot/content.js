@@ -1,0 +1,1 @@
+EnlazaCapture.start(EnlazaCopilotSite);

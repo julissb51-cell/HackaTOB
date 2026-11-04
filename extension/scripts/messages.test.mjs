@@ -50,6 +50,19 @@ if (claudeSite.conversationId("https://claude.ai/chat/6aea3d77-c8d8-83e8-ada3-56
   throw new Error("conversation claude");
 }
 if (claudeSite.ia !== "claude") throw new Error("ia claude");
+const copilotSource = readFileSync(path.join(root, "content/copilot/selectors.js"), "utf8");
+const copilotBox = { globalThis: {}, URL };
+copilotBox.globalThis = copilotBox;
+runInNewContext(copilotSource, copilotBox);
+const copilotSite = copilotBox.EnlazaCopilotSite;
+if (copilotSite.ia !== "copilot") throw new Error("ia copilot");
+if (copilotSite.conversationId("https://copilot.com/chat/conversation/6aea3d77-c8d8-83e8-ada3-561359e03e25?n=1") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
+  throw new Error("conversation copilot");
+}
+if (copilotSite.conversationId("https://copilot.microsoft.com/") !== "") throw new Error("conversation copilot vacia");
+if (copilotSite.composerSelectors[0] !== "#m365-chat-editor-target-element") throw new Error("composer copilot");
+if (copilotSite.fileAnchorSelectors[0] !== '[data-testid="PlusMenuButton"]') throw new Error("ancla copilot");
+if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
 console.log("avisos ok");
 
 let parseHTML;
@@ -138,6 +151,19 @@ const claudeDom = parseHTML(`<!doctype html><body>
 </body>`);
 const claudeMessages = messages.listChatMessages(claudeDom.document, claudeSite).map((item) => `${item.role}:${item.text}`);
 if (claudeMessages.join("|") !== "user:hola|assistant:Listo, hola.") throw new Error(claudeMessages.join("|"));
+
+const copilotDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion">que hora es</div>
+  <div data-testid="chatOutput">
+    <div data-testid="copilot-message-reply-div">
+      <div data-testid="markdown-reply">Son las tres.</div>
+      <div data-testid="CopyButtonContainerTestId"></div>
+    </div>
+  </div>
+  <span id="m365-chat-editor-target-element" contenteditable="true"></span>
+</body>`);
+const copilotMessages = messages.listChatMessages(copilotDom.document, copilotSite).map((item) => `${item.role}:${item.text}`);
+if (copilotMessages.join("|") !== "user:que hora es|assistant:Son las tres.") throw new Error(copilotMessages.join("|"));
 
 const attached = parseHTML(`<!doctype html><body>
   <div class="ComposerLayoutAttachments-abc">

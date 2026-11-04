@@ -1,14 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Enlaza",
-  "version": "1.5.1",
-  "description": "Comparte prompts y respuestas de ChatGPT, Gemini y Claude con tu sala de Enlaza.",
+  "version": "1.6.0",
+  "description": "Comparte prompts y respuestas de ChatGPT, Gemini, Claude y Copilot con tu sala de Enlaza.",
   "permissions": ["storage", "sidePanel", "alarms", "tabs"],
   "host_permissions": [
     "https://enlaza-green.vercel.app/*",
     "https://chatgpt.com/*",
     "https://gemini.google.com/*",
     "https://claude.ai/*",
+    "https://copilot.com/*",
+    "https://copilot.microsoft.com/*",
     "https://*.supabase.co/*",
     "https://*.googleusercontent.com/*"
   ],
@@ -67,6 +69,21 @@
         "content/shared/capture.js",
         "content/claude/selectors.js",
         "content/claude/content.js",
+        "lib/files.js",
+        "content/shared/files.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://copilot.com/*", "https://copilot.microsoft.com/*"],
+      "js": [
+        "lib/core.js",
+        "content/shared/dom.js",
+        "content/shared/messages.js",
+        "content/shared/capture.js",
+        "content/copilot/selectors.js",
+        "content/copilot/content.js",
         "lib/files.js",
         "content/shared/files.js"
       ],

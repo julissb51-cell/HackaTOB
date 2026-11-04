@@ -2,7 +2,7 @@ importScripts("../lib/core.js", "../lib/files.js");
 
 const core = globalThis.EnlazaCore;
 const filesApi = globalThis.EnlazaFiles;
-const CHAT_HOSTS = ["chatgpt.com", "gemini.google.com", "claude.ai"];
+const CHAT_HOSTS = ["chatgpt.com", "gemini.google.com", "claude.ai", "copilot.com", "copilot.microsoft.com"];
 
 function isChatHost(host) {
   return CHAT_HOSTS.includes(host);
@@ -342,7 +342,7 @@ async function onInsert(text) {
   }
   const host = chatHost(tab?.url || "");
   if (!tab?.id || !isChatHost(host)) {
-    return { ok: false, error: "Abre ChatGPT, Gemini o Claude para insertar el prompt." };
+    return { ok: false, error: "Abre ChatGPT, Gemini, Claude o Copilot para insertar el prompt." };
   }
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "enlaza.insert", text: value });

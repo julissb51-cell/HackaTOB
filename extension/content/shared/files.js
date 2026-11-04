@@ -1,7 +1,11 @@
 (function () {
   "use strict";
 
-  const site = globalThis.EnlazaChatgptSite || globalThis.EnlazaGeminiSite || globalThis.EnlazaClaudeSite;
+  const site =
+    globalThis.EnlazaChatgptSite ||
+    globalThis.EnlazaGeminiSite ||
+    globalThis.EnlazaClaudeSite ||
+    globalThis.EnlazaCopilotSite;
   if (!site || globalThis.__enlazaFilesStarted) return;
   globalThis.__enlazaFilesStarted = true;
 

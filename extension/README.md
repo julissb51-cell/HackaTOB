@@ -13,7 +13,7 @@ En Chrome o en Edge:
 3. Elegí **Cargar extensión sin empaquetar** (Load unpacked).
 4. Seleccioná la carpeta `extension` de este repo, la que tiene `manifest.json`.
 
-No hace falta compilar. La versión actual es 1.5.1. Si ChatGPT, Gemini o Claude ya estaban abiertos, recargá esas pestañas.
+No hace falta compilar. La versión actual es 1.6.0. Si ChatGPT, Gemini, Claude o Copilot ya estaban abiertos, recargá esas pestañas.
 
 <!-- TODO: captura de edge://extensions con Enlaza cargada -->
 ![Extensión cargada](docs/extensiones.png)
@@ -33,7 +33,7 @@ El token queda solo en `chrome.storage.local` de este navegador. No va en el rep
 
 ## Qué se captura
 
-Solo con la sesión conectada y el consentimiento aceptado. Enlaza lee los prompts que enviás y las respuestas que ya terminaron en ChatGPT (`chatgpt.com`), Gemini (`gemini.google.com`) y Claude (`claude.ai`). No lee otras páginas. Lo que ya estaba en el chat al conectar no se reenvía.
+Solo con la sesión conectada y el consentimiento aceptado. Enlaza lee los prompts que enviás y las respuestas que ya terminaron en ChatGPT (`chatgpt.com`), Gemini (`gemini.google.com`), Claude (`claude.ai`) y Copilot (`copilot.com`). No lee otras páginas. Lo que ya estaba en el chat al conectar no se reenvía.
 
 Cada evento sigue [CONTRATO.md](../CONTRATO.md): `event_id`, `tipo` (`prompt` o `respuesta`), `miembro`, `ia` (`chatgpt` o `gemini`), `conversation_id`, `texto` (máximo 100.000 caracteres) y `tiempo` (ISO 8601 con desfase). Si salen, también van `nombre_chat`, `resumen` y `palabra_clave`.
 
@@ -41,7 +41,7 @@ El envío sale del service worker, con el header `x-room-token`. Si falla, se re
 
 ## Enviar a Enlaza
 
-En ChatGPT el botón **Enlaza** queda al lado de «Añadir archivos y más». También aparece junto a un archivo o un enlace `https` del chat. Lo manda a Archivos de la sala conectada. Si no hay sesión, dice que primero conectes una sala. Si el enlace ya estaba, avisa sin tratarlo como error. Un archivo de más de 10 MB no se sube.
+En ChatGPT el botón **Enlaza** queda al lado de «Añadir archivos y más». En Copilot queda al lado de «+». También aparece junto a un archivo o un enlace `https` del chat. Lo manda a Archivos de la sala conectada. Si no hay sesión, dice que primero conectes una sala. Si el enlace ya estaba, avisa sin tratarlo como error. Un archivo de más de 10 MB no se sube.
 
 ## Panel lateral
 
@@ -49,7 +49,7 @@ En ChatGPT el botón **Enlaza** queda al lado de «Añadir archivos y más». Ta
 
 - **Resumen** y **Mi parte**.
 - **Avisos**, con tres tipos distintos: Falta (ámbar), Contradicción (rojo) y Duplicado (azul). Cada uno puede traer su prompt.
-- **Prompt sugerido**, con **Copiar** e **Insertar en el chat**. Insertar lo pone en la caja de ChatGPT o Gemini de la pestaña activa, sin enviarlo.
+- **Prompt sugerido**, con **Copiar** e **Insertar en el chat**. Insertar lo pone en la caja de ChatGPT, Gemini, Claude o Copilot de la pestaña activa, sin enviarlo.
 - **Eventos enviados: N** y si el lector ve los mensajes de esa pestaña.
 
 El contexto se pide al conectar y otra vez cada 30 segundos. **Actualizar** lo pide en el momento. Los campos son `resumen`, `parte`, `prompt_sugerido` y `advertencias` (`tipo`, `partes`, `mensaje`).
@@ -117,7 +117,7 @@ En Windows hace falta `node` en el PATH. Si el envío falla, el error queda en s
 
 - **El ícono muestra !** y el panel dice que el token no es válido. El enlace no corresponde a la sala. Pegá de nuevo el enlace de invitación y conectá.
 - **Eventos enviados no sube** después de un prompt nuevo. Recargá la pestaña del chat (F5). El panel debe decir que ChatGPT o Gemini ve mensajes. Si dice que no está el lector, en Extensiones pulsá **Actualizar** en Enlaza y volvé a recargar el chat.
-- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.5.1. Después recargá ChatGPT, Gemini y Claude.
+- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.6.0. Después recargá ChatGPT, Gemini, Claude y Copilot.
 - **Insertar no pone el texto.** La pestaña activa tiene que ser ChatGPT o Gemini, y el chat tiene que estar recargado después de instalar.
 
 ## Limitaciones
