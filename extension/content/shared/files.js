@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  const site = globalThis.EnlazaChatgptSite || globalThis.EnlazaGeminiSite;
+  const site = globalThis.EnlazaChatgptSite || globalThis.EnlazaGeminiSite || globalThis.EnlazaClaudeSite;
   if (!site || globalThis.__enlazaFilesStarted) return;
   globalThis.__enlazaFilesStarted = true;
 
@@ -19,6 +19,7 @@
         tooBig: "el archivo pasa de 10 MB",
         generic: "No se pudo enviar. Puedes reintentar.",
         noFile: "No veo un archivo en el mensaje. Adjuntá uno con + y volvé a pulsar Enlaza.",
+        reattach: "Volvé a adjuntarlo con + para que Enlaza lo pueda leer",
       }
     : {
         send: "Send to Enlaza",
@@ -29,7 +30,10 @@
         tooBig: "el archivo pasa de 10 MB",
         generic: "Could not send. You can retry.",
         noFile: "No file in the message. Attach one with + and press Enlaza again.",
+        reattach: "Attach it again with + so Enlaza can read it.",
       };
+
+  const pickedFiles = new Map();
 
   const FILE_NAME = /^[^\s]{1,160}\.[a-z0-9]{2,5}$/i;
 
@@ -281,25 +285,133 @@
     footer.appendChild(makeComposerButton());
   }
 
+  function rememberFile(file) {
+    if (!file?.name || !file.size) return;
+    pickedFiles.set(file.name, file);
+  }
+
+  function storedFile(name) {
+    if (pickedFiles.has(name)) return pickedFiles.get(name);
+    const wanted = String(name || "").trim().toLowerCase();
+    for (const [key, file] of pickedFiles) {
+      if (key.toLowerCase() === wanted) return file;
+    }
+    return null;
+  }
+
+  function eventHitsComposer(event) {
+    const path = typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    const selectors = [...(site.composerSelectors || []), ...(site.fileFooterSelectors || []), '[class*="ComposerLayoutRoot"]', "form"];
+    return path.some((node) => {
+      if (!node?.matches) return false;
+      return selectors.some((selector) => {
+        try {
+          return node.matches(selector);
+        } catch {
+          return false;
+        }
+      });
+    });
+  }
+
+  function onFileChosen(event) {
+    const input = event.target;
+    if (!input || input.type !== "file" || !input.files) return;
+    for (const file of input.files) rememberFile(file);
+  }
+
+  function onDropFiles(event) {
+    if (!eventHitsComposer(event)) return;
+    const list = event.dataTransfer?.files;
+    if (!list?.length) return;
+    for (const file of list) rememberFile(file);
+  }
+
+  function onPasteFiles(event) {
+    if (!eventHitsComposer(event)) return;
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.kind !== "file") continue;
+      const file = item.getAsFile();
+      if (file) rememberFile(file);
+    }
+  }
+
+  function imageSrc(node) {
+    const img = node?.matches?.("img") ? node : node?.querySelector?.("img");
+    const src = img?.currentSrc || img?.src || img?.getAttribute?.("src") || "";
+    return src.startsWith("data:") || src.startsWith("blob:") ? src : "";
+  }
+
+  function visibleAttachments() {
+    const root = queryLast(['[class*="ComposerLayoutRoot"]', '[data-testid="chat-input"]']) || queryLast(site.fileFooterSelectors) || document;
+    const selectors = site.attachmentSelectors || [
+      '[class*="ComposerLayoutAttachments"] .composer-attachment-surface[aria-label]',
+    ];
+    return collect(selectors, root).filter((node) => onScreen(node) && !node.closest?.("[data-enlaza-files]"));
+  }
+
+  async function fileFromAttachment(node) {
+    const name = (node.getAttribute?.("aria-label") || node.querySelector?.("img")?.getAttribute?.("alt") || "archivo").trim();
+    const source = limits.chooseAttachmentSource(name, [...pickedFiles.keys()], imageSrc(node));
+    if (source === "stored") return { file: storedFile(name) };
+    if (source === "image") {
+      const blob = await readBlob(imageSrc(node));
+      const type = blob.type || "application/octet-stream";
+      return { file: new File([blob], name, { type }) };
+    }
+    return { reattach: true, name };
+  }
+
+  async function sendFileObject(file) {
+    if (file.size > MAX_FILE_BYTES) {
+      toast(copy.tooBig);
+      return;
+    }
+    if (!file.size) {
+      toast(copy.unreadable);
+      return;
+    }
+    show(
+      await chrome.runtime.sendMessage({
+        type: "enlaza.file",
+        file: {
+          name: file.name,
+          mime: file.type || "application/octet-stream",
+          size: file.size,
+          bytes: await blobToBase64(file),
+        },
+      }),
+    );
+  }
+
   async function sendComposer(button) {
-    const root = queryLast(['[class*="ComposerLayoutRoot"]']) || queryLast(site.fileFooterSelectors) || document;
-    const nodes = collect(site.fileSelectors, root).filter((node) => !node.closest?.("[data-enlaza-files]"));
+    const nodes = visibleAttachments();
     if (!nodes.length) {
       toast(copy.noFile);
       return;
     }
     button.disabled = true;
     button.classList.add("enlaza-send-busy");
+    let needsReattach = false;
     try {
       for (const node of nodes) {
-        const href = hrefOf(node);
-        await send(button, {
-          kind: "file",
-          name: fileName(node, href),
-          src: href.startsWith("blob:") || href.startsWith("data:") || href.startsWith("http") ? href : "",
-          https: httpsUrl(href),
-        });
+        let resolved;
+        try {
+          resolved = await fileFromAttachment(node);
+        } catch (error) {
+          console.debug("enlaza archivos", error);
+          needsReattach = true;
+          continue;
+        }
+        if (resolved.reattach) {
+          needsReattach = true;
+          continue;
+        }
+        if (resolved.file) await sendFileObject(resolved.file);
       }
+      if (needsReattach) toast(copy.reattach);
     } finally {
       button.disabled = false;
       button.classList.remove("enlaza-send-busy");
@@ -349,6 +461,9 @@
     const root = document.documentElement || document.body;
     if (root) observer.observe(root, { childList: true, subtree: true });
     setInterval(scan, 3000);
+    document.addEventListener("change", onFileChosen, true);
+    document.addEventListener("drop", onDropFiles, true);
+    document.addEventListener("paste", onPasteFiles, true);
     scan();
   }
 

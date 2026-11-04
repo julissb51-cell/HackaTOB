@@ -22,6 +22,10 @@ if (files.checkSize(0) !== "size no válido") throw new Error("size");
 if (!files.cleanShareUrl("https://example.com/informe.pdf")) throw new Error("url");
 if (files.cleanShareUrl("javascript:alert(1)")) throw new Error("url mala");
 if (files.mimeOrDefault("no") !== "application/octet-stream") throw new Error("mime");
+const shot = "Captura de pantalla 2026-11-03 144840.png";
+if (files.chooseAttachmentSource(shot, [shot], "") !== "stored") throw new Error("archivo guardado");
+if (files.chooseAttachmentSource(shot, [], "data:image/png;base64,aaa") !== "image") throw new Error("miniatura");
+if (files.chooseAttachmentSource("informe.pdf", [], "") !== "reattach") throw new Error("pdf");
 
 const { readFileSync } = await import("node:fs");
 const { runInNewContext } = await import("node:vm");
@@ -134,6 +138,23 @@ const claudeDom = parseHTML(`<!doctype html><body>
 </body>`);
 const claudeMessages = messages.listChatMessages(claudeDom.document, claudeSite).map((item) => `${item.role}:${item.text}`);
 if (claudeMessages.join("|") !== "user:hola|assistant:Listo, hola.") throw new Error(claudeMessages.join("|"));
+
+const attached = parseHTML(`<!doctype html><body>
+  <div class="ComposerLayoutAttachments-abc">
+    <div class="flex flex-wrap items-end gap-2 p-1">
+      <div class="composer-attachment-surface" aria-label="Captura de pantalla 2026-11-03 144840.png">
+        <span class="composer-attachment-surface">
+          <img class="size-full object-cover" alt="Captura de pantalla 2026-11-03 144840.png" src="data:image/png;base64,aaa" />
+        </span>
+      </div>
+    </div>
+  </div>
+</body>`).document.querySelector(chatgpt.attachmentSelectors[0]);
+if (!attached || attached.getAttribute("aria-label") !== "Captura de pantalla 2026-11-03 144840.png") {
+  throw new Error("adjunto chatgpt");
+}
+const thumb = attached.querySelector("img");
+if (!String(thumb.getAttribute("src")).startsWith("data:image/png")) throw new Error("miniatura chatgpt");
 
 console.log("messages ok");
 console.log(roles.join(" | "));

@@ -34,5 +34,15 @@
     return "";
   }
 
-  return { MAX_FILE_BYTES, cleanShareUrl, mimeOrDefault, checkSize };
+  function chooseAttachmentSource(name, storedNames, imageSrc) {
+    const wanted = String(name || "").trim();
+    const names = Array.isArray(storedNames) ? storedNames : [];
+    if (wanted && names.some((item) => item === wanted || String(item).toLowerCase() === wanted.toLowerCase())) {
+      return "stored";
+    }
+    if (typeof imageSrc === "string" && /^(data:|blob:)/.test(imageSrc)) return "image";
+    return "reattach";
+  }
+
+  return { MAX_FILE_BYTES, cleanShareUrl, mimeOrDefault, checkSize, chooseAttachmentSource };
 });

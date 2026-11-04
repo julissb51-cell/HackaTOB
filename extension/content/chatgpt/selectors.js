@@ -64,6 +64,9 @@
       '[class*="ComposerLayoutFooter"]',
       '[class*="ComposerLayoutRoot"]',
     ],
+    attachmentSelectors: [
+      '[class*="ComposerLayoutAttachments"] .composer-attachment-surface[aria-label]',
+    ],
     fileSelectors: [
       "a[download]",
       'a[href^="blob:"]',
