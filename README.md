@@ -11,7 +11,7 @@ HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 ## El problema
 
-Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini o Claude), y ninguna IA sabe lo que hacen las demás. Eso trae varios problemas, que se descubren tarde, al unir el trabajo:
+Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini, Claude, Copilot o Cursor), y ninguna IA sabe lo que hacen las demás. Eso se descubre tarde, al unir el trabajo:
 
 - **Trabajo repetido.**
 - **Decisiones que se contradicen:** por ejemplo, una persona guarda los datos en JSON y otra en una base de datos.
@@ -33,31 +33,72 @@ Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio
 
 **Antes:** cada persona trabaja a ciegas y los errores aparecen al final. **Con Enlaza:** el equipo trabaja en una sala compartida, y una IA analista avisa a tiempo de las contradicciones, el trabajo duplicado y las partes faltantes.
 
-## La solución
+## Qué es
 
-Enlaza es una **sala compartida** para el equipo, junto con una **extensión de Chrome**. Cada persona sigue usando su IA favorita con todas sus funciones. Lo que pregunta y lo que la IA responde llega a la sala, y un **analista con IA** (Gemini) arma el contexto común:
+Enlaza es una **sala compartida** para un trabajo en grupo hecho con IAs distintas. Cada estudiante sigue en su chat. La sala junta lo que hicieron y se lo devuelve al equipo.
 
-- **Resumen** del trabajo del equipo.
-- **Contradicciones:** por ejemplo, el informe dice JSON y el código usa SQLite.
-- **Duplicados:** dos personas haciendo lo mismo.
-- **Lo que falta** de cada parte, comparado con lo que pide la entrega.
-- **Prioridades:** *Urgente*, *Pronto* y *Puede esperar*.
-- **Avance %** del proyecto y de cada parte (Informe, Código, Presentación…).
-- **Siguiente prompt sugerido** para cada persona, listo para copiar o insertar en su chat.
-- **Archivos de la sala:** enlaces y archivos de hasta 10 MB. Si alguien pega un enlace en un prompt, Enlaza lo guarda solo (nunca lo abre).
+Sirve para **ChatGPT, Gemini, Claude, Copilot y Cursor**.
 
 ## Cómo funciona
 
 1. Alguien crea una sala (con inicio de sesión de Google), le pone un tema y una fecha de entrega, y comparte el enlace de invitación.
 2. Cada integrante entra con su nombre.
-3. En la extensión, pega el enlace una vez y acepta compartir sus prompts y respuestas de **ChatGPT** y **Gemini**.
-4. La extensión manda cada prompt y cada respuesta a la sala (`POST /api/rooms/{salaId}/events`).
-5. El analista lee la sala y devuelve el contexto (`GET /api/rooms/{salaId}/context`).
-6. El panel lateral de la extensión y la sala web muestran el resumen, los avisos, el avance y el prompt sugerido, en vivo.
+3. En el navegador, la **extensión de Chrome o Edge** lee los prompts y las respuestas que ya terminaron, y puede mandar un archivo o un enlace a Archivos de la sala.
+4. En **Cursor** (programa de escritorio), un gancho de Windows manda el prompt y la respuesta del agente. No pasa por la extensión.
+5. Todo llega a la sala con `POST /api/rooms/{salaId}/events`. El contrato de los campos está en [CONTRATO.md](CONTRATO.md).
+6. Un **analista con IA** (Gemini por defecto; se puede pasar a Grok con `AI_PROVIDER`) lee la sala y arma el contexto de cada miembro: `GET /api/rooms/{salaId}/context`.
+7. El panel de la extensión y la página de la sala muestran, en vivo:
+   - **Resumen** del trabajo.
+   - **Mi parte.**
+   - **Avisos:** contradicción, duplicado o falta, con prioridad *Urgente*, *Pronto* o *Puede esperar*.
+   - **Avance %** del proyecto y de cada parte.
+   - **Prompt sugerido**, para copiar o insertar en el chat.
+   - **Actividad:** los prompts y las respuestas.
+   - **Archivos:** enlaces y archivos de hasta 10 MB. Si alguien pega un enlace `https` en un prompt, la sala lo guarda solo. Nunca abre ese enlace.
 
-Los detalles de datos y endpoints están en [CONTRATO.md](CONTRATO.md).
+```mermaid
+flowchart LR
+  subgraph Navegador
+    ext["Extensión MV3<br/>ChatGPT · Gemini · Claude · Copilot"]
+    web["Sala web<br/>Next.js"]
+  end
+  cursor["Gancho de Cursor"]
+  api["API en Vercel<br/>/api/rooms/{salaId}/..."]
+  db[("Supabase<br/>Postgres · Auth · Storage")]
+  ai{"AI_PROVIDER"}
+  gemini["Gemini (por defecto)"]
+  grok["Grok (xai)"]
+
+  ext -- "POST /events y archivos" --> api
+  cursor -- "POST /events" --> api
+  web <--> api
+  api <--> db
+  api --> ai
+  ai --> gemini
+  ai --> grok
+  api -- "GET /context" --> ext
+  api -- "contexto" --> web
+```
 
 ## Capturas
+
+El panel de la extensión, al lado de ChatGPT: resumen, mi parte, avisos y prompt sugerido.
+
+![ChatGPT con el panel de Enlaza](docs/img/1-chatgpt-panel.png)
+
+La sala: nombre del proyecto, avance y miembros.
+
+![Sala de Enlaza](docs/img/2-sala.png)
+
+La actividad junta prompts y respuestas de las IAs del equipo. Esta captura es provisional: se va a cambiar. Todavía se ve un prompt repetido y el markdown sin formato.
+
+![Actividad de la sala, captura provisional](docs/img/3-actividad.png)
+
+En Gemini, con un PDF en el compositor, Enlaza avisa que el archivo llegó a la sala.
+
+![Gemini envía un PDF a Archivos](docs/img/4-gemini-archivo.png)
+
+También están el inicio y la sala en claro y oscuro:
 
 | Inicio | Sala (claro) |
 |---|---|
@@ -67,24 +108,75 @@ Los detalles de datos y endpoints están en [CONTRATO.md](CONTRATO.md).
 |---|---|
 | ![Sala en modo oscuro](docs/sala-oscuro.png) | ![Archivos de la sala](docs/archivos.png) |
 
-## Demo en vivo
+## Empezar
 
-La sala de demo **`demo-final`** trae un caso real: un **sistema de gestión de biblioteca** hecho por tres personas.
+### Extensión (Chrome o Edge)
 
-- **Ana** hace el informe en ChatGPT.
-- **Luis** programa en Gemini.
-- **Sofía** arma la presentación con Claude.
+1. Abrí `chrome://extensions` o `edge://extensions`.
+2. Activá el **Modo de desarrollador**.
+3. Pulsá **Cargar extensión sin empaquetar** y elegí la carpeta `extension/` de este repo.
+4. Recargá las pestañas de ChatGPT, Gemini, Claude o Copilot.
+5. En la web, copiá el enlace de invitación de tu sala.
+6. Abrí el popup de Enlaza, pegá ese enlace, escribí tu nombre y pulsá **Conectar**.
 
-Ahí se ve cómo Enlaza detecta que el informe guarda los datos en `datos.json` mientras el código usa SQLite.
+El enlace se queda solo en el almacenamiento del navegador. Más detalle en [extension/README.md](extension/README.md).
 
-> Los eventos de Sofía (Claude) son **datos precargados** para la demo. La extensión captura en vivo solo ChatGPT y Gemini.
+### Cursor (Windows)
 
-1. Abre [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app) e inicia sesión con Google.
-2. Entra a la sala de demo **`demo-final`** con el enlace de invitación que te da el equipo.
-3. Mira el **Avance del proyecto** (% general y por parte), los avisos con prioridad y **Tu siguiente paso**. Por ejemplo, el informe dice `datos.json` pero Luis usa SQLite.
-4. Abre **Archivos** para ver los enlaces de la sala, o agrega uno nuevo.
-5. Pulsa **Analizar ahora** para que Gemini vuelva a leer la sala.
-6. Para ver la captura en vivo, instala la extensión (abajo), conéctala con el mismo enlace como **Ana** y escribe un prompt en ChatGPT. Aparece en la actividad de la sala.
+En la carpeta `cursor-hook/`, un solo comando instala el gancho. No hace falta Node ni Python. El enlace y el nombre van en el comando; no los dejes escritos en el repo.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -Invite "https://enlaza-green.vercel.app/join/TU-SALA?t=TU-TOKEN" -Member "Ana"
+```
+
+Los pasos están en [cursor-hook/README.md](cursor-hook/README.md).
+
+### Ver la sala
+
+1. Abrí [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app) e iniciá sesión con Google.
+2. Creá una sala o entrá con el enlace que te pasó el equipo.
+3. Mirá el avance, los avisos, tu siguiente paso y la actividad.
+4. Abrí **Archivos** para ver enlaces y archivos, o agregá uno.
+5. **Analizar ahora** vuelve a leer la sala con la IA.
+
+La sala de demo **`demo-final`** trae un caso de un **sistema de gestión de biblioteca**: Ana hace el informe, Luis el código y Sofía la presentación. Ahí se ve el choque entre `datos.json` y SQLite. El enlace de esa sala lo da el equipo. No está en este archivo.
+
+## Tecnología
+
+- **Web:** Next.js 16 (App Router) en **Vercel**. Sala, inicio con Google y API.
+- **Datos:** **Supabase** (Postgres con RLS, Auth y Storage privado para Archivos).
+- **Analista:** **Gemini** en el nivel gratuito. Con `AI_PROVIDER=xai` pasa a Grok, sin cambiar código.
+- **Extensión:** Chrome Manifest V3, sin compilar. Content scripts, service worker y panel lateral.
+
+## Correr la web en tu computadora
+
+Necesitás Node 20 o más reciente y un proyecto de Supabase. Los scripts SQL están en `web/supabase/`.
+
+```bash
+cd web
+npm install
+cp ../.env.example .env.local   # y completá los valores
+npm run dev
+```
+
+Estas son las variables (solo los nombres; las claves no se suben):
+
+| Variable | Para qué sirve |
+|---|---|
+| `SUPABASE_URL` | URL del proyecto de Supabase |
+| `SUPABASE_ANON_KEY` | Clave pública de Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servidor (solo en el servidor) |
+| `AI_PROVIDER` | `gemini` (por defecto) o `xai` |
+| `GEMINI_API_KEY` | Clave de Google AI Studio |
+| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | Opcionales: modelo principal y de respaldo |
+| `XAI_API_KEY` | Solo si `AI_PROVIDER=xai` |
+
+Pruebas: `npm test`, `npm run lint` y `npm run build`. Más detalle en [web/README.md](web/README.md).
+
+## Equipo
+
+- **Jose (Persona A):** plataforma web y analista con IA.
+- **Juliana Sanabria ([@julissb51-cell](https://github.com/julissb51-cell)) (Persona B):** extensión, integración con Cursor y presentación.
 
 ## Modelo de negocio (propuesta)
 
@@ -94,85 +186,11 @@ Ahí se ve cómo Enlaza detecta que el informe guarda los datos en `datos.json` 
 - **Plan de pago para equipos:** más integrantes, análisis ilimitado, historial más largo y más espacio en Archivos.
 - **Plan para universidades:** licencia por curso o por institución, con un panel para docentes que muestra el avance de cada grupo, y soporte.
 
-## Arquitectura
-
-- **Web:** Next.js 16 (App Router) desplegado en **Vercel**. Incluye la sala, el inicio de sesión con Google y la API.
-- **Datos:** **Supabase** (Postgres con RLS, Auth y Storage privado para Archivos).
-- **Analista:** **Gemini** en el nivel gratuito por defecto. La variable `AI_PROVIDER` permite cambiar a Grok (`xai`) sin tocar código.
-- **Extensión:** Chrome Manifest V3. Usa content scripts para ChatGPT y Gemini, un service worker y un panel lateral. También hay ganchos para Cursor y Claude Code.
-
-```mermaid
-flowchart LR
-  subgraph Navegador
-    ext["Extensión MV3<br/>ChatGPT · Gemini"]
-    web["Sala web<br/>Next.js"]
-  end
-  hooks["Ganchos<br/>Cursor · Claude Code"]
-  api["API en Vercel<br/>/api/rooms/{salaId}/..."]
-  db[("Supabase<br/>Postgres · Auth · Storage")]
-  ai{"AI_PROVIDER"}
-  gemini["Gemini (por defecto)"]
-  grok["Grok (xai)"]
-
-  ext -- "POST /events" --> api
-  hooks -- "POST /events" --> api
-  web <--> api
-  api <--> db
-  api --> ai
-  ai --> gemini
-  ai --> grok
-  api -- "GET /context" --> ext
-```
-
-## Correrlo en tu computadora
-
-Necesitas Node 20 o más reciente y un proyecto de Supabase (los scripts SQL están en `web/supabase/`).
-
-```bash
-cd web
-npm install
-cp ../.env.example .env.local   # y completa los valores
-npm run dev
-```
-
-Estas son las variables de entorno que necesitas (solo los nombres; las claves nunca se suben al repo):
-
-| Variable | Para qué sirve |
-|---|---|
-| `SUPABASE_URL` | URL del proyecto de Supabase |
-| `SUPABASE_ANON_KEY` | Clave pública de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave de servidor de Supabase (solo en el servidor) |
-| `AI_PROVIDER` | `gemini` (por defecto) o `xai` |
-| `GEMINI_API_KEY` | Clave de Google AI Studio |
-| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL` | Opcionales: modelo principal y de respaldo |
-| `XAI_API_KEY` | Solo si `AI_PROVIDER=xai` |
-
-Pruebas: ejecuta `npm test`, `npm run lint` y `npm run build`. Hay más detalles en [web/README.md](web/README.md).
-
-## Instalar la extensión
-
-1. Abre `chrome://extensions` (o `edge://extensions`).
-2. Activa el **Modo de desarrollador**.
-3. Pulsa **Cargar extensión sin empaquetar** y elige la carpeta `extension/` de este repo.
-4. Recarga las pestañas de ChatGPT y Gemini.
-5. Abre el popup de Enlaza, pega el enlace de invitación de la sala, escribe tu nombre y pulsa **Conectar**.
-
-El token queda solo en el almacenamiento local del navegador. Hay más detalles en [extension/README.md](extension/README.md).
-
-## Equipo
-
-- **Jose (Persona A):** web, API, base de datos y analista con IA.
-- **Juliana Sanabria ([@julissb51-cell](https://github.com/julissb51-cell)) (Persona B):** extensión de Chrome y presentación.
-
 ## Riesgos
 
-- **Privacidad de los chats:**
-  - La extensión pide consentimiento y solo captura ChatGPT y Gemini.
-  - Las salas son privadas y se entra solo por invitación.
-  - La base de datos tiene reglas de seguridad (RLS).
-  - Los Archivos se guardan en un almacenamiento privado.
-- **Límites del plan gratis de la IA:** los manejamos con reintentos automáticos y modelos de respaldo (`GEMINI_FALLBACK_MODEL`).
-- **Cambios en las páginas de las IAs:** pueden afectar la extensión. Los selectores están en un solo archivo por sitio, con alternativas.
+- **Privacidad de los chats:** la extensión pide consentimiento y solo lee las páginas de las IAs que declara. Las salas son privadas y se entra por invitación. La base tiene reglas de seguridad (RLS). Los archivos van a un almacenamiento privado.
+- **Límites del plan gratis de la IA:** hay reintentos y un modelo de respaldo (`GEMINI_FALLBACK_MODEL`). El avance % es una estimación, no una nota.
+- **Cambios en las páginas de las IAs:** los selectores están en un archivo por sitio, con alternativas.
 
 ## Revisión interna
 
@@ -181,31 +199,19 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 - **Fallas del servicio de la IA:** cuando Gemini no respondía, agregamos reintentos automáticos y modelos de respaldo.
 - **Alertas que se escapaban:** reforzamos las instrucciones de la IA y sumamos reglas de respaldo para detectar las contradicciones y el trabajo repetido.
 - **Textos confusos:** corregimos la gramática y las frases exageradas de los resúmenes.
-- **Uso diario:**
-  - La sesión se inicia una sola vez.
-  - Las salas se crean al instante.
-  - Para eliminar una sala se pide confirmación.
-  - Se puede invitar por correo.
-  - Mejoramos el diseño en el celular y en la barra superior.
-- **Seguridad:**
-  - Solo el dueño puede borrar una sala.
-  - Las salas de demostración están protegidas.
-  - Ninguna clave queda en el código público.
-- **Pendiente:** la prueba final del equipo en los sitios reales de ChatGPT y Gemini.
+- **Uso diario:** la sesión se inicia una sola vez, las salas se crean al instante, borrar una sala pide confirmación, se puede invitar por correo, y mejoramos el celular y la barra superior.
+- **Seguridad:** solo el dueño puede borrar una sala, las salas de demostración están protegidas y ninguna clave queda en el código público.
 
 ## Limitaciones
 
-- La extensión captura solo **ChatGPT** (`chatgpt.com`) y **Gemini** en la web. **Claude en la web no está soportado**. Claude Code y Cursor funcionan solo con los ganchos de Node.
-- La extensión todavía no envía archivos a Enlaza. Los archivos se agregan desde la sala web.
-- Si ChatGPT o Gemini cambian su página, hay que actualizar los selectores de la extensión.
-- El análisis depende del nivel gratuito de Gemini, que tiene límites de uso. El avance % es una estimación de la IA, no una nota.
-- Borrar archivos requiere iniciar sesión con Google (solo el dueño de la sala o quien lo agregó).
+- La extensión lee ChatGPT, Gemini, Claude y Copilot en el navegador. Si esas páginas cambian, hay que ajustar los selectores.
+- Cursor no se captura con la extensión. En Windows se usa el gancho de `cursor-hook/`. Hay scripts de ganchos para Claude Code en `extension/hooks/`, aparte del manifiesto.
+- Borrar un archivo pide la sesión de Google de quien lo agregó o del dueño de la sala. El enlace de invitación no alcanza para borrarlo.
+- El análisis depende del nivel gratuito de Gemini, que tiene cupo.
 - No hay app móvil. La web sí se adapta al celular.
 
 ## Hoja de ruta
 
-- Botón **«Enviar a Enlaza»** en la extensión, para mandar archivos de ChatGPT y Gemini a la sala.
-- Soporte para Claude, Copilot y otras IAs en la web.
 - Avisos por correo cuando se acerca la fecha de entrega.
 - Panel para docentes y planes por equipo y por universidad.
 - Publicar la extensión en la Chrome Web Store.
@@ -214,7 +220,7 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 
 ## English summary
 
-**Enlaza** gives a student team one shared context while each member keeps using their own AI. A Chrome extension captures prompts and answers from ChatGPT and Gemini and sends them to a shared room (Next.js on Vercel and Supabase). A Gemini analyst (switchable to Grok with `AI_PROVIDER`) summarizes the work, flags contradictions, duplicates and missing parts, ranks them Urgent / Soon / Can wait, estimates progress, and suggests each member's next prompt. Rooms also hold shared links and files. Evidence: 92% of students use AI (HEPI 2025), 78% of AI users bring their own tools (Microsoft 2024 Work Trend Index), and users in OpenAI's forum and on Hacker News describe manually syncing parallel chats and duplicated, conflicting work. OpenAI's shared projects work only inside ChatGPT on paid plans; Enlaza works across different AIs, for free. Live: https://enlaza-green.vercel.app
+**Enlaza** is a shared room for a student team that works with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor). A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Live: https://enlaza-green.vercel.app
 
 ## Licencia
 
