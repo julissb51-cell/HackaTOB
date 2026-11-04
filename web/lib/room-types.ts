@@ -1,3 +1,5 @@
+import type { RoomProgress } from "./progress";
+
 export const AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot"] as const;
 export const EVENT_TYPES = ["prompt", "respuesta", "archivo"] as const;
 
@@ -94,6 +96,7 @@ export type SavedAnalysis = {
   idioma: "es" | "en";
   pending: boolean;
   ranAt: string;
+  avance?: RoomProgress | null;
 };
 
 export type RoomStore = {

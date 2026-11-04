@@ -17,16 +17,17 @@ import {
   type LiveStatus,
   type PartStatus,
 } from "@/lib/room-feed";
-import type { ContextResponse, StoredEvent, WarningType } from "@/lib/room-types";
+import type { ContextResponse, StoredEvent } from "@/lib/room-types";
 import { browserSupabase } from "@/lib/supabase/browser";
 import { CopyButton, CopyValue, RememberToken } from "./invite-link";
+import { ProgressCard, SummaryDrawer } from "./room-progress";
 import { EditableTitle } from "./editable-title";
 import { useCopy } from "./language";
 import { Symbol, pillPrimary } from "./symbol";
 import { RoomSettings } from "./room-settings";
 import { RoomTopBar, SettingsDrawer } from "./room-top-bar";
 import { ShareDialog } from "./share-dialog";
-import { fieldClass, secondaryButton } from "./styles";
+import { secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
 
 const PREVIEW = 420;
@@ -59,6 +60,8 @@ export function RoomScreen({
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const closeSummary = useCallback(() => setSummaryOpen(false), []);
   const due = !room.dueDate ? text.dueUnset : room.dueDate === NO_DATE ? text.noDate : room.dueDate;
   const names = feedMembers(feed.members, feed.events);
   const activeFilter = memberFilter && names.includes(memberFilter) ? memberFilter : null;
@@ -131,111 +134,52 @@ export function RoomScreen({
 
         <div className="grid gap-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
           <div className="order-2 min-w-0 space-y-6 lg:order-none">
-            <Panel>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
-                    <Symbol name="auto_awesome" className="text-[20px] text-link" />
-                    {text.overviewTitle}
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    {text.forMember} <span className="text-foreground">{room.viewerName}</span>
-                  </p>
-                </div>
-                <span className="rounded-full bg-structural px-3 py-1 text-xs font-semibold text-link">
-                  {analysis.board.fuente === "ia" ? text.fromAi : text.fromRules}
-                </span>
-              </div>
-              {analysis.board.pending && feed.events.length > 0 ? (
-                <p role="status" className="mt-4 text-sm text-muted">
-                  {text.pendingNote}
-                </p>
-              ) : null}
-              {feed.events.length === 0 ? (
-                <p className="mt-4 text-sm leading-6 text-muted">{text.noEventsYet}</p>
-              ) : analysis.board.fuente !== "ia" ? (
-                <p role="status" className="mt-4 rounded-xl bg-falta-bg px-3 py-2 text-sm leading-6 text-falta-ink">
-                  {text.aiBusy}
-                </p>
-              ) : null}
-              <div className="mt-5 space-y-5">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-muted">{text.summary}</h3>
-                  <p className="max-w-[75ch] text-[15px] leading-[1.5]">{context.resumen}</p>
-                </div>
-                {analysis.board.consejo ? (
-                  <div className="space-y-1">
-                    <h3 className="text-sm font-semibold text-muted">{text.teamAdvice}</h3>
-                    <p className="max-w-[75ch] text-[15px] leading-[1.5]">{analysis.board.consejo}</p>
-                  </div>
-                ) : null}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-muted">{text.warnings}</h3>
-                  {context.advertencias.length === 0 ? (
-                    <p className="text-sm text-muted">{text.noWarnings}</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {context.advertencias.map((warning, index) => (
-                        <li key={`${warning.tipo}-${index}`} className={`flex gap-3 rounded-2xl px-4 py-3 ${warningTone(warning.tipo)}`}>
-                          <Symbol name={warningIcon(warning.tipo)} className="mt-0.5 text-[20px]" />
-                          <p className="min-w-0 text-[15px] leading-[1.5]">
-                            <strong className="font-semibold">
-                              <WarningLabel tipo={warning.tipo} />:
-                            </strong>{" "}
-                            {warning.mensaje}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            </Panel>
-
-            <Panel>
-              <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
-                <Symbol name="assignment_ind" className="text-[20px] text-muted" />
-                {text.yourWorkTitle}
-              </h2>
-              <div className="mt-5 space-y-5">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-muted">{text.forMember} {room.viewerName}</h3>
-                  <p className="text-[15px]">{context.parte}</p>
-                </div>
-                <div className="space-y-2 rounded-2xl bg-structural p-4">
-                  <label className="inline-flex items-center gap-2 text-sm font-semibold" htmlFor="prompt-sugerido">
-                    <Symbol name="lightbulb" className="text-[18px] text-link" />
-                    {text.suggested}
-                  </label>
-                  <textarea
-                    id="prompt-sugerido"
-                    readOnly
-                    rows={4}
-                    value={context.prompt_sugerido}
-                    className={`${fieldClass} border-transparent text-sm leading-6`}
+            <ProgressCard
+              avance={analysis.board.avance}
+              board={analysis.board}
+              aiByMember={aiByMember}
+              viewerName={room.viewerName}
+              context={context}
+              onOpen={() => setSummaryOpen(true)}
+            />
+            {analysis.board.pending && feed.events.length > 0 ? (
+              <p role="status" className="-mt-3 px-2 text-sm text-muted">
+                {text.pendingNote}
+              </p>
+            ) : feed.events.length > 0 && analysis.board.fuente !== "ia" ? (
+              <p role="status" className="-mt-3 rounded-xl bg-falta-bg px-3 py-2 text-sm leading-6 text-falta-ink">
+                {text.aiBusy}
+              </p>
+            ) : null}
+            <SummaryDrawer
+              open={summaryOpen}
+              onClose={closeSummary}
+              board={analysis.board}
+              context={context}
+              viewerName={room.viewerName}
+              extra={
+                <>
+                  {analysis.board.chats.length > 0 ? (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-semibold text-muted">{text.chats}</h3>
+                      <ul className="space-y-1 text-sm">
+                        {analysis.board.chats.map((chat) => (
+                          <li key={chat.conversationId} className="flex items-baseline justify-between gap-3">
+                            <span className="font-semibold">{chat.nombre}</span>
+                            <span className="truncate font-mono text-xs text-muted">{chat.conversationId}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  <CopyButton
+                    value={summaryMarkdown(room, analysis.board, context, text)}
+                    label={text.exportSummary}
+                    doneLabel={text.exportCopied}
                   />
-                  <CopyButton value={context.prompt_sugerido} />
-                </div>
-                {analysis.board.chats.length > 0 ? (
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-semibold text-muted">{text.chats}</h3>
-                    <ul className="space-y-1 text-sm">
-                      {analysis.board.chats.map((chat) => (
-                        <li key={chat.conversationId} className="flex items-baseline justify-between gap-3">
-                          <span className="font-semibold">{chat.nombre}</span>
-                          <span className="truncate font-mono text-xs text-muted">{chat.conversationId}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                <CopyButton
-                  value={summaryMarkdown(room, analysis.board, context, text)}
-                  label={text.exportSummary}
-                  doneLabel={text.exportCopied}
-                />
-              </div>
-            </Panel>
+                </>
+              }
+            />
 
             <Panel live>
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -388,11 +332,6 @@ function Letter({ name, strong = false }: { name: string; strong?: boolean }) {
   );
 }
 
-function warningIcon(tipo: WarningType): string {
-  if (tipo === "contradiccion") return "error";
-  if (tipo === "duplicado") return "content_copy";
-  return "help";
-}
 
 function useRoomAnalysis(roomId: string, initial: RoomBoard, fallback: boolean) {
   const [board, setBoard] = useState(initial);
@@ -652,15 +591,4 @@ function EventCard({ event, chatName }: { event: StoredEvent; chatName: string |
   );
 }
 
-function warningTone(tipo: WarningType): string {
-  if (tipo === "contradiccion") return "bg-contra-bg text-contra-ink";
-  if (tipo === "duplicado") return "bg-dup-bg text-dup-ink";
-  return "bg-falta-bg text-falta-ink";
-}
 
-function WarningLabel({ tipo }: { tipo: WarningType }) {
-  const text = useCopy();
-  if (tipo === "contradiccion") return text.warningContradiccion;
-  if (tipo === "duplicado") return text.warningDuplicado;
-  return text.warningFalta;
-}

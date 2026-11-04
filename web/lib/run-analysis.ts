@@ -9,6 +9,7 @@ import {
 } from "./analysis-db";
 import { complete, getAiProvider, type AiMessage } from "./ai";
 import { nextSuggestionStatus, produceReport, type AnalystMessage } from "./analyst";
+import { computeProgress, mergeChecklist } from "./progress";
 import { supabaseMembershipStore } from "./room-membership-db";
 import { supabaseRoomStore } from "./room-store";
 
@@ -74,6 +75,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
       },
       members: members.map((member) => ({ name: member.name, part: member.part })),
       events,
+      previousChecklist: previous?.avance?.items,
     },
     completeAnalyst,
   );
@@ -84,7 +86,18 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
     if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
     return true;
   }
+  // Solo se reutiliza la lista anterior si viene de la misma fuente (IA o reglas), para no mezclar listas distintas.
+  const sameSource = previous?.fuente === produced.fuente;
+  const items = mergeChecklist(sameSource ? previous?.avance?.items ?? [] : [], produced.report.checklist ?? []);
+  const avance = computeProgress({
+    items,
+    parts: room.parts,
+    alertas: produced.report.alertas,
+    previous: previous?.avance ?? null,
+    language: room.language,
+  });
   await saveAnalysis({
+    avance,
     roomId,
     report: produced.report,
     fuente: produced.fuente,

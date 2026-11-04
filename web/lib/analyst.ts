@@ -1,3 +1,4 @@
+import { readChecklist, rulesChecklist, type ChecklistItem } from "./progress";
 import { buildContext } from "./context-from-events";
 import { parseDueDate, parseParts } from "./room-fields";
 import type {
@@ -33,6 +34,8 @@ export type AnalysisInput = {
   room: AnalysisRoom;
   members: { name: string; part: string | null }[];
   events: StoredEvent[];
+  /** Lista de entregables del análisis anterior, para reutilizar los mismos textos. */
+  previousChecklist?: ChecklistItem[];
 };
 
 export type AnalystMessage = {
@@ -47,6 +50,7 @@ export type AnalystReport = {
   chats: AnalysisChat[];
   sugerencia: AnalysisSuggestion | null;
   consejo: string;
+  checklist?: ChecklistItem[];
 };
 
 type TextComplete = (messages: AnalystMessage[]) => Promise<string>;
@@ -71,6 +75,11 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
   if (input.members.length === 0) lines.push("- (nadie)");
   for (const member of input.members) {
     lines.push(`- ${member.name}: ${member.part?.trim() || "sin parte"}`);
+  }
+  const previousItems = input.previousChecklist ?? [];
+  if (previousItems.length > 0) {
+    lines.push("", "Lista de entregables del análisis anterior (reutiliza estos mismos textos; no marques como pendiente algo hecho):");
+    for (const item of previousItems.slice(0, 40)) lines.push(`- ${item.parte} | ${item.texto} | ${item.hecho ? "hecho" : "pendiente"}`);
   }
   lines.push("", "Eventos, del más antiguo al más nuevo:");
   if (omitted > 0 || trimmed) {
@@ -112,7 +121,8 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         "Si la sala ya tiene partes, sugerencia.partes y sugerencia.asignaciones van vacías.",
         "Si la fecha ya está definida, sugerencia.fecha_entrega es null.",
         "Cada chat recibe un nombre corto, de hasta 6 palabras.",
-        'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]}}',
+        "checklist: para cada parte de la sala, de 3 a 8 entregables esperados según el tema y la parte (por ejemplo Introducción, Requisitos, Base de datos, Pruebas, Diapositivas). hecho es true solo si los eventos muestran ese entregable producido (una respuesta o archivo con el contenido), no si solo se pidió. evidencia: una frase corta que diga qué evento lo muestra. Si hay una lista anterior, conserva sus textos y solo agrega lo nuevo.",
+        'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]},"checklist":[{"parte":"","items":[{"texto":"","hecho":false,"evidencia":""}]}]}',
       ].join("\n"),
     },
     { role: "user", content: fitPrompt(lines.join("\n")) },
@@ -130,8 +140,9 @@ export function parseAnalystOutput(raw: string, knownConversationIds: readonly s
   const alertas = dedupeWarnings([...fromList, ...miembros.flatMap((member) => member.advertencias)]).slice(0, 12);
   const sugerencia = readSuggestion(record.sugerencia);
   const consejo = cleanText(record.consejo, 600);
+  const checklist = readChecklist(record.checklist, []);
   if (!resumen && miembros.length === 0 && chats.length === 0) return null;
-  return { resumen, miembros, alertas, chats, sugerencia, consejo };
+  return { resumen, miembros, alertas, chats, sugerencia, consejo, checklist };
 }
 
 export function buildFallbackReport(input: AnalysisInput): AnalystReport {
@@ -146,6 +157,12 @@ export function buildFallbackReport(input: AnalysisInput): AnalystReport {
     chats: fallbackChats(input.events),
     sugerencia: limitSuggestion(detectSuggestion(input), input.room),
     consejo: "",
+    checklist: rulesChecklist({
+      parts: input.room.parts,
+      members: input.members,
+      events: input.events,
+      language: input.room.language === "en" ? "en" : "es",
+    }),
   }, input);
 }
 
@@ -490,7 +507,17 @@ function mergeWithFallback(parsed: AnalystReport, rules: AnalystReport, input: A
     chats: mergeChats(parsed.chats, rules.chats),
     sugerencia: limitSuggestion(parsed.sugerencia, input.room),
     consejo: parsed.consejo || teamAdvice(parsed.alertas),
+    checklist: alignChecklist(parsed.checklist ?? [], input.room.parts, rules.checklist ?? []),
   };
+}
+
+/** Usa la lista de la IA con los nombres de parte de la sala; si una parte quedó vacía, usa la de reglas. */
+function alignChecklist(ai: ChecklistItem[], parts: readonly string[], rules: ChecklistItem[]): ChecklistItem[] {
+  if (ai.length === 0) return rules;
+  const aligned = readChecklist(ai.map((item) => ({ parte: item.parte, items: [item] })), parts);
+  const fold = (value: string) => value.toLocaleLowerCase("es").trim();
+  const covered = new Set(aligned.map((item) => fold(item.parte)));
+  return [...aligned, ...rules.filter((item) => !covered.has(fold(item.parte)))];
 }
 
 function mergeChats(ai: AnalysisChat[], rules: AnalysisChat[]): AnalysisChat[] {

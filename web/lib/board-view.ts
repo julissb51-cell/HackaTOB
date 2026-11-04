@@ -1,5 +1,6 @@
 import { buildFallbackReport, clipText, type AnalystReport } from "./analyst";
 import { invitePath } from "./room-fields";
+import type { RoomProgress } from "./progress";
 import type { AnalysisSuggestion, RoomWarning, SavedAnalysis, StoredEvent } from "./room-types";
 import type { MemberRow, StoredRoom } from "./room-membership";
 
@@ -34,6 +35,7 @@ export type RoomBoard = {
   fuente: "ia" | "reglas";
   pending: boolean;
   viewerName: string;
+  avance: RoomProgress | null;
 };
 
 export function toBoard(input: {
@@ -63,6 +65,7 @@ export function toBoard(input: {
         chats: input.saved.chats,
         sugerencia: input.saved.sugerencia,
         consejo: input.saved.consejo,
+        checklist: input.saved.avance?.items ?? [],
       }
     : live;
   const suggestion = visibleSuggestion(input.saved, useAi ? input.saved?.sugerencia ?? null : live.sugerencia);
@@ -105,6 +108,7 @@ export function toBoard(input: {
     fuente: useAi ? "ia" : "reglas",
     pending: input.saved?.pending === true,
     viewerName: input.viewerName,
+    avance: input.saved?.avance ?? null,
   };
 }
 

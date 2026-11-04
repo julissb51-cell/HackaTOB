@@ -1,5 +1,6 @@
 import "server-only";
 import { ANALYSIS_INTERVAL_MS, analysisDue, type AnalystReport } from "./analyst";
+import { readProgress, type RoomProgress } from "./progress";
 import type { AnalysisChat, AnalysisSuggestion, SavedAnalysis, SuggestionStatus } from "./room-types";
 import { createSupabaseServiceClient } from "./supabase/server";
 
@@ -15,6 +16,7 @@ type AnalysisRow = {
   idioma: string;
   ran_at: string;
   pending: boolean;
+  avance?: unknown;
 };
 
 export async function readSavedAnalysis(roomId: string): Promise<SavedAnalysis | null> {
@@ -22,7 +24,7 @@ export async function readSavedAnalysis(roomId: string): Promise<SavedAnalysis |
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("room_analysis")
-      .select("resumen, miembros, alertas, chats, sugerencia, sugerencia_estado, consejo, fuente, idioma, ran_at, pending")
+      .select("resumen, miembros, alertas, chats, sugerencia, sugerencia_estado, consejo, fuente, idioma, ran_at, pending, avance")
       .eq("room_id", roomId)
       .maybeSingle();
     if (error) {
@@ -94,9 +96,11 @@ export async function saveAnalysis(input: {
   sugerenciaEstado: SuggestionStatus;
   idioma: "es" | "en";
   eventos: number;
+  avance: RoomProgress | null;
 }): Promise<void> {
   const supabase = createSupabaseServiceClient();
   const row = {
+    avance: input.avance,
     resumen: input.report.resumen,
     miembros: input.report.miembros,
     alertas: input.report.alertas,
@@ -173,6 +177,7 @@ function parseRow(row: AnalysisRow): SavedAnalysis | null {
     idioma: row.idioma === "en" ? "en" : "es",
     pending: row.pending === true,
     ranAt: typeof row.ran_at === "string" ? row.ran_at : new Date(0).toISOString(),
+    avance: readProgress(row.avance),
   };
 }
 
