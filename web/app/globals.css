@@ -29,12 +29,14 @@
   --danger: #8a4b45;
   --info: #4f6172;
   --warm: #7a6a47;
+  --top-tint: rgba(0, 180, 216, 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
     --background: #0f0f0f;
+    --top-tint: rgba(34, 204, 238, 0.08);
     --surface: #1f1f1f;
     --structural: #2a2a2a;
     --line: #333333;
@@ -94,7 +96,10 @@
 }
 
 body {
-  background: var(--background);
+  /* Degradado suave de cian arriba, se desvanece en ~420px. */
+  background:
+    linear-gradient(to bottom, var(--top-tint), transparent 420px) no-repeat top / 100% 420px,
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), "Source Sans 3", sans-serif;
 }
