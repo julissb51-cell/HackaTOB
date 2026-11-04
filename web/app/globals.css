@@ -9,10 +9,11 @@
   --line: #e3e5e8;
   --foreground: #1f1f1f;
   --muted: #5f6368;
-  --accent: #00d68f;
-  --accent-hover: #33e0a6;
-  --accent-ink: #1f1f1f;
-  --link: #007a52;
+  /* Paleta cian (nov 2026): acento #00B4D8, texto/enlaces #0077A0 (AA); oscuro #22CCEE, enlaces #5ED8F0. Avisos y prioridades no cambian. */
+  --accent: #00b4d8;
+  --accent-hover: #33c6e3;
+  --accent-ink: #0f0f0f;
+  --link: #0077a0;
   --contra-bg: #f6edec;
   --contra-ink: #8a4b45;
   --dup-bg: #f5f0e6;
@@ -39,10 +40,10 @@
     --line: #333333;
     --foreground: #e8e8e8;
     --muted: #a0a0a0;
-    --accent: #00e0a0;
-    --accent-hover: #4debb8;
+    --accent: #22ccee;
+    --accent-hover: #55d9f2;
     --accent-ink: #0f0f0f;
-    --link: #2ee6aa;
+    --link: #5ed8f0;
     --contra-bg: #2e2424;
     --contra-ink: #d9a9a3;
     --dup-bg: #2c2a22;
@@ -118,8 +119,8 @@ body {
 }
 
 /* Inicio /rooms estilo Mobbin x Google: Geist, paneles planos, Material Symbols. Solo dentro de .m-home; la sala no cambia. */
-:root { --logo-bg: #00d68f; --logo-ink: #06281c; }
-@media (prefers-color-scheme: dark) { :root { --logo-bg: #00e0a0; --logo-ink: #002b1e; } }
+:root { --logo-bg: #00b4d8; --logo-ink: #06232b; }
+@media (prefers-color-scheme: dark) { :root { --logo-bg: #22ccee; --logo-ink: #002833; } }
 .m-home {
   --font-display: var(--font-geist);
   font-family: var(--font-geist), "Geist", system-ui, sans-serif;
