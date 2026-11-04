@@ -10,7 +10,7 @@
   const API_BASE = "https://enlaza-green.vercel.app";
   const API_HOST = "enlaza-green.vercel.app";
   const TEXT_LIMIT = 100000;
-  const AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot"];
+  const AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot", "grok"];
   const EVENT_TYPES = ["prompt", "respuesta", "archivo"];
   const ROOM_ID_RE = /^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$/;
   const RESERVED_IDS = new Set(["new", "api", "auth", "join", "rooms", "room"]);
