@@ -13,6 +13,10 @@ function Assert-True($cond, [string]$message) {
   if (-not $cond) { throw $message }
 }
 
+$self = & (Get-Process -Id $PID).Path -NoProfile -File (Join-Path $root "enlaza-hook.ps1") -SelfTest
+if ($LASTEXITCODE -ne 0) { throw "la reparacion de acentos fallo" }
+Assert-True (($self | Out-String).Trim() -eq "repair ok") "self test: $self"
+
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("enlaza-hook-" + [guid]::NewGuid().ToString("N"))
 New-Item -ItemType Directory -Force -Path (Join-Path $temp ".cursor") | Out-Null
 $existing = @{

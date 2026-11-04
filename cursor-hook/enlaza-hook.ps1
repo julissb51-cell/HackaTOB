@@ -2,10 +2,18 @@
 # Windows PowerShell 5.1 y PowerShell 7. El JSON entra por stdin en UTF-8.
 param(
   [ValidateSet("", "prompt", "response")]
-  [string]$Event = ""
+  [string]$Event = "",
+  [switch]$SelfTest
 )
 
 $ErrorActionPreference = "Stop"
+try {
+  $utf8Console = New-Object System.Text.UTF8Encoding $false
+  [Console]::OutputEncoding = $utf8Console
+  $OutputEncoding = $utf8Console
+} catch {
+  # La consola vieja sigue; el POST igual va en UTF-8.
+}
 
 function Read-Utf8Stdin {
   $stream = [Console]::OpenStandardInput()
@@ -20,7 +28,70 @@ function Read-Utf8Stdin {
     $offset = 3
   }
   if ($bytes.Length -le $offset) { return "" }
-  return [System.Text.Encoding]::UTF8.GetString($bytes, $offset, $bytes.Length - $offset)
+  return Decode-HookBytes $bytes $offset
+}
+
+function Get-Cp1252([switch]$Strict) {
+  $name = 1252
+  try {
+    [System.Text.Encoding]::GetEncoding($name) | Out-Null
+  } catch {
+    [System.Text.Encoding]::RegisterProvider([System.Text.CodePagesEncodingProvider]::Instance)
+  }
+  if (-not $Strict) { return [System.Text.Encoding]::GetEncoding($name) }
+  $encoder = New-Object System.Text.EncoderExceptionFallback
+  $decoder = New-Object System.Text.DecoderExceptionFallback
+  return [System.Text.Encoding]::GetEncoding($name, $encoder, $decoder)
+}
+
+# UTF-8 leído como Windows-1252: Ã©, Â«, â€.
+$script:MojibakePattern = '[\u00C2\u00C3](?:[\u0080-\u00BF\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178])|\u00E2\u20AC'
+
+function Decode-HookBytes([byte[]]$bytes, [int]$offset) {
+  $count = $bytes.Length - $offset
+  if ($count -le 0) { return "" }
+  $strict = New-Object System.Text.UTF8Encoding $false, $true
+  try {
+    return $strict.GetString($bytes, $offset, $count)
+  } catch {
+    return (Get-Cp1252).GetString($bytes, $offset, $count)
+  }
+}
+
+function Repair-Mojibake([string]$text) {
+  if ([string]::IsNullOrEmpty($text)) { return $text }
+  if ($text -notmatch $script:MojibakePattern) { return $text }
+  try {
+    $bytes = (Get-Cp1252 -Strict).GetBytes($text)
+    $utf8 = New-Object System.Text.UTF8Encoding $false, $true
+    return $utf8.GetString($bytes)
+  } catch {
+    return $text
+  }
+}
+
+function Repair-HookFields($obj) {
+  if ($null -eq $obj) { return }
+  foreach ($name in @("prompt", "text")) {
+    $prop = $obj.PSObject.Properties[$name]
+    if ($null -eq $prop -or $prop.Value -isnot [string]) { continue }
+    $prop.Value = Repair-Mojibake ([string]$prop.Value)
+  }
+}
+
+function Invoke-RepairSelfTest {
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  $cp = Get-Cp1252
+  $original = ([char]0x00AB) + "qu" + ([char]0x00E9) + ([char]0x00BB)
+  $mojibake = $cp.GetString($utf8.GetBytes($original))
+  $fixed = Repair-Mojibake $mojibake
+  if ($fixed -ne $original) { throw "mojibake [$mojibake] -> [$fixed]" }
+  $good = "explicame " + ([char]0x00E9) + "s una tabla en una base de datos"
+  if ((Repair-Mojibake $good) -ne $good) { throw "altero [$good]" }
+  $sentence = ([char]0x00AB) + $good + ([char]0x00BB)
+  if ((Repair-Mojibake ($cp.GetString($utf8.GetBytes($sentence)))) -ne $sentence) { throw "frase" }
+  if ((Repair-Mojibake "hola") -ne "hola") { throw "hola" }
+  if ((Repair-Mojibake $original) -ne $original) { throw "ya estaba bien" }
 }
 
 function Get-EnlazaDir {
@@ -162,6 +233,17 @@ function Send-EnlazaEvent($obj, [string]$tipo, [string]$texto) {
   }
 }
 
+if ($SelfTest) {
+  try {
+    Invoke-RepairSelfTest
+  } catch {
+    [Console]::Error.WriteLine("enlaza: prueba: $($_.Exception.Message)")
+    exit 1
+  }
+  Write-Output "repair ok"
+  exit 0
+}
+
 $allow = '{"continue":true}'
 if ($Event -eq "response") { $allow = "{}" }
 $eventLabel = $Event
@@ -177,6 +259,7 @@ try {
   $obj = $null
   if ($raw -and $raw.Trim()) {
     $obj = $raw | ConvertFrom-Json
+    Repair-HookFields $obj
   }
   $hookName = Get-FieldText $obj "hook_event_name"
   $tipo = ""
