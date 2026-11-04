@@ -109,19 +109,31 @@
       return eventPath(event).some((node) => node === composer || (node?.nodeType === 1 && composer.contains(node)));
     }
 
+    function responseSelectors(messages) {
+      const found = [];
+      for (const message of messages || []) {
+        if (message.role !== "assistant") continue;
+        const label = message.selector || "sin selector";
+        if (!found.includes(label)) found.push(label);
+      }
+      return found.length ? found.join(" | ") : "ninguno";
+    }
+
     function reportWatch() {
       const now = Date.now();
       let users = 0;
       let assistants = 0;
+      let matched = "ninguno";
       let error = "";
       try {
         const messages = listMessages();
         users = messages.filter((message) => message.role === "user").length;
         assistants = messages.filter((message) => message.role === "assistant").length;
+        matched = responseSelectors(messages);
       } catch {
         error = "No pude leer el chat.";
       }
-      const snapshot = { ia: site.ia, active, users, assistants, href: location.href, error };
+      const snapshot = { ia: site.ia, active, users, assistants, responseSelectors: matched, href: location.href, error };
       const key = JSON.stringify(snapshot);
       if (key === lastWatchKey) return;
       lastWatchKey = key;
@@ -424,15 +436,17 @@
       if (message.type === "enlaza.ping") {
         let users = 0;
         let assistants = 0;
+        let matched = "ninguno";
         try {
           const messages = listMessages();
           users = messages.filter((item) => item.role === "user").length;
           assistants = messages.filter((item) => item.role === "assistant").length;
+          matched = responseSelectors(messages);
         } catch {
           sendResponse({ ok: false, reason: "sin lector" });
           return;
         }
-        sendResponse({ ok: true, ia: site.ia, active, users, assistants, href: location.href });
+        sendResponse({ ok: true, ia: site.ia, active, users, assistants, responseSelectors: matched, href: location.href });
       }
     });
 

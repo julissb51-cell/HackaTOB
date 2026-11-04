@@ -63,8 +63,8 @@ if (copilotSite.conversationId("https://copilot.microsoft.com/") !== "") throw n
 if (copilotSite.composerSelectors[0] !== "#m365-chat-editor-target-element") throw new Error("composer copilot");
 if (copilotSite.fileAnchorSelectors[0] !== '[data-testid="PlusMenuButton"]') throw new Error("ancla copilot");
 if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
-if (copilotSite.assistantSelectors.length !== 1 || copilotSite.assistantSelectors[0] !== '[data-testid="chatOutput"]') {
-  throw new Error("respuesta copilot");
+for (const selector of ['[data-testid="chatOutput"]', '[data-testid="copilot-message-reply-div"]', '[data-testid="markdown-reply"]']) {
+  if (!copilotSite.assistantSelectors.includes(selector)) throw new Error("respuesta copilot");
 }
 console.log("avisos ok");
 
@@ -206,15 +206,46 @@ const repeated = parseHTML(`<!doctype html><body>
   <div data-testid="chatOutput"><div data-testid="markdown-reply">Sí.</div></div>
 </body>`);
 const repeatedMessages = messages.listChatMessages(repeated.document, nestedCopilot).map((item) => `${item.role}:${item.text}`);
-if (repeatedMessages.join("|") !== "user:uno|assistant:Sí.|user:dos|assistant:Sí.") {
+if (repeatedMessages.join("|") !== "user:uno|assistant:Sí.|user:dos") {
   throw new Error(repeatedMessages.join("|"));
 }
-const shadowDoc = parseHTML(`<!doctype html><body><div data-testid="chatQuestion">uno</div></body>`).document;
+const microsoftDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion"><span class="sr-only">You said:</span> gracias</div>
+  <div data-testid="chatQuestion"><span class="fui-VisuallyHidden">Dijiste:</span> gracias</div>
+  <div data-testid="copilot-message-reply-div">
+    <div data-testid="markdown-reply">De nada.</div>
+  </div>
+  <div data-testid="chatOutput">
+    <div data-testid="markdown-reply">De nada.</div>
+  </div>
+  <div data-testid="chatQuestion"><span class="sr-only">You said:</span> otra cosa</div>
+  <div data-testid="markdown-reply">La segunda.</div>
+</body>`);
+const microsoftMessages = messages.listChatMessages(microsoftDom.document, copilotSite);
+const microsoftLine = microsoftMessages.map((item) => `${item.role}:${item.text}`).join("|");
+if (microsoftLine !== "user:gracias|assistant:De nada.|user:otra cosa|assistant:La segunda.") {
+  throw new Error(microsoftLine);
+}
+const responseSelectors = microsoftMessages.filter((item) => item.role === "assistant").map((item) => item.selector);
+if (!responseSelectors.includes('[data-testid="markdown-reply"]')) throw new Error(responseSelectors.join(","));
+const saidDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion">You said: gracias</div>
+  <div data-testid="chatQuestion">Dijiste: otra</div>
+  <div data-testid="markdown-reply">ok</div>
+</body>`);
+const saidLine = messages.listChatMessages(saidDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (saidLine !== "user:gracias|user:otra|assistant:ok") throw new Error(saidLine);
+const shadowDoc = parseHTML(`<div id="chat-root"></div>`).document;
+const chatRoot = shadowDoc.getElementById("chat-root");
+const question = shadowDoc.createElement("div");
+question.setAttribute("data-testid", "chatQuestion");
+question.textContent = "uno";
+chatRoot.append(question);
 const output = shadowDoc.createElement("div");
 output.setAttribute("data-testid", "chatOutput");
 const host = shadowDoc.createElement("div");
 output.append(host);
-shadowDoc.body.append(output);
+chatRoot.append(output);
 const shadow = host.attachShadow({ mode: "open" });
 const reply = shadowDoc.createElement("div");
 reply.setAttribute("data-testid", "copilot-message-reply-div");
@@ -224,7 +255,7 @@ markdown.textContent = "desde shadow";
 reply.append(markdown);
 shadow.append(reply);
 if (!messages.inside(reply, output)) throw new Error("inside no cruza shadow");
-const shadowMessages = messages.listChatMessages(shadowDoc, nestedCopilot).map((item) => `${item.role}:${item.text}`);
+const shadowMessages = messages.listChatMessages(chatRoot, nestedCopilot).map((item) => `${item.role}:${item.text}`);
 if (shadowMessages.join("|") !== "user:uno|assistant:desde shadow") throw new Error(shadowMessages.join("|"));
 
 const attached = parseHTML(`<!doctype html><body>

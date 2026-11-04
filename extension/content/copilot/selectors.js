@@ -1,7 +1,6 @@
-// Selectores de copilot.com. Revisados por Juliana el 4 de noviembre de 2026
-// (Edge, español, un prompt y una respuesta ya terminada).
-// El host viejo copilot.microsoft.com queda en el manifiesto por si redirige.
-// No se vio el botón de enviar en vacío ni el de detener.
+// Selectores de Copilot. copilot.com y copilot.microsoft.com no usan el mismo
+// contenedor: la respuesta puede estar en chatOutput, en el reply o solo en
+// markdown-reply. El lector se queda con uno por turno.
 (function () {
   "use strict";
 
@@ -9,7 +8,12 @@
     ia: "copilot",
     placeholders: ["enviar un mensaje a copilot"],
     userSelectors: ['[data-testid="chatQuestion"]'],
-    assistantSelectors: ['[data-testid="chatOutput"]'],
+    assistantSelectors: [
+      '[data-testid="chatOutput"]',
+      '[data-testid="copilot-message-reply-div"]',
+      '[data-testid="chat-response-message"]',
+      '[data-testid="markdown-reply"]',
+    ],
     userTextSelectors: ['[data-testid="chatQuestion"]'],
     assistantTextSelectors: ['[data-testid="markdown-reply"]'],
     streamingSelectors: ['[data-testid="loading-message"]'],

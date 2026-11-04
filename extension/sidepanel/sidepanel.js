@@ -73,10 +73,11 @@ function pageLine(page) {
   const names = { gemini: "Gemini", chatgpt: "ChatGPT", claude: "Claude", copilot: "Copilot" };
   const ia = names[page.ia] || "Este chat";
   const mode = page.active ? "La sesión está conectada." : "Falta conectar la sala para enviar.";
+  const via = `Selector: ${page.responseSelectors || "ninguno"}.`;
   if (!page.users && !page.assistants) {
-    return `${ia}: el lector está, pero no ve mensajes en esta página. ${mode}`;
+    return `${ia}: el lector está, pero no ve mensajes en esta página. ${via} ${mode}`;
   }
-  return `${ia}: ve ${page.users} prompts y ${page.assistants} respuestas. ${mode}`;
+  return `${ia}: ve ${page.users} prompts y ${page.assistants} respuestas. ${via} ${mode}`;
 }
 
 function renderCapture(state, page) {

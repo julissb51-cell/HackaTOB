@@ -70,58 +70,120 @@
     return keep(found, outer);
   }
 
-  function dedupeMessages(messages) {
-    const kept = [];
-    for (const message of messages || []) {
-      if (!message?.node) continue;
-      let nested = false;
-      for (let index = 0; index < kept.length; index += 1) {
-        const other = kept[index];
-        if (inside(message.node, other.node)) {
-          nested = true;
-          break;
-        }
-        if (inside(other.node, message.node)) {
-          kept[index] = message;
-          nested = true;
-          break;
-        }
-      }
-      if (nested) continue;
-      kept.push(message);
-    }
-    kept.sort((a, b) => {
-      const pos = a.node.compareDocumentPosition?.(b.node) || 0;
-      if (pos & 4) return -1;
-      if (pos & 2) return 1;
-      return 0;
-    });
-    const unique = [];
-    for (const message of kept) {
-      const prev = unique[unique.length - 1];
-      const sameText = prev && prev.role === message.role && prev.role === "assistant" && normalizeMessageText(prev.text) === normalizeMessageText(message.text);
-      if (sameText) continue;
-      unique.push(message);
-    }
-    return unique;
-  }
-
   function normalizeMessageText(text) {
     return String(text || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
   }
 
+  function stripSpeakerLabel(text) {
+    return normalizeMessageText(text).replace(/^(?:you said|dijiste|t[uú] dijiste|usted dijo|copilot said|copilot dijo)\s*:\s*/i, "");
+  }
+
+  function isHiddenChrome(node) {
+    if (!node || node.nodeType !== 1) return false;
+    const tag = String(node.tagName || "").toLowerCase();
+    if (tag === "script" || tag === "style" || tag === "noscript" || tag === "svg") return true;
+    const className = typeof node.className === "string" ? node.className : "";
+    return /(?:^|\s)(?:sr-only|visually-hidden)(?:\s|$)|srOnly|visuallyHidden|VisuallyHidden|screenReader|ScreenReader/.test(className);
+  }
+
+  function visibleText(node) {
+    if (!node || isHiddenChrome(node)) return "";
+    if (node.nodeType === 3) return node.textContent || "";
+    if (node.nodeType !== 1) return "";
+    let text = "";
+    for (const child of node.childNodes || []) text += `${visibleText(child)} `;
+    return text;
+  }
+
   function plain(node) {
-    return normalizeMessageText(node?.innerText || node?.textContent || "");
+    return stripSpeakerLabel(visibleText(node));
+  }
+
+  function readText(node, selectors) {
+    if (!node) return { text: "", selector: "" };
+    for (const selector of selectors || []) {
+      let target = null;
+      try {
+        target = node.matches?.(selector) ? node : queryOne(node, selector);
+      } catch {
+        target = null;
+      }
+      const value = plain(target);
+      if (value) return { text: value, selector };
+    }
+    return { text: plain(node), selector: "" };
   }
 
   function textFrom(node, selectors) {
-    if (!node) return "";
-    for (const selector of selectors || []) {
-      const target = node.matches?.(selector) ? node : queryOne(node, selector);
-      const value = plain(target);
-      if (value) return value;
+    return readText(node, selectors).text;
+  }
+
+  function treeTop(node) {
+    let current = node;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      if (current.nodeType === 9) return current;
+      const root = typeof current.getRootNode === "function" ? current.getRootNode() : null;
+      if (root && root.host) {
+        current = root.host;
+        continue;
+      }
+      if (current.parentNode) {
+        current = current.parentNode;
+        continue;
+      }
+      return current.ownerDocument || current;
     }
-    return plain(node);
+    return node;
+  }
+
+  function documentOrder(nodes) {
+    const order = new Map();
+    let next = 0;
+    const seen = new Set();
+    const walk = (node) => {
+      if (!node || seen.has(node)) return;
+      seen.add(node);
+      order.set(node, next);
+      next += 1;
+      for (const child of node.childNodes || []) walk(child);
+      if (node.shadowRoot) walk(node.shadowRoot);
+    };
+    for (const node of nodes) walk(treeTop(node));
+    for (const node of nodes) if (!order.has(node)) walk(node);
+    return order;
+  }
+
+  function dedupeMessages(messages) {
+    const clusters = [];
+    for (const message of messages || []) {
+      if (!message?.node || !normalizeMessageText(message.text)) continue;
+      let placed = false;
+      for (const cluster of clusters) {
+        if (cluster.some((other) => inside(message.node, other.node) || inside(other.node, message.node))) {
+          cluster.push(message);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) clusters.push([message]);
+    }
+    const picked = clusters.map((cluster) => {
+      const inners = cluster.filter((item) => !cluster.some((other) => other !== item && inside(other.node, item.node)));
+      return inners[inners.length - 1] || cluster[cluster.length - 1];
+    });
+    const order = documentOrder(picked.map((item) => item.node));
+    picked.sort((a, b) => (order.get(a.node) || 0) - (order.get(b.node) || 0));
+    const seen = new Set();
+    const unique = [];
+    for (const message of picked) {
+      const key = `${message.role}|${normalizeMessageText(message.text)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      unique.push(message);
+    }
+    return unique;
   }
 
   function group(selectors) {
@@ -140,25 +202,32 @@
         const bubble = queryOne(turn, userSelector);
         const assistant = queryOne(turn, assistantSelector);
         if (explicit === "user" || bubble) {
-          const text = textFrom(bubble || turn, site.userTextSelectors);
-          if (text) messages.push({ node: bubble || turn, role: "user", text });
+          const read = readText(bubble || turn, site.userTextSelectors);
+          if (read.text) messages.push({ node: bubble || turn, role: "user", text: read.text, selector: read.selector });
         }
-        const assistantNode = assistant && assistant !== bubble && !bubble?.contains(assistant) ? assistant : null;
+        const assistantNode = assistant && assistant !== bubble && !inside(assistant, bubble) ? assistant : null;
         if (explicit === "assistant" || (assistantNode && explicit !== "user")) {
-          const text = textFrom(assistantNode || turn, site.assistantTextSelectors);
-          if (text) messages.push({ node: assistantNode || turn, role: "assistant", text });
+          const read = readText(assistantNode || turn, site.assistantTextSelectors);
+          if (read.text) messages.push({ node: assistantNode || turn, role: "assistant", text: read.text, selector: read.selector });
         }
       }
       if (messages.length) return dedupeMessages(messages);
     }
 
-    for (const node of collect(root, site.userSelectors, true)) {
-      const text = textFrom(node, site.userTextSelectors);
-      if (text) messages.push({ node, role: "user", text });
+    for (const node of collect(root, site.userSelectors, false)) {
+      const read = readText(node, site.userTextSelectors);
+      if (read.text) messages.push({ node, role: "user", text: read.text, selector: read.selector });
     }
-    for (const node of collect(root, site.assistantSelectors, true)) {
-      const text = textFrom(node, site.assistantTextSelectors);
-      if (text) messages.push({ node, role: "assistant", text });
+    for (const node of collect(root, site.assistantSelectors, false)) {
+      const nodeSelector = (site.assistantSelectors || []).find((selector) => {
+        try {
+          return node.matches?.(selector);
+        } catch {
+          return false;
+        }
+      }) || "";
+      const read = readText(node, site.assistantTextSelectors);
+      if (read.text) messages.push({ node, role: "assistant", text: read.text, selector: read.selector || nodeSelector });
     }
     return dedupeMessages(messages);
   }
