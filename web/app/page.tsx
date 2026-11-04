@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { HomeScreen } from "@/components/home-screen";
+import { FusionRoot } from "@/components/fusion-root";
+import { Landing } from "@/components/landing";
 import { ScreenFallback, Shell } from "@/components/shell";
 import { currentAccount } from "@/lib/current-account";
 
@@ -19,8 +20,10 @@ async function HomeContent() {
   // Con sesión activa no se vuelve a pedir el inicio de sesión: directo a las salas.
   if (account) redirect("/rooms");
   return (
-    <Shell signedIn={false}>
-      <HomeScreen signedIn={false} name={null} />
-    </Shell>
+    <FusionRoot>
+      <Shell signedIn={false} fusionHome>
+        <Landing />
+      </Shell>
+    </FusionRoot>
   );
 }
