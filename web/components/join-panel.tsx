@@ -37,7 +37,7 @@ export function AutoJoin({ roomId, token }: { roomId: string; token: string }) {
     };
   }, [roomId, token, router]);
 
-  if (!code) return <p className="text-lg">{text.joining}</p>;
+  if (!code) return <p className="pt-10 text-lg">{text.joining}</p>;
   const loginHref = code === "auth" ? `/auth/login?next=${encodeURIComponent(invitePath(roomId, token))}` : undefined;
   return <JoinMessage code={code} loginHref={loginHref} />;
 }
@@ -47,7 +47,7 @@ export function JoinMessage({ code, loginHref }: { code: JoinErrorCode; loginHre
   const message =
     code === "link" ? text.link : code === "token" ? text.tokenError : code === "auth" ? text.authError : text.joinSave;
   return (
-    <section className="space-y-6">
+    <section className="max-w-xl space-y-6 pt-10">
       <p role="alert" className="text-lg">
         {message}
       </p>

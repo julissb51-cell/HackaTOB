@@ -35,8 +35,8 @@ export function EditableTitle({ roomId, topic, compact = false }: { roomId: stri
   }
 
   return (
-    <div className={compact ? "min-w-0" : "mt-3"}>
-      <h1 className={compact ? "truncate font-display text-xl font-medium tracking-tight sm:text-2xl" : "font-display text-3xl font-medium tracking-tight sm:text-5xl"}>
+    <div className={compact ? "min-w-0" : "mt-2"}>
+      <h1 className={compact ? "truncate font-display text-xl font-medium tracking-tight sm:text-2xl" : "font-display text-[32px] leading-[1.1] font-[650] tracking-[-1px] sm:text-[44px]"}>
         <input
           aria-label={text.titleLabel}
           value={draft}

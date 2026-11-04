@@ -1,5 +1,6 @@
 import { AccountSlot } from "@/components/app-header";
 import { Suspense } from "react";
+import { FusionRoot } from "@/components/fusion-root";
 import { after, connection } from "next/server";
 import { RedirectNotice } from "@/components/redirect-notice";
 import { RoomMessage, RoomScreen } from "@/components/room-screen";
@@ -21,27 +22,35 @@ type PageProps = { params: Promise<{ id: string }> };
 
 export default function RoomPage(props: PageProps) {
   return (
-    <Suspense fallback={<ScreenFallback wide />}>
-      <RoomContent params={props.params} />
-    </Suspense>
+    <FusionRoot>
+      <Suspense fallback={<ScreenFallback wide />}>
+        <RoomContent params={props.params} />
+      </Suspense>
+    </FusionRoot>
   );
 }
 
 async function RoomContent({ params }: PageProps) {
   await connection();
-  const [{ id: rawId }, account] = await Promise.all([params, currentAccount()]);
+  const [{ id: rawId }, account] = await Promise.all([
+    params,
+    currentAccount(),
+  ]);
   const id = parseRoomId(rawId);
   if (!id) {
     return (
-      <Shell signedIn={Boolean(account)}>
+      <Shell signedIn={Boolean(account)} fusionHome>
         <RoomMessage code="unavailable" />
       </Shell>
     );
   }
   if (!account) {
     return (
-      <Shell signedIn={false}>
-        <RedirectNotice code="login" href={`/auth/login?next=${encodeURIComponent(`/rooms/${id}`)}`} />
+      <Shell signedIn={false} fusionHome>
+        <RedirectNotice
+          code="login"
+          href={`/auth/login?next=${encodeURIComponent(`/rooms/${id}`)}`}
+        />
       </Shell>
     );
   }
@@ -50,13 +59,13 @@ async function RoomContent({ params }: PageProps) {
   if (!view.ok) {
     if (view.code === "forbidden") {
       return (
-        <Shell signedIn>
+        <Shell signedIn fusionHome>
           <RedirectNotice code="join" href={`/join/${id}`} />
         </Shell>
       );
     }
     return (
-      <Shell signedIn>
+      <Shell signedIn fusionHome>
         <RoomMessage code={view.code === "save" ? "save" : "unavailable"} />
       </Shell>
     );
@@ -98,7 +107,10 @@ async function RoomContent({ params }: PageProps) {
           parts: view.room.parts,
           token: view.room.token,
           path: invitePath(view.room.id, view.room.token),
-          members: view.members.map((member) => ({ name: member.name, part: member.part })),
+          members: view.members.map((member) => ({
+            name: member.name,
+            part: member.part,
+          })),
           viewerName,
           events,
         }}

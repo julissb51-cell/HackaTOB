@@ -1,5 +1,6 @@
 "use client";
 
+import { Symbol, pillPrimary, pillSecondary } from "./symbol";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
@@ -39,20 +40,6 @@ function NewRoomSubmit() {
       <Symbol name="add" />
       {pending ? text.creating : text.newRoom}
     </button>
-  );
-}
-
-const pillBase =
-  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-[22px] text-[15px] font-semibold tracking-[0.2px] transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-wait disabled:opacity-70";
-const pillPrimary = `${pillBase} bg-accent text-accent-ink hover:bg-accent-hover`;
-const pillSecondary = `${pillBase} bg-structural text-foreground hover:bg-line`;
-
-/** Icono de Material Symbols Rounded (la fuente se carga solo en /rooms). */
-function Symbol({ name, className = "text-[22px]" }: { name: string; className?: string }) {
-  return (
-    <span aria-hidden="true" className={`m-symbol ${className}`}>
-      {name}
-    </span>
   );
 }
 
