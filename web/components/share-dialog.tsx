@@ -1,5 +1,6 @@
 "use client";
 
+import { aiLabel } from "@/lib/room-types";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { InviteByEmail } from "./invite-email";
 import { useCopy } from "./language";
@@ -111,7 +112,7 @@ export function ShareDialog({
                       </p>
                       <p className="truncate text-sm text-muted">{member.part ?? text.memberPart}</p>
                     </div>
-                    {ai ? <span className="shrink-0 rounded-full bg-structural px-2.5 py-1 text-xs text-muted">{ai}</span> : null}
+                    {ai ? <span className="shrink-0 rounded-full bg-structural px-2.5 py-1 text-xs text-muted">{aiLabel(ai)}</span> : null}
                   </li>
                 );
               })}

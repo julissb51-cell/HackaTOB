@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test lib/room-api.test.ts lib/room-fields.test.ts lib/room-membership.test.ts lib/i18n.test.ts lib/room-feed.test.ts lib/analyst.test.ts lib/room-settings.test.ts lib/room-protection.test.ts lib/invite-email.test.ts lib/invite-link.test.ts lib/progress.test.ts lib/priority.test.ts lib/room-files-core.test.ts",
+    "test": "tsx --test lib/room-api.test.ts lib/room-fields.test.ts lib/room-membership.test.ts lib/i18n.test.ts lib/room-feed.test.ts lib/analyst.test.ts lib/room-settings.test.ts lib/room-protection.test.ts lib/invite-email.test.ts lib/invite-link.test.ts lib/progress.test.ts lib/priority.test.ts lib/room-files-core.test.ts lib/ai-source.test.ts",
     "test:api": "node scripts/test-endpoints.mjs",
     "seed": "node scripts/seed-demo.mjs"
   },

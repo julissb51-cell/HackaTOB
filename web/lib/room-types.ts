@@ -2,7 +2,7 @@ import type { RoomFile } from "./room-files-core";
 import type { RoomProgress } from "./progress";
 
 /** IAs que la extensión captura. */
-export const CAPTURE_AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot"] as const;
+export const CAPTURE_AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot", "grok"] as const;
 /** "enlaza" marca las líneas de actividad que escribe la propia app (por ejemplo, un archivo agregado). */
 export const AI_NAMES = [...CAPTURE_AI_NAMES, "enlaza"] as const;
 export const EVENT_TYPES = ["prompt", "respuesta", "archivo"] as const;
@@ -122,3 +122,17 @@ export type RoomStore = {
   saveDetectedLinks?(roomId: string, member: string, eventId: string, text: string): Promise<number>;
   listFiles?(roomId: string): Promise<RoomFile[]>;
 };
+
+const AI_LABELS: Record<string, string> = {
+  chatgpt: "ChatGPT",
+  gemini: "Gemini",
+  cursor: "Cursor",
+  claude: "Claude",
+  copilot: "Copilot",
+  grok: "Grok",
+  enlaza: "Enlaza",
+};
+
+export function aiLabel(value: string): string {
+  return AI_LABELS[value.toLowerCase()] ?? value;
+}

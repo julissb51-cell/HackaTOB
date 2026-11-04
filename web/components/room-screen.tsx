@@ -29,7 +29,7 @@ import {
   type LiveStatus,
   type PartStatus,
 } from "@/lib/room-feed";
-import type { ContextResponse, StoredEvent } from "@/lib/room-types";
+import { aiLabel, type ContextResponse, type StoredEvent } from "@/lib/room-types";
 import { browserSupabase } from "@/lib/supabase/browser";
 import { CopyButton, CopyValue, RememberToken } from "./invite-link";
 import { ProgressCard, SummaryDrawer } from "./room-progress";
@@ -361,7 +361,7 @@ export function RoomScreen({
                           ) : null}
                           {ai ? (
                             <span className="rounded-full bg-structural px-2 py-0.5 text-xs text-muted">
-                              {ai}
+                              {aiLabel(ai)}
                             </span>
                           ) : null}
                         </p>
@@ -826,7 +826,7 @@ function EventCard({
             </span>
             <span className="mx-2 text-muted">·</span>
             <span className="font-semibold">{event.member}</span>
-            <span className="ml-2 text-sm text-muted">{event.ai === "enlaza" ? "Enlaza" : event.ai}</span>
+            <span className="ml-2 text-sm text-muted">{aiLabel(event.ai)}</span>
           </p>
           <time dateTime={event.createdAt} className="text-sm text-muted">
             {formatEventTime(event.createdAt)}

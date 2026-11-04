@@ -71,7 +71,7 @@ create table public.events (
   text text not null,
   created_at text not null,
   constraint events_ai_check check (
-    ai in ('chatgpt', 'gemini', 'cursor', 'claude', 'copilot')
+    ai in ('chatgpt', 'gemini', 'cursor', 'claude', 'copilot', 'grok')
   ),
   constraint events_type_check check (
     type in ('prompt', 'respuesta', 'archivo')

@@ -60,7 +60,7 @@ create policy room_files_delete_for_adder_or_owner
 -- La línea de actividad de cada archivo agregado es un evento con ia 'enlaza'.
 alter table public.events drop constraint if exists events_ai_check;
 alter table public.events add constraint events_ai_check check (
-  ai in ('chatgpt', 'gemini', 'cursor', 'claude', 'copilot', 'enlaza')
+  ai in ('chatgpt', 'gemini', 'cursor', 'claude', 'copilot', 'grok', 'enlaza')
 );
 
 -- Bucket privado, 10 MB por archivo.
