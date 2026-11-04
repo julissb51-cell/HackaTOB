@@ -6,6 +6,7 @@ import {
   readSavedAnalysis,
   rememberEventCount,
   saveAnalysis,
+  saveProgress,
 } from "./analysis-db";
 import { complete, getAiProvider, type AiMessage } from "./ai";
 import { nextSuggestionStatus, produceReport, type AnalystMessage } from "./analyst";
@@ -82,6 +83,19 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
   if (produced.fuente === "reglas" && previous?.fuente === "ia" && analystConfigured()) {
     // La IA falló esta vez: se deja el último análisis de IA en vez de cambiarlo por reglas.
     console.error("analisis", "se mantiene el análisis de IA anterior");
+    if (!previous.avance) {
+      // Sin avance guardado todavía: se calcula con la lista por reglas para no dejar la barra vacía.
+      await saveProgress(
+        roomId,
+        computeProgress({
+          items: produced.report.checklist ?? [],
+          parts: room.parts,
+          alertas: previous.alertas ?? produced.report.alertas,
+          previous: null,
+          language: room.language,
+        }),
+      );
+    }
     await rememberEventCount(roomId, events.length);
     if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
     return true;

@@ -83,6 +83,12 @@ export async function rememberEventCount(roomId: string, eventos: number): Promi
   }
 }
 
+export async function saveProgress(roomId: string, avance: RoomProgress): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("room_analysis").update({ avance }).eq("room_id", roomId);
+  if (error && !isMissingTable(error)) console.error("analysis.avance", error.code);
+}
+
 export async function markAnalysisPending(roomId: string): Promise<void> {
   const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("room_analysis").update({ pending: true }).eq("room_id", roomId);
