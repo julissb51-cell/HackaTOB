@@ -1,3 +1,4 @@
+import { WM_A, WM_DOT, WM_INK, WM_L, WM_TAIL, WM_TAIL_W, WM_VIEWBOX } from "./wordmark-paths";
 import Link from "next/link";
 
 /** Marca de Enlaza: nido de tejedor (silueta sólida + entrada cian). Colores por variables CSS para el modo oscuro. */
@@ -12,18 +13,25 @@ export function LogoMark({ className = "h-8 w-auto" }: { className?: string }) {
   );
 }
 
+/** Wordmark "Enlaza" (Original refinado): la "l" cian se curva y abraza la "a" por debajo; la cola pasa DETRÁS de la "a". */
+export function Wordmark({ className = "h-[26px] w-auto" }: { className?: string }) {
+  return (
+    <svg viewBox={WM_VIEWBOX} className={className} role="img" aria-label="Enlaza">
+      <path d={WM_INK} fill="var(--logo-ink)" />
+      <path d={WM_L} fill="var(--logo-accent)" />
+      <path d={WM_TAIL} fill="none" stroke="var(--logo-accent)" strokeWidth={WM_TAIL_W} />
+      <circle cx={WM_DOT.cx} cy={WM_DOT.cy} r={WM_DOT.r} fill="var(--logo-accent)" />
+      <path d={WM_A} fill="var(--logo-ink)" />
+    </svg>
+  );
+}
+
 /** Logo "Enlaza" del encabezado. Con `mark` muestra la marca (nido) (barra superior). */
 export function Brand({ mark = false }: { mark?: boolean }) {
-  if (!mark)
-    return (
-      <Link href="/" className="font-display text-2xl font-medium tracking-tight">
-        Enlaza
-      </Link>
-    );
   return (
-    <Link href="/" className="flex items-center gap-2.5 text-[19px] font-[650] tracking-[-0.3px]">
-      <LogoMark />
-      Enlaza
+    <Link href="/" aria-label="Enlaza" className="flex items-center gap-2.5">
+      {mark ? <LogoMark className="h-8 w-auto" /> : null}
+      <Wordmark className="h-[26px] w-auto" />
     </Link>
   );
 }

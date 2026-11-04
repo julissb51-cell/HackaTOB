@@ -1,6 +1,6 @@
 "use client";
 
-import { LogoMark } from "./brand";
+import { LogoMark, Wordmark } from "./brand";
 import { useCopy } from "./language";
 import { Symbol } from "./symbol";
 
@@ -25,7 +25,10 @@ export function Landing() {
   return (
     <div className="flex flex-1 flex-col justify-center py-10 sm:py-16">
       <section className="flex flex-col items-center text-center">
-        <LogoMark className="h-20 w-auto sm:h-24" />
+        <div className="flex items-center gap-4">
+          <LogoMark className="h-16 w-auto sm:h-20" />
+          <Wordmark className="h-12 w-auto sm:h-[60px]" />
+        </div>
         <p className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[13px] font-medium text-link">
           <Symbol name="hub" className="text-[16px]" />
           {t.landingKicker}
