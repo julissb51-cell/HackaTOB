@@ -25,7 +25,7 @@ export function Landing() {
   return (
     <div className="flex flex-1 flex-col justify-center py-10 sm:py-16">
       <section className="flex flex-col items-center text-center">
-        <LogoMark className="size-16 drop-shadow-[0_8px_24px_rgba(0,180,216,0.35)] sm:size-20" />
+        <LogoMark className="h-20 w-auto sm:h-24" />
         <p className="mt-6 inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-[13px] font-medium text-link">
           <Symbol name="hub" className="text-[16px]" />
           {t.landingKicker}

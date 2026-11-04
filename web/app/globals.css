@@ -126,8 +126,8 @@ body {
 }
 
 /* Inicio /rooms estilo Mobbin x Google: Geist, paneles planos, Material Symbols. Solo dentro de .m-home; la sala no cambia. */
-:root { --logo-bg: #00b4d8; --logo-ink: #06232b; }
-@media (prefers-color-scheme: dark) { :root { --logo-bg: #22ccee; --logo-ink: #002833; } }
+:root { --logo-ink: #1f1f1f; --logo-accent: #00b4d8; }
+@media (prefers-color-scheme: dark) { :root { --logo-ink: #ffffff; --logo-accent: #22ccee; } }
 .m-home {
   --font-display: var(--font-geist);
   font-family: var(--font-geist), "Geist", system-ui, sans-serif;
