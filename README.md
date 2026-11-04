@@ -1,6 +1,6 @@
 # Enlaza
 
-**Cada quien trabaja con su IA; Enlaza le da al equipo un solo contexto.**
+**Enlaza conecta las IAs de tu equipo para que todos avancen en la misma dirección.**
 
 HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
@@ -11,14 +11,27 @@ HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 ## El problema
 
-En un trabajo de la U, cada integrante usa su propia IA. Una persona escribe el informe en ChatGPT y otra programa en Gemini. Ninguna de esas IAs ve lo que hicieron las demás. El equipo se entera tarde de que dos personas hicieron la misma parte, de que se contradicen (por ejemplo, una guarda los datos en JSON y otra en SQLite) o de que nadie hizo una sección.
+Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini o Claude), y ninguna IA sabe lo que hacen las demás. Eso trae varios problemas, que se descubren tarde, al unir el trabajo:
 
-Los datos muestran que el uso de IA ya es casi total, y que cada persona usa la suya:
+- **Trabajo repetido.**
+- **Decisiones que se contradicen:** por ejemplo, una persona guarda los datos en JSON y otra en una base de datos.
+- **Partes que nadie hizo.**
 
-- **92 %** de los estudiantes universitarios usa alguna herramienta de IA (66 % en 2024), y el **88 %** la usó en evaluaciones. Fuente: HEPI y Kortext, *Student Generative AI Survey 2025*. Son 1041 estudiantes de grado de tiempo completo en el Reino Unido, encuestados por Savanta en diciembre de 2024. [hepi.ac.uk](https://www.hepi.ac.uk/reports/student-generative-ai-survey-2025/)
-- **78 %** de quienes usan IA en el trabajo lleva sus propias herramientas (*bring your own AI*), no las de su organización. En la generación Z (18 a 28 años) la cifra es **85 %**. Fuente: Microsoft y LinkedIn, *2024 Work Trend Index*. Son 31 000 personas en 31 países. [microsoft.com](https://www.microsoft.com/en-us/worklab/work-trend-index/ai-at-work-is-here-now-comes-the-hard-part)
+**Usuario:** estudiantes y equipos pequeños de 2 a 5 personas que hacen proyectos, tareas o hackatones con IA, cada quien desde su computadora.
 
-Es decir, la IA ya está en cada tarea, pero el trabajo de cada persona queda aislado en su propio chat.
+### Evidencia
+
+- **El problema es real y está creciendo.**
+  - El **92 %** de los universitarios ya usa IA ([HEPI, 2025](https://www.hepi.ac.uk/reports/student-generative-ai-survey-2025/)). Son 1041 estudiantes de grado en el Reino Unido, encuestados en diciembre de 2024.
+  - El **78 %** de quienes usan IA en el trabajo lleva su propia herramienta ([Microsoft, 2024](https://www.microsoft.com/en-us/worklab/work-trend-index/ai-at-work-is-here-now-comes-the-hard-part)). Son 31 000 personas en 31 países.
+  - Así, en un mismo equipo, cada persona usa una IA distinta que no conoce lo que hacen las demás.
+- **Lo que dicen los usuarios:**
+  - En el [foro oficial de OpenAI](https://community.openai.com/t/feature-request-collaborative-projects-with-multiple-users-their-personal-chatgpts/1397310/2) piden no tener que «sincronizar a mano» dos conversaciones paralelas.
+  - En [Hacker News](https://news.ycombinator.com/item?id=48841133) cuentan que un compañero «había hecho una función idéntica» mientras otro tomaba una decisión contradictoria.
+- **Lo que hacen las grandes empresas:** OpenAI ya ofrece [proyectos compartidos](https://academy.openai.com/en/public/clubs/work-users-ynjqu/resources/projects) «en lugar de copiar y pegar entre chats», pero solo dentro de ChatGPT y en planes de pago. **Enlaza funciona entre IAs distintas y es gratis.**
+- A nosotros también nos pasó en hackatones anteriores.
+
+**Antes:** cada persona trabaja a ciegas y los errores aparecen al final. **Con Enlaza:** el equipo trabaja en una sala compartida, y una IA analista avisa a tiempo de las contradicciones, el trabajo duplicado y las partes faltantes.
 
 ## La solución
 
@@ -56,8 +69,18 @@ Los detalles de datos y endpoints están en [CONTRATO.md](CONTRATO.md).
 
 ## Demo en vivo
 
+La sala de demo **`demo-final`** trae un caso real: un **sistema de gestión de biblioteca** hecho por tres personas.
+
+- **Ana** hace el informe en ChatGPT.
+- **Luis** programa en Gemini.
+- **Sofía** arma la presentación con Claude.
+
+Ahí se ve cómo Enlaza detecta que el informe guarda los datos en `datos.json` mientras el código usa SQLite.
+
+> Los eventos de Sofía (Claude) son **datos precargados** para la demo. La extensión captura en vivo solo ChatGPT y Gemini.
+
 1. Abre [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app) e inicia sesión con Google.
-2. Entra a la sala de demo **`demo-final`** («Sistema de gestión de biblioteca») con el enlace de invitación que te da el equipo. En esa sala ya hay datos: Ana trabaja el informe en ChatGPT, Luis el código en Gemini y Sofía la presentación.
+2. Entra a la sala de demo **`demo-final`** con el enlace de invitación que te da el equipo.
 3. Mira el **Avance del proyecto** (% general y por parte), los avisos con prioridad y **Tu siguiente paso**. Por ejemplo, el informe dice `datos.json` pero Luis usa SQLite.
 4. Abre **Archivos** para ver los enlaces de la sala, o agrega uno nuevo.
 5. Pulsa **Analizar ahora** para que Gemini vuelva a leer la sala.
@@ -141,6 +164,35 @@ El token queda solo en el almacenamiento local del navegador. Hay más detalles 
 - **Jose (Persona A):** web, API, base de datos y analista con IA.
 - **Juliana Sanabria ([@julissb51-cell](https://github.com/julissb51-cell)) (Persona B):** extensión de Chrome y presentación.
 
+## Riesgos
+
+- **Privacidad de los chats:**
+  - La extensión pide consentimiento y solo captura ChatGPT y Gemini.
+  - Las salas son privadas y se entra solo por invitación.
+  - La base de datos tiene reglas de seguridad (RLS).
+  - Los Archivos se guardan en un almacenamiento privado.
+- **Límites del plan gratis de la IA:** los manejamos con reintentos automáticos y modelos de respaldo (`GEMINI_FALLBACK_MODEL`).
+- **Cambios en las páginas de las IAs:** pueden afectar la extensión. Los selectores están en un solo archivo por sitio, con alternativas.
+
+## Revisión interna
+
+Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
+
+- **Fallas del servicio de la IA:** cuando Gemini no respondía, agregamos reintentos automáticos y modelos de respaldo.
+- **Alertas que se escapaban:** reforzamos las instrucciones de la IA y sumamos reglas de respaldo para detectar las contradicciones y el trabajo repetido.
+- **Textos confusos:** corregimos la gramática y las frases exageradas de los resúmenes.
+- **Uso diario:**
+  - La sesión se inicia una sola vez.
+  - Las salas se crean al instante.
+  - Para eliminar una sala se pide confirmación.
+  - Se puede invitar por correo.
+  - Mejoramos el diseño en el celular y en la barra superior.
+- **Seguridad:**
+  - Solo el dueño puede borrar una sala.
+  - Las salas de demostración están protegidas.
+  - Ninguna clave queda en el código público.
+- **Pendiente:** la prueba final del equipo en los sitios reales de ChatGPT y Gemini.
+
 ## Limitaciones
 
 - La extensión captura solo **ChatGPT** (`chatgpt.com`) y **Gemini** en la web. **Claude en la web no está soportado**. Claude Code y Cursor funcionan solo con los ganchos de Node.
@@ -162,7 +214,7 @@ El token queda solo en el almacenamiento local del navegador. Hay más detalles 
 
 ## English summary
 
-**Enlaza** gives a student team one shared context while each member keeps using their own AI. A Chrome extension captures prompts and answers from ChatGPT and Gemini and sends them to a shared room (Next.js on Vercel and Supabase). A Gemini analyst (switchable to Grok with `AI_PROVIDER`) summarizes the work, flags contradictions, duplicates and missing parts, ranks them Urgent / Soon / Can wait, estimates progress, and suggests each member's next prompt. Rooms also hold shared links and files. Evidence: 92% of students use AI (HEPI 2025), and 78% of AI users bring their own tools (Microsoft 2024 Work Trend Index). Live: https://enlaza-green.vercel.app
+**Enlaza** gives a student team one shared context while each member keeps using their own AI. A Chrome extension captures prompts and answers from ChatGPT and Gemini and sends them to a shared room (Next.js on Vercel and Supabase). A Gemini analyst (switchable to Grok with `AI_PROVIDER`) summarizes the work, flags contradictions, duplicates and missing parts, ranks them Urgent / Soon / Can wait, estimates progress, and suggests each member's next prompt. Rooms also hold shared links and files. Evidence: 92% of students use AI (HEPI 2025), 78% of AI users bring their own tools (Microsoft 2024 Work Trend Index), and users in OpenAI's forum and on Hacker News describe manually syncing parallel chats and duplicated, conflicting work. OpenAI's shared projects work only inside ChatGPT on paid plans; Enlaza works across different AIs, for free. Live: https://enlaza-green.vercel.app
 
 ## Licencia
 
