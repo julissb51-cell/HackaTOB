@@ -147,8 +147,8 @@
   }
 
   function chatNameFrom(title, text) {
-    let name = stripControl(title).replace(/\s[-|–—]\s*(ChatGPT|Gemini|Google Gemini).*/i, "").trim();
-    if (/^(chatgpt|google gemini|gemini|nuevo chat|new chat|chat|inicio|home)$/i.test(name)) name = "";
+    let name = stripControl(title).replace(/\s[-|–—]\s*(ChatGPT|Gemini|Google Gemini|Claude|Grok|Microsoft Copilot|Copilot).*/i, "").trim();
+    if (/^(chatgpt|google gemini|gemini|claude|grok|copilot|microsoft copilot|nuevo chat|new chat|chat|inicio|home)$/i.test(name)) name = "";
     if (!name) name = stripControl(text).trim().split("\n")[0] || "";
     return clipPlain(name, 80);
   }

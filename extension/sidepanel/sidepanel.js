@@ -66,11 +66,12 @@ function renderPrompt(parent, text) {
 }
 
 function pageLine(page) {
-  if (!page || page.reason === "otra") return "Abre ChatGPT o Gemini para capturar.";
+  if (!page || page.reason === "otra") return "Abre ChatGPT, Gemini o Claude para capturar.";
   if (!page.ok || page.reason === "sin lector") {
     return "No está el lector en esta pestaña. En Extensiones pulsa Actualizar en Enlaza y recarga el chat.";
   }
-  const ia = page.ia === "gemini" ? "Gemini" : page.ia === "chatgpt" ? "ChatGPT" : "Este chat";
+  const names = { gemini: "Gemini", chatgpt: "ChatGPT", claude: "Claude" };
+  const ia = names[page.ia] || "Este chat";
   const mode = page.active ? "La sesión está conectada." : "Falta conectar la sala para enviar.";
   if (!page.users && !page.assistants) {
     return `${ia}: el lector está, pero no ve mensajes en esta página. ${mode}`;

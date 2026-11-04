@@ -39,6 +39,7 @@
     }
 
     function isStreaming() {
+      if ((site.streamingSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
       if ((site.stopSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
       return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
         const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
@@ -392,6 +393,8 @@
       });
       element.dispatchEvent(before);
       if (before.defaultPrevented || landed()) return "";
+      element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: value }));
+      if (landed()) return "";
       return "Encontré la caja, pero este chat no dejó insertar el texto.";
     }
 

@@ -2,6 +2,11 @@ importScripts("../lib/core.js", "../lib/files.js");
 
 const core = globalThis.EnlazaCore;
 const filesApi = globalThis.EnlazaFiles;
+const CHAT_HOSTS = ["chatgpt.com", "gemini.google.com", "claude.ai"];
+
+function isChatHost(host) {
+  return CHAT_HOSTS.includes(host);
+}
 const ALARM = "enlaza-context";
 const RETRIES = 3;
 const REFRESH_GAP_MS = 20000;
@@ -333,11 +338,11 @@ async function onInsert(text) {
   let tab = tabs.find((item) => item.id && item.url) || tabs[0] || null;
   if (!tab?.url) {
     const all = await chrome.tabs.query({ active: true });
-    tab = all.find((item) => /chatgpt\.com|gemini\.google\.com/.test(item.url || "")) || null;
+    tab = all.find((item) => isChatHost(chatHost(item.url || ""))) || null;
   }
   const host = chatHost(tab?.url || "");
-  if (!tab?.id || (host !== "chatgpt.com" && host !== "gemini.google.com")) {
-    return { ok: false, error: "Abre ChatGPT o Gemini para insertar el prompt." };
+  if (!tab?.id || !isChatHost(host)) {
+    return { ok: false, error: "Abre ChatGPT, Gemini o Claude para insertar el prompt." };
   }
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "enlaza.insert", text: value });
@@ -475,10 +480,10 @@ async function onStatus() {
   let tab = tabs.find((item) => item.id && item.url) || tabs[0] || null;
   if (!tab?.url) {
     const all = await chrome.tabs.query({ active: true });
-    tab = all.find((item) => /chatgpt\.com|gemini\.google\.com/.test(item.url || "")) || null;
+    tab = all.find((item) => isChatHost(chatHost(item.url || ""))) || null;
   }
   const host = chatHost(tab?.url || "");
-  if (!tab?.id || (host !== "chatgpt.com" && host !== "gemini.google.com")) {
+  if (!tab?.id || !isChatHost(host)) {
     return { ok: true, capture, page: { ok: false, reason: "otra" } };
   }
   try {

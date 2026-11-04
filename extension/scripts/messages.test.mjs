@@ -35,6 +35,17 @@ if (chatgpt.composerSelectors[1] !== "#prompt-textarea") throw new Error("compos
 if (chatgpt.fileAnchorSelectors[0] !== 'button[aria-label="Añadir archivos y más"]') throw new Error("ancla");
 if (!chatgpt.fileAnchorSelectors.includes('button[aria-label="Add files and more"]')) throw new Error("ancla en");
 if (chatgpt.fileFooterSelectors[0] !== '[class*="ComposerLayoutFooter"]') throw new Error("footer");
+if (core.chatNameFrom("Biblioteca - Claude", "hola") !== "Biblioteca") throw new Error("titulo claude");
+if (core.chatNameFrom("Claude", "hola") !== "hola") throw new Error("titulo generico");
+const claudeSource = readFileSync(path.join(root, "content/claude/selectors.js"), "utf8");
+const claudeBox = { globalThis: {}, URL };
+claudeBox.globalThis = claudeBox;
+runInNewContext(claudeSource, claudeBox);
+const claudeSite = claudeBox.EnlazaClaudeSite;
+if (claudeSite.conversationId("https://claude.ai/chat/6aea3d77-c8d8-83e8-ada3-561359e03e25") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
+  throw new Error("conversation claude");
+}
+if (claudeSite.ia !== "claude") throw new Error("ia claude");
 console.log("avisos ok");
 
 let parseHTML;
@@ -113,6 +124,16 @@ const geminiDom = parseHTML(`<!doctype html><body>
 </body>`);
 const geminiMessages = messages.listChatMessages(geminiDom.document, gemini).map((item) => `${item.role}:${item.text}`);
 if (geminiMessages.join("|") !== "user:que hora es|assistant:Son las tres.") throw new Error(geminiMessages.join("|"));
+
+const claudeDom = parseHTML(`<!doctype html><body>
+  <div data-testid="user-message">hola</div>
+  <div data-testid="assistant-message" data-is-streaming="false">
+    <div class="standard-markdown">Listo, hola.</div>
+  </div>
+  <div data-testid="chat-input" class="tiptap ProseMirror" contenteditable="true"></div>
+</body>`);
+const claudeMessages = messages.listChatMessages(claudeDom.document, claudeSite).map((item) => `${item.role}:${item.text}`);
+if (claudeMessages.join("|") !== "user:hola|assistant:Listo, hola.") throw new Error(claudeMessages.join("|"));
 
 console.log("messages ok");
 console.log(roles.join(" | "));
