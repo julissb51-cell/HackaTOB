@@ -13,7 +13,7 @@ En Chrome o en Edge:
 3. Elegí **Cargar extensión sin empaquetar** (Load unpacked).
 4. Seleccioná la carpeta `extension` de este repo, la que tiene `manifest.json`.
 
-No hace falta compilar. La versión actual es 1.4.0. Si ChatGPT o Gemini ya estaban abiertos, recargá esas pestañas.
+No hace falta compilar. La versión actual es 1.4.1. Si ChatGPT o Gemini ya estaban abiertos, recargá esas pestañas.
 
 <!-- TODO: captura de edge://extensions con Enlaza cargada -->
 ![Extensión cargada](docs/extensiones.png)
@@ -41,7 +41,7 @@ El envío sale del service worker, con el header `x-room-token`. Si falla, se re
 
 ## Enviar a Enlaza
 
-Junto a un archivo o un enlace `https` del chat aparece un botón chico, **Enlaza**. Lo manda a Archivos de la sala conectada. Si no hay sesión, dice que primero conectes una sala. Si el enlace ya estaba, avisa sin tratarlo como error. Un archivo de más de 10 MB no se sube.
+En ChatGPT el botón **Enlaza** queda al lado de «Añadir archivos y más». También aparece junto a un archivo o un enlace `https` del chat. Lo manda a Archivos de la sala conectada. Si no hay sesión, dice que primero conectes una sala. Si el enlace ya estaba, avisa sin tratarlo como error. Un archivo de más de 10 MB no se sube.
 
 ## Panel lateral
 
@@ -117,7 +117,7 @@ En Windows hace falta `node` en el PATH. Si el envío falla, el error queda en s
 
 - **El ícono muestra !** y el panel dice que el token no es válido. El enlace no corresponde a la sala. Pegá de nuevo el enlace de invitación y conectá.
 - **Eventos enviados no sube** después de un prompt nuevo. Recargá la pestaña del chat (F5). El panel debe decir que ChatGPT o Gemini ve mensajes. Si dice que no está el lector, en Extensiones pulsá **Actualizar** en Enlaza y volvé a recargar el chat.
-- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.4.0. Después recargá ChatGPT y Gemini.
+- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.4.1. Después recargá ChatGPT y Gemini.
 - **Insertar no pone el texto.** La pestaña activa tiene que ser ChatGPT o Gemini, y el chat tiene que estar recargado después de instalar.
 
 ## Limitaciones

@@ -18,6 +18,7 @@
         unreadable: "No se pudo leer este archivo; descárgalo y súbelo desde la sala",
         tooBig: "el archivo pasa de 10 MB",
         generic: "No se pudo enviar. Puedes reintentar.",
+        noFile: "No veo un archivo en el mensaje. Adjuntá uno con + y volvé a pulsar Enlaza.",
       }
     : {
         send: "Send to Enlaza",
@@ -27,6 +28,7 @@
         unreadable: "Could not read this file; download it and upload it from the room",
         tooBig: "el archivo pasa de 10 MB",
         generic: "Could not send. You can retry.",
+        noFile: "No file in the message. Attach one with + and press Enlaza again.",
       };
 
   const FILE_NAME = /^[^\s]{1,160}\.[a-z0-9]{2,5}$/i;
@@ -59,13 +61,13 @@
     node._enlazaTimer = setTimeout(() => node.remove(), 3000);
   }
 
-  function collect(selectors) {
+  function collect(selectors, root) {
     const found = [];
     const seen = new Set();
     for (const selector of selectors || []) {
       let nodes = [];
       try {
-        nodes = dom.queryAllDeep(selector);
+        nodes = dom.queryAllDeep(selector, root);
       } catch (error) {
         console.debug("enlaza archivos", error);
       }
@@ -222,8 +224,91 @@
     return chips;
   }
 
+  function onScreen(node) {
+    if (!node?.getBoundingClientRect) return false;
+    const rect = node.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return false;
+    const style = window.getComputedStyle ? window.getComputedStyle(node) : null;
+    if (style && (style.display === "none" || style.visibility === "hidden")) return false;
+    return true;
+  }
+
+  function queryLast(selectors, root) {
+    for (const selector of selectors || []) {
+      let nodes = [];
+      try {
+        nodes = dom.queryAllDeep(selector, root);
+      } catch (error) {
+        console.debug("enlaza archivos", error);
+        continue;
+      }
+      const visible = nodes.filter(onScreen);
+      const pool = visible.length ? visible : nodes;
+      if (pool.length) return pool[pool.length - 1];
+    }
+    return null;
+  }
+
+  function makeComposerButton() {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "enlaza-send";
+    button.dataset.enlazaFiles = "1";
+    button.setAttribute("aria-label", copy.send);
+    button.textContent = "Enlaza";
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      sendComposer(button);
+    });
+    return button;
+  }
+
+  function placeComposerButton() {
+    if (!site.fileAnchorSelectors && !site.fileFooterSelectors) return;
+    const current = document.querySelector("button[data-enlaza-files='1']");
+    const plus = queryLast(site.fileAnchorSelectors);
+    if (plus) {
+      if (current?.isConnected && current.previousElementSibling === plus) return;
+      if (current) current.remove();
+      plus.insertAdjacentElement("afterend", makeComposerButton());
+      return;
+    }
+    const footer = queryLast(site.fileFooterSelectors);
+    if (!footer) return;
+    if (current?.isConnected && footer.contains(current)) return;
+    if (current) current.remove();
+    footer.appendChild(makeComposerButton());
+  }
+
+  async function sendComposer(button) {
+    const root = queryLast(['[class*="ComposerLayoutRoot"]']) || queryLast(site.fileFooterSelectors) || document;
+    const nodes = collect(site.fileSelectors, root).filter((node) => !node.closest?.("[data-enlaza-files]"));
+    if (!nodes.length) {
+      toast(copy.noFile);
+      return;
+    }
+    button.disabled = true;
+    button.classList.add("enlaza-send-busy");
+    try {
+      for (const node of nodes) {
+        const href = hrefOf(node);
+        await send(button, {
+          kind: "file",
+          name: fileName(node, href),
+          src: href.startsWith("blob:") || href.startsWith("data:") || href.startsWith("http") ? href : "",
+          https: httpsUrl(href),
+        });
+      }
+    } finally {
+      button.disabled = false;
+      button.classList.remove("enlaza-send-busy");
+    }
+  }
+
   function scan() {
     try {
+      placeComposerButton();
       for (const node of collect(site.fileSelectors)) {
         const href = hrefOf(node);
         attach(node, {

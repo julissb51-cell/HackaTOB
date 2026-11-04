@@ -354,11 +354,18 @@
     }
 
     function findComposer() {
-      const found = [];
-      for (const selector of site.composerSelectors) found.push(...dom.queryAllDeep(selector));
-      const visible = found.filter(dom.isVisible);
-      const pool = visible.length ? visible : found;
-      return pool[pool.length - 1] || null;
+      for (const selector of site.composerSelectors || []) {
+        let nodes = [];
+        try {
+          nodes = dom.queryAllDeep(selector);
+        } catch {
+          continue;
+        }
+        const visible = nodes.filter(dom.isVisible);
+        const pool = visible.length ? visible : nodes;
+        if (pool[0]) return pool[0];
+      }
+      return null;
     }
 
     function insertText(text) {

@@ -22,6 +22,19 @@ if (files.checkSize(0) !== "size no válido") throw new Error("size");
 if (!files.cleanShareUrl("https://example.com/informe.pdf")) throw new Error("url");
 if (files.cleanShareUrl("javascript:alert(1)")) throw new Error("url mala");
 if (files.mimeOrDefault("no") !== "application/octet-stream") throw new Error("mime");
+
+const { readFileSync } = await import("node:fs");
+const { runInNewContext } = await import("node:vm");
+const chatgptSource = readFileSync(path.join(root, "content/chatgpt/selectors.js"), "utf8");
+const sandbox = { globalThis: {} };
+sandbox.globalThis = sandbox;
+runInNewContext(chatgptSource, sandbox);
+const chatgpt = sandbox.EnlazaChatgptSite;
+if (chatgpt.composerSelectors[0] !== 'form div.ProseMirror[contenteditable="true"]') throw new Error("composer");
+if (chatgpt.composerSelectors[1] !== "#prompt-textarea") throw new Error("composer respaldo");
+if (chatgpt.fileAnchorSelectors[0] !== 'button[aria-label="Añadir archivos y más"]') throw new Error("ancla");
+if (!chatgpt.fileAnchorSelectors.includes('button[aria-label="Add files and more"]')) throw new Error("ancla en");
+if (chatgpt.fileFooterSelectors[0] !== '[class*="ComposerLayoutFooter"]') throw new Error("footer");
 console.log("avisos ok");
 
 let parseHTML;

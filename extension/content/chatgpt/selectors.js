@@ -55,6 +55,15 @@
       'button[aria-label="Enviar mensaje"]',
       'button[aria-label="Enviar"]',
     ],
+    fileAnchorSelectors: [
+      'button[aria-label="Añadir archivos y más"]',
+      'button[aria-label="Add files and more"]',
+      '[data-testid="composer-plus-btn"]',
+    ],
+    fileFooterSelectors: [
+      '[class*="ComposerLayoutFooter"]',
+      '[class*="ComposerLayoutRoot"]',
+    ],
     fileSelectors: [
       "a[download]",
       'a[href^="blob:"]',
@@ -73,6 +82,7 @@
       ".markdown a[href^='https://']",
     ],
     composerSelectors: [
+      'form div.ProseMirror[contenteditable="true"]',
       "#prompt-textarea",
       '[data-testid="prompt-textarea"]',
       "div.ProseMirror#prompt-textarea",
