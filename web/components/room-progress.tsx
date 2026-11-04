@@ -3,12 +3,23 @@
 import { useEffect, type ReactNode } from "react";
 import type { RoomBoard } from "@/lib/board-view";
 import type { RoomProgress } from "@/lib/progress";
-import type { ContextResponse, RoomWarning, WarningType } from "@/lib/room-types";
+import { PRIORITIES, countByPriority, sortByPriority } from "@/lib/priority";
+import type { ContextResponse, RoomWarning, WarningPriority, WarningType } from "@/lib/room-types";
 import { CopyButton } from "./invite-link";
 import { useCopy } from "./language";
 import { Symbol, iconButton, pillSecondary } from "./symbol";
 
-const KINDS: WarningType[] = ["contradiccion", "duplicado", "falta"];
+function priorityTone(prioridad: WarningPriority | undefined): string {
+  if (prioridad === "urgente") return "bg-urg-bg text-urg-ink";
+  if (prioridad === "puede_esperar") return "bg-wait-bg text-wait-ink";
+  return "bg-soon-bg text-soon-ink";
+}
+
+function priorityIcon(prioridad: WarningPriority | undefined): string {
+  if (prioridad === "urgente") return "priority_high";
+  if (prioridad === "puede_esperar") return "schedule";
+  return "timer";
+}
 
 function tone(tipo: WarningType): string {
   if (tipo === "contradiccion") return "bg-contra-bg text-contra-ink";
@@ -61,8 +72,8 @@ export function ProgressCard({
   onOpen: () => void;
 }) {
   const text = useCopy();
-  const counts = countAlerts(board.alertas);
-  const total = counts.contradiccion + counts.duplicado + counts.falta;
+  const priorities = countByPriority(board.alertas);
+  const total = board.alertas.length;
   const value = avance?.valor ?? 0;
   const parts = avance?.partes ?? board.parts.map((parte) => ({ parte, hechos: 0, total: 0, avance: 0 }));
   const own = context.advertencias[0];
@@ -144,16 +155,20 @@ export function ProgressCard({
       <button
         type="button"
         onClick={onOpen}
-        className="mt-6 flex w-full cursor-pointer flex-wrap items-center gap-2 rounded-2xl border border-line px-4 py-3 text-left transition-colors hover:bg-structural/60"
+        className={`mt-6 flex w-full cursor-pointer flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors ${priorities.urgente > 0 ? "border-urg-ink/40 bg-urg-bg/60 hover:bg-urg-bg" : "border-line hover:bg-structural/60"}`}
       >
         {total === 0 ? (
           <span className="text-[15px] text-muted">{text.noticeNone}</span>
         ) : (
-          <>
-            {counts.falta > 0 ? <Chip tipo="falta">{text.noticeMissing(counts.falta)}</Chip> : null}
-            {counts.contradiccion > 0 ? <Chip tipo="contradiccion">{text.noticeContra(counts.contradiccion)}</Chip> : null}
-            {counts.duplicado > 0 ? <Chip tipo="duplicado">{text.noticeDup(counts.duplicado)}</Chip> : null}
-          </>
+          PRIORITIES.filter((prioridad) => priorities[prioridad] > 0).map((prioridad) => (
+            <span
+              key={prioridad}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${priorityTone(prioridad)}`}
+            >
+              <Symbol name={priorityIcon(prioridad)} className="text-[16px]" />
+              {text.priorityCount[prioridad](priorities[prioridad])}
+            </span>
+          ))
         )}
         <span className="ml-auto inline-flex items-center gap-1 text-sm font-semibold text-link">
           {text.noticeOpen} <Symbol name="arrow_forward" className="text-[18px]" />
@@ -169,15 +184,6 @@ export function ProgressCard({
         </div>
       ) : null}
     </section>
-  );
-}
-
-function Chip({ tipo, children }: { tipo: WarningType; children: ReactNode }) {
-  return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${tone(tipo)}`}>
-      <Symbol name={icon(tipo)} className="text-[16px]" />
-      {children}
-    </span>
   );
 }
 
@@ -211,9 +217,8 @@ export function SummaryDrawer({
     };
   }, [open, onClose]);
   if (!open) return null;
-  const counts = countAlerts(board.alertas);
-  const groupLabel = (tipo: WarningType) =>
-    tipo === "contradiccion" ? text.alertsContra : tipo === "duplicado" ? text.alertsDup : text.alertsMissing;
+  const sorted = sortByPriority(board.alertas);
+  const priorities = countByPriority(sorted);
 
   return (
     <div className="fixed inset-0 z-50">
@@ -266,20 +271,32 @@ export function SummaryDrawer({
             ) : null}
           </section>
           {board.alertas.length === 0 ? <p className="text-sm text-muted">{text.noWarnings}</p> : null}
-          {KINDS.filter((tipo) => counts[tipo] > 0).map((tipo) => (
-            <section key={tipo}>
+          {PRIORITIES.filter((prioridad) => priorities[prioridad] > 0).map((prioridad) => (
+            <section key={prioridad}>
               <h3 className="inline-flex items-center gap-2 font-semibold">
-                <Symbol name={icon(tipo)} className="text-[20px]" />
-                {groupLabel(tipo)}
-                <span className="rounded-full bg-structural px-2 text-sm text-muted">{counts[tipo]}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-sm ${priorityTone(prioridad)}`}>
+                  <Symbol name={priorityIcon(prioridad)} className="text-[16px]" />
+                  {text.priorityLabel[prioridad]}
+                </span>
+                <span className="rounded-full bg-structural px-2 text-sm text-muted">{priorities[prioridad]}</span>
               </h3>
               <ul className="mt-3 space-y-3">
-                {board.alertas
-                  .filter((alert) => alert.tipo === tipo)
+                {sorted
+                  .filter((alert) => (alert.prioridad ?? "pronto") === prioridad)
                   .map((alert, index) => (
-                    <li key={`${tipo}-${index}`} className={`rounded-2xl p-4 ${tone(tipo)}`}>
-                      <p className="text-[15px] leading-[1.5]">{alert.mensaje}</p>
-                      <p className="mt-2 text-sm">
+                    <li key={`${prioridad}-${index}`} className="rounded-2xl border border-line bg-surface p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityTone(prioridad)}`}>
+                          <Symbol name={priorityIcon(prioridad)} className="text-[14px]" />
+                          {text.priorityLabel[prioridad]}
+                        </span>
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${tone(alert.tipo)}`}>
+                          <Symbol name={icon(alert.tipo)} className="text-[14px]" />
+                          {text.typeTag[alert.tipo]}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-[15px] leading-[1.5]">{alert.mensaje}</p>
+                      <p className="mt-2 text-sm text-muted">
                         <strong>{text.alertWho}:</strong> {alert.destinatario || "—"}
                         {(alert.partes ?? []).length > 0 ? (
                           <>
@@ -289,7 +306,7 @@ export function SummaryDrawer({
                         ) : null}
                       </p>
                       {alert.prompt_sugerido ? (
-                        <div className="mt-3 rounded-xl bg-surface/80 p-3 text-foreground">
+                        <div className="mt-3 rounded-xl bg-structural p-3 text-foreground">
                           <p className="text-xs font-semibold text-muted">{text.alertFix}</p>
                           <p className="mt-1 text-sm leading-[1.5] whitespace-pre-wrap">{alert.prompt_sugerido}</p>
                           <div className="mt-2">

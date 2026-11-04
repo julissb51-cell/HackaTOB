@@ -20,6 +20,8 @@ export type RoomProgress = {
   delta: number;
   motivo: string;
   calculadoEn: string;
+  /** De dónde salió la lista: ia o reglas. Las listas de fuentes distintas no se mezclan. */
+  lista?: "ia" | "reglas";
 };
 
 export const PROGRESS_LIMITS = {
@@ -261,5 +263,21 @@ export function readProgress(value: unknown): RoomProgress | null {
     delta: typeof record.delta === "number" ? record.delta : 0,
     motivo: typeof record.motivo === "string" ? record.motivo : "",
     calculadoEn: typeof record.calculadoEn === "string" ? record.calculadoEn : new Date(0).toISOString(),
+    ...(record.lista === "ia" || record.lista === "reglas" ? { lista: record.lista } : {}),
   };
+}
+
+/**
+ * Lista anterior que se puede reutilizar con una lista nueva de la fuente `fuente`.
+ * Si la anterior vino de otra fuente (por ejemplo reglas y ahora llega la IA), se reemplaza
+ * en vez de mezclarla, para no duplicar entregables con nombres parecidos.
+ */
+export function reusableChecklist(
+  previous: { fuente: "ia" | "reglas"; avance?: RoomProgress | null } | null | undefined,
+  fuente: "ia" | "reglas",
+): ChecklistItem[] {
+  const avance = previous?.avance;
+  if (!avance) return [];
+  const source = avance.lista ?? previous.fuente;
+  return source === fuente ? avance.items : [];
 }

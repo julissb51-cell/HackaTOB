@@ -252,6 +252,7 @@ test("el contexto marca falta, contradicción y duplicado sin llamar a una IA", 
       "destinatario",
       "mensaje",
       "partes",
+      "prioridad",
       "prompt_sugerido",
       "tipo",
     ]);

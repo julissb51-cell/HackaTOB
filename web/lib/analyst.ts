@@ -1,3 +1,4 @@
+import { readPriority, withPriorities } from "./priority";
 import { readChecklist, rulesChecklist, type ChecklistItem } from "./progress";
 import { buildContext } from "./context-from-events";
 import { parseDueDate, parseParts } from "./room-fields";
@@ -103,6 +104,7 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         "No inventes eventos ni personas. Usa los nombres tal como aparecen.",
         "Escribe resumen, partes, avisos, prompts y títulos en el idioma pedido.",
         "tipo de un aviso es falta, contradiccion o duplicado.",
+        "prioridad de cada aviso: urgente (hay que hacerlo ya: contradicciones, o un entregable principal que falta y la entrega está cerca), pronto (duplicados o faltas con tiempo) o puede_esperar (detalles menores como formato o bibliografía).",
         "En cada análisis revisa siempre estas tres cosas, comparando a todos los miembros entre sí:",
         "1. contradiccion: dos personas afirman o deciden cosas que no pueden ser ciertas a la vez (tecnología, formato de datos, alcance, fechas, nombres). Cita qué dijo cada uno.",
         "   Revisa sobre todo cómo guarda los datos cada miembro (archivo JSON, CSV, SQLite, MySQL, PostgreSQL, MongoDB, Firebase, Supabase, localStorage). Si dos personas usan formas distintas, es SIEMPRE un aviso propio con tipo contradiccion, aparte de cualquier duplicado, y no basta con mencionarlo dentro de un prompt_sugerido.",
@@ -122,7 +124,7 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         "Si la fecha ya está definida, sugerencia.fecha_entrega es null.",
         "Cada chat recibe un nombre corto, de hasta 6 palabras.",
         "checklist: para cada parte de la sala, de 3 a 8 entregables esperados según el tema y la parte (por ejemplo Introducción, Requisitos, Base de datos, Pruebas, Diapositivas). hecho es true solo si los eventos muestran ese entregable producido (una respuesta o archivo con el contenido), no si solo se pidió. evidencia: una frase corta que diga qué evento lo muestra. Si hay una lista anterior, conserva sus textos y solo agrega lo nuevo.",
-        'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":""}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]},"checklist":[{"parte":"","items":[{"texto":"","hecho":false,"evidencia":""}]}]}',
+        'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":"","prioridad":"urgente"}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":"","prioridad":"pronto"}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]},"checklist":[{"parte":"","items":[{"texto":"","hecho":false,"evidencia":""}]}]}',
       ].join("\n"),
     },
     { role: "user", content: fitPrompt(lines.join("\n")) },
@@ -170,24 +172,34 @@ export async function produceReport(
   input: AnalysisInput,
   completeText: TextComplete,
 ): Promise<{ report: AnalystReport; fuente: "ia" | "reglas" }> {
-  const rules = buildFallbackReport(input);
+  const rules = prioritizeReport(buildFallbackReport(input), input.room.dueDate);
   try {
     const parsed = parseAnalystOutput(await completeText(buildAnalystMessages(input)), conversationIds(input.events));
     if (!parsed) {
       console.error("analisis", "respuesta ilegible");
       return { report: rules, fuente: "reglas" };
     }
-    return { report: addMissedOverlaps(mergeWithFallback(parsed, rules, input), input), fuente: "ia" };
+    return { report: prioritizeReport(addMissedOverlaps(mergeWithFallback(parsed, rules, input), input), input.room.dueDate), fuente: "ia" };
   } catch (error) {
     console.error("analisis", error instanceof Error ? error.message : error);
     return { report: rules, fuente: "reglas" };
   }
 }
 
+/** Todo aviso sale con prioridad; si la IA no la puso se usa la regla por defecto. */
+export function prioritizeReport(report: AnalystReport, dueDate: string | null): AnalystReport {
+  return {
+    ...report,
+    alertas: withPriorities(report.alertas, dueDate),
+    miembros: report.miembros.map((member) => ({ ...member, advertencias: withPriorities(member.advertencias, dueDate) })),
+  };
+}
+
 export function contextFromSaved(
   saved: SavedAnalysis | null,
   member: string,
   fallback: ContextResponse,
+  dueDate: string | null = null,
 ): ContextResponse {
   if (!saved || saved.fuente !== "ia") return fallback;
   const found =
@@ -198,7 +210,7 @@ export function contextFromSaved(
     resumen: found.resumen || saved.resumen || fallback.resumen,
     parte: found.parte || fallback.parte,
     prompt_sugerido: found.prompt_sugerido || fallback.prompt_sugerido,
-    advertencias: warningsFor(saved.alertas, found.advertencias, found.nombre),
+    advertencias: withPriorities(warningsFor(saved.alertas, found.advertencias, found.nombre), dueDate),
   };
 }
 
@@ -670,6 +682,7 @@ function readWarnings(value: unknown, max: number): RoomWarning[] {
       destinatario: cleanText(record.destinatario, 80) || "equipo",
       partes: partes.length > 0 ? partes : ["sala"],
       prompt_sugerido: cleanText(record.prompt_sugerido, 2_000),
+      ...(readPriority(record.prioridad) ? { prioridad: readPriority(record.prioridad) } : {}),
     });
     if (warnings.length >= max) break;
   }

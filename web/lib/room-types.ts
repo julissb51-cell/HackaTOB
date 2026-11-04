@@ -48,12 +48,16 @@ export type StoredEvent = {
 
 export type WarningType = "falta" | "contradiccion" | "duplicado";
 
+export type WarningPriority = "urgente" | "pronto" | "puede_esperar";
+
 export type RoomWarning = {
   tipo: WarningType;
   mensaje: string;
   destinatario: string;
   partes: string[];
   prompt_sugerido: string;
+  /** Opcional: urgente, pronto o puede_esperar. */
+  prioridad?: WarningPriority;
 };
 
 export type ContextResponse = {

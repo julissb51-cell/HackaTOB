@@ -1,3 +1,4 @@
+import { withPriorities } from "./priority";
 import { contextFromSaved } from "./analyst";
 import { buildContext } from "./context-from-events";
 import { parseEvent } from "./event-body";
@@ -91,7 +92,8 @@ export async function getRoomContext(request: Request, roomId: string, store: Ro
       member,
     });
     const saved = store.readAnalysis ? await store.readAnalysis(roomId) : null;
-    return json(request, contextFromSaved(saved, member, fallback), 200);
+    const context = contextFromSaved(saved, member, fallback, room.dueDate);
+    return json(request, { ...context, advertencias: withPriorities(context.advertencias, room.dueDate) }, 200);
   } catch (error) {
     return failure(request, error, "no se pudo leer la sala");
   }

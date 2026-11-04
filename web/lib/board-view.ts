@@ -1,3 +1,4 @@
+import { sortByPriority, withPriorities } from "./priority";
 import { buildFallbackReport, clipText, type AnalystReport } from "./analyst";
 import { invitePath } from "./room-fields";
 import type { RoomProgress } from "./progress";
@@ -82,7 +83,7 @@ export function toBoard(input: {
     members: input.members.map((member) => ({ name: member.name, part: member.part })),
     resumen: report.resumen,
     consejo: report.consejo,
-    alertas: report.alertas,
+    alertas: sortByPriority(withPriorities(report.alertas, input.room.dueDate)),
     miembros: report.miembros.map((member) => ({
       nombre: member.nombre,
       parte: member.parte,

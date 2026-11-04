@@ -10,7 +10,7 @@ import {
 } from "./analysis-db";
 import { complete, getAiProvider, type AiMessage } from "./ai";
 import { nextSuggestionStatus, produceReport, type AnalystMessage } from "./analyst";
-import { computeProgress, mergeChecklist } from "./progress";
+import { computeProgress, mergeChecklist, reusableChecklist } from "./progress";
 import { supabaseMembershipStore } from "./room-membership-db";
 import { supabaseRoomStore } from "./room-store";
 
@@ -76,7 +76,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
       },
       members: members.map((member) => ({ name: member.name, part: member.part })),
       events,
-      previousChecklist: previous?.avance?.items,
+      previousChecklist: reusableChecklist(previous, "ia"),
     },
     completeAnalyst,
   );
@@ -87,22 +87,24 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
       // Sin avance guardado todavía: se calcula con la lista por reglas para no dejar la barra vacía.
       await saveProgress(
         roomId,
-        computeProgress({
-          items: produced.report.checklist ?? [],
-          parts: room.parts,
-          alertas: previous.alertas ?? produced.report.alertas,
-          previous: null,
-          language: room.language,
-        }),
+        {
+          ...computeProgress({
+            items: produced.report.checklist ?? [],
+            parts: room.parts,
+            alertas: previous.alertas ?? produced.report.alertas,
+            previous: null,
+            language: room.language,
+          }),
+          lista: "reglas",
+        },
       );
     }
     await rememberEventCount(roomId, events.length);
     if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
     return true;
   }
-  // Solo se reutiliza la lista anterior si viene de la misma fuente (IA o reglas), para no mezclar listas distintas.
-  const sameSource = previous?.fuente === produced.fuente;
-  const items = mergeChecklist(sameSource ? previous?.avance?.items ?? [] : [], produced.report.checklist ?? []);
+  // Solo se reutiliza la lista anterior si viene de la misma fuente; una lista de IA reemplaza a la de reglas.
+  const items = mergeChecklist(reusableChecklist(previous, produced.fuente), produced.report.checklist ?? []);
   const avance = computeProgress({
     items,
     parts: room.parts,
@@ -110,6 +112,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
     previous: previous?.avance ?? null,
     language: room.language,
   });
+  avance.lista = produced.fuente;
   await saveAnalysis({
     avance,
     roomId,

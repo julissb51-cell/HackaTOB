@@ -160,6 +160,7 @@ La respuesta trae el resumen de la sala, los avisos, la parte de esa persona y u
     },
     {
       "tipo": "contradiccion",
+      "prioridad": "urgente",
       "mensaje": "Ana escribió que el texto máximo es de 10.000 caracteres. El acuerdo es 100.000.",
       "destinatario": "Ana",
       "partes": ["Pantalla de la sala", "Límites"],
@@ -175,6 +176,8 @@ La respuesta trae el resumen de la sala, los avisos, la parte de esa persona y u
   ]
 }
 ```
+
+`prioridad` (opcional, aditivo) en cada advertencia: `"urgente"` | `"pronto"` | `"puede_esperar"`. Si falta, el servidor la completa: contradicción → urgente; falta de un entregable central a ≤3 días de la entrega → urgente, si no pronto; duplicado → pronto; detalles menores (bibliografía, formato, portada…) → puede_esperar. Los clientes que no la conozcan pueden ignorarla.
 
 Cada aviso tiene:
 

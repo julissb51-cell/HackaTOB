@@ -19,6 +19,12 @@
   --dup-ink: #7a6a47;
   --falta-bg: #eef1f4;
   --falta-ink: #4f6172;
+  --urg-bg: #fbe9e7;
+  --urg-ink: #a3322a;
+  --soon-bg: #fbf0d9;
+  --soon-ink: #85590a;
+  --wait-bg: #eff1f0;
+  --wait-ink: #5b6360;
   --danger: #8a4b45;
   --info: #4f6172;
   --warm: #7a6a47;
@@ -43,6 +49,12 @@
     --dup-ink: #d2bf95;
     --falta-bg: #22272c;
     --falta-ink: #a9b7c4;
+    --urg-bg: #3a2220;
+    --urg-ink: #f2aaa2;
+    --soon-bg: #342a17;
+    --soon-ink: #e9c47d;
+    --wait-bg: #262a29;
+    --wait-ink: #aeb6b3;
     --danger: #d9a9a3;
     --info: #a9b7c4;
     --warm: #d2bf95;
@@ -69,6 +81,12 @@
   --color-dup-ink: var(--dup-ink);
   --color-falta-bg: var(--falta-bg);
   --color-falta-ink: var(--falta-ink);
+  --color-urg-bg: var(--urg-bg);
+  --color-urg-ink: var(--urg-ink);
+  --color-soon-bg: var(--soon-bg);
+  --color-soon-ink: var(--soon-ink);
+  --color-wait-bg: var(--wait-bg);
+  --color-wait-ink: var(--wait-ink);
   --font-sans: var(--font-source);
   --font-display: var(--font-fraunces);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
