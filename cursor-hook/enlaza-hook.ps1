@@ -1,5 +1,5 @@
 # Gancho de Cursor para Enlaza. Nunca bloquea el prompt: sale 0 y responde continue.
-# Windows PowerShell 5.1 y PowerShell 7. Lee el JSON por pipeline ($input) o por stdin.
+# Windows PowerShell 5.1 y PowerShell 7. El JSON entra por stdin en UTF-8.
 param(
   [ValidateSet("", "prompt", "response")]
   [string]$Event = ""
@@ -7,10 +7,52 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Read-HookRaw {
-  if ($script:pipelineText -and $script:pipelineText.Trim()) { return $script:pipelineText }
-  if ([Console]::IsInputRedirected) { return [Console]::In.ReadToEnd() }
-  return ""
+function Read-Utf8Stdin {
+  $stream = [Console]::OpenStandardInput()
+  $buffer = New-Object byte[] 8192
+  $memory = New-Object System.IO.MemoryStream
+  while (($count = $stream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+    $memory.Write($buffer, 0, $count)
+  }
+  $bytes = $memory.ToArray()
+  $offset = 0
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 239 -and $bytes[1] -eq 187 -and $bytes[2] -eq 191) {
+    $offset = 3
+  }
+  if ($bytes.Length -le $offset) { return "" }
+  return [System.Text.Encoding]::UTF8.GetString($bytes, $offset, $bytes.Length - $offset)
+}
+
+function Get-EnlazaDir {
+  if ($env:ENLAZA_CONFIG) {
+    $parent = Split-Path -Parent $env:ENLAZA_CONFIG
+    if ($parent) { return $parent }
+  }
+  $beside = Join-Path $PSScriptRoot "config.json"
+  if (Test-Path -LiteralPath $beside) { return $PSScriptRoot }
+  return Join-Path (Get-CursorHome) ".cursor/enlaza"
+}
+
+function Write-HookLog([string]$eventName, [string]$detail) {
+  try {
+    $dir = Get-EnlazaDir
+    if (-not $dir) { return }
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    $path = Join-Path $dir "hook.log"
+    $clean = ([regex]::Replace([string]$detail, '[\r\n]', ' ')).Trim()
+    if ($clean.Length -gt 240) { $clean = $clean.Substring(0, 240) }
+    $line = "{0} {1} {2}" -f (Get-Date).ToString("yyyy-MM-ddTHH:mm:ss"), ($eventName.Trim()), $clean
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::AppendAllText($path, $line + "`n", $utf8)
+    if ((Get-Item -LiteralPath $path).Length -gt 65536) {
+      $existing = [System.IO.File]::ReadAllLines($path, $utf8)
+      $start = [Math]::Max(0, $existing.Length - 200)
+      $kept = $existing[$start..($existing.Length - 1)]
+      [System.IO.File]::WriteAllText($path, (($kept -join "`n") + "`n"), $utf8)
+    }
+  } catch {
+    # El log no puede frenar el prompt.
+  }
 }
 
 function Get-CursorHome {
@@ -68,6 +110,7 @@ function Send-EnlazaEvent($obj, [string]$tipo, [string]$texto) {
   $config = Get-EnlazaConfig
   if ($null -eq $config) {
     [Console]::Error.WriteLine("enlaza: falta config.json")
+    Write-HookLog $tipo "falta config.json"
     return
   }
   $conversation = Get-FieldText $obj "conversation_id"
@@ -102,6 +145,7 @@ function Send-EnlazaEvent($obj, [string]$tipo, [string]$texto) {
       "x-room-token" = $config.token
     } -ContentType "application/json; charset=utf-8" -Body $bytes -TimeoutSec 4 -UseBasicParsing
     [Console]::Error.WriteLine("enlaza: $($response.StatusCode)")
+    Write-HookLog $tipo "status $($response.StatusCode)"
   } catch {
     $code = 0
     if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
@@ -109,24 +153,27 @@ function Send-EnlazaEvent($obj, [string]$tipo, [string]$texto) {
     }
     if ($code -gt 0) {
       [Console]::Error.WriteLine("enlaza: $code")
+      Write-HookLog $tipo "status $code"
     } else {
-      [Console]::Error.WriteLine("enlaza: no se pudo enviar")
+      $detail = $_.Exception.Message
+      [Console]::Error.WriteLine("enlaza: no se pudo enviar: $detail")
+      Write-HookLog $tipo "enviar: $detail"
     }
   }
 }
 
-$script:pipelineText = ""
-foreach ($item in $input) {
-  if ($null -eq $item) { continue }
-  if ($script:pipelineText) { $script:pipelineText += "`n" }
-  $script:pipelineText += [string]$item
-}
-
 $allow = '{"continue":true}'
 if ($Event -eq "response") { $allow = "{}" }
+$eventLabel = $Event
+if (-not $eventLabel) { $eventLabel = "hook" }
 
 try {
-  $raw = Read-HookRaw
+  # No usar $input: PowerShell 5.1 se come el stdin y lo decodifica con la pagina OEM.
+  if ([Console]::IsInputRedirected) {
+    $raw = Read-Utf8Stdin
+  } else {
+    $raw = ""
+  }
   $obj = $null
   if ($raw -and $raw.Trim()) {
     $obj = $raw | ConvertFrom-Json
@@ -151,9 +198,13 @@ try {
     $texto = (Get-FieldText $obj $source).Trim()
     if ($texto.Length -gt 100000) { $texto = $texto.Substring(0, 100000) }
     if ($texto) { Send-EnlazaEvent $obj $tipo $texto }
+  } else {
+    Write-HookLog $eventLabel "sin texto"
   }
 } catch {
-  [Console]::Error.WriteLine("enlaza: no se pudo enviar")
+  $detail = $_.Exception.Message
+  [Console]::Error.WriteLine("enlaza: no se pudo leer: $detail")
+  Write-HookLog $eventLabel "leer: $detail"
 } finally {
   Write-Output $allow
 }

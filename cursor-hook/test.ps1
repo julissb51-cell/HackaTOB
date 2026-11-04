@@ -64,6 +64,28 @@ $childErr = Join-Path $temp "child-err.txt"
 Assert-True ($LASTEXITCODE -eq 0) "stdin hijo no salió 0"
 Assert-True ((Get-Content -LiteralPath $child -Raw).Trim() -eq '{"continue":true}') "stdin hijo: $(Get-Content -LiteralPath $child -Raw)"
 Assert-True ((Get-Content -LiteralPath $childErr -Raw) -match 'enlaza: no se pudo enviar') "stdin hijo no intentó enviar"
+
+$utf8 = New-Object System.Text.UTF8Encoding $false
+$accent = '{"hook_event_name":"beforeSubmitPrompt","prompt":"qué es una base de datos","conversation_id":"conv-utf8","attachments":[],"model_params":[{"id":"effort","value":"low"}]}'
+$inFile = Join-Path $temp "utf8-bom.json"
+$bom = [byte[]](0xEF, 0xBB, 0xBF)
+$bodyBytes = $utf8.GetBytes($accent)
+$withBom = New-Object byte[] ($bom.Length + $bodyBytes.Length)
+[Array]::Copy($bom, 0, $withBom, 0, $bom.Length)
+[Array]::Copy($bodyBytes, 0, $withBom, $bom.Length, $bodyBytes.Length)
+[System.IO.File]::WriteAllBytes($inFile, $withBom)
+$accentOut = Join-Path $temp "accent-out.txt"
+$accentErr = Join-Path $temp "accent-err.txt"
+$proc = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @("-NoProfile", "-File", (Join-Path $root "enlaza-hook.ps1"), "-Event", "prompt") -RedirectStandardInput $inFile -RedirectStandardOutput $accentOut -RedirectStandardError $accentErr -Wait -PassThru -NoNewWindow
+Assert-True ($proc.ExitCode -eq 0) "utf8 no salió 0"
+Assert-True ((Get-Content -LiteralPath $accentOut -Raw).Trim() -eq '{"continue":true}') "utf8 stdout"
+$accentErrText = Get-Content -LiteralPath $accentErr -Raw
+Assert-True ($accentErrText -match 'enlaza: no se pudo enviar:') "utf8 no llegó a enviar: $accentErrText"
+Assert-True ($accentErrText -notmatch 'no se pudo leer') "utf8 no parseó: $accentErrText"
+$hookLog = Join-Path $temp "hook.log"
+$logText = Get-Content -LiteralPath $hookLog -Raw -ErrorAction SilentlyContinue
+Assert-True ($logText -and $logText -notmatch 'base de datos') "el log guardó el texto"
+Assert-True ($logText -match 'beforeSubmitPrompt|prompt') "el log no tiene el evento"
 Remove-Item Env:ENLAZA_CONFIG
 
 & (Join-Path $root "uninstall.ps1") -CursorHome $temp

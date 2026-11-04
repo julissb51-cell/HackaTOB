@@ -47,12 +47,12 @@ if (Test-Path -LiteralPath $hooksPath) {
   $utf8 = New-Object System.Text.UTF8Encoding $false
   $document = [ordered]@{ version = $version; hooks = $merged }
   [System.IO.File]::WriteAllText($hooksPath, (($document | ConvertTo-Json -Depth 6) + "`n"), $utf8)
-  Write-Host "Guardé una copia en $backup"
+  Write-Host "Guarde una copia en $backup"
 }
 
 if (Test-Path -LiteralPath $enlazaDir) {
   Remove-Item -LiteralPath $enlazaDir -Recurse -Force
 }
 
-Write-Host "Saqué Enlaza. El resto de tus ganchos quedó igual."
+Write-Host "Quite Enlaza. El resto de tus ganchos quedo igual."
 exit 0

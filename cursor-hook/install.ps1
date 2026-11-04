@@ -17,20 +17,20 @@ function Parse-Invite([string]$invite) {
   if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
     $value = $value.Substring(1, $value.Length - 2).Trim()
   }
-  if (-not $value) { throw "Pega el enlace de invitación." }
+  if (-not $value) { throw "Falta el enlace de invitacion." }
   $uri = $null
-  if (-not [Uri]::TryCreate($value, [UriKind]::Absolute, [ref]$uri)) { throw "El enlace no es válido." }
+  if (-not [Uri]::TryCreate($value, [UriKind]::Absolute, [ref]$uri)) { throw "El enlace no es valido." }
   if ($uri.Scheme -ne "https" -or $uri.Host -ne "enlaza-green.vercel.app") {
     throw "El enlace tiene que ser de enlaza-green.vercel.app."
   }
   $parts = @($uri.AbsolutePath.Trim("/").Split("/") | Where-Object { $_ })
-  if ($parts.Count -lt 2) { throw "Ese enlace no es una invitación a una sala." }
+  if ($parts.Count -lt 2) { throw "Ese enlace no es una invitacion a una sala." }
   $head = $parts[0].ToLower()
-  if ($head -ne "join" -and $head -ne "room") { throw "Ese enlace no es una invitación a una sala." }
+  if ($head -ne "join" -and $head -ne "room") { throw "Ese enlace no es una invitacion a una sala." }
   $sala = [Uri]::UnescapeDataString($parts[1]).Trim().ToLower()
-  if ($sala -notmatch '^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$') { throw "El id de la sala no es válido." }
+  if ($sala -notmatch '^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$') { throw "El id de la sala no es valido." }
   $reserved = @("new", "api", "auth", "join", "rooms", "room")
-  if ($reserved -contains $sala) { throw "El id de la sala no es válido." }
+  if ($reserved -contains $sala) { throw "El id de la sala no es valido." }
   $token = ""
   $query = $uri.Query.TrimStart("?")
   if ($query) {
@@ -43,7 +43,7 @@ function Parse-Invite([string]$invite) {
       if ($key -eq "t" -or $key -eq "token") { $token = $parsed.Trim() }
     }
   }
-  if (-not $token -or $token.Length -gt 500) { throw "El enlace no trae un token válido." }
+  if (-not $token -or $token.Length -gt 500) { throw "El enlace no trae un token valido." }
   return @{ salaId = $sala; token = $token }
 }
 
@@ -64,7 +64,7 @@ $parsedInvite = Parse-Invite $Invite
 $name = [regex]::Replace($Member.Trim(), '\s+', ' ')
 if (-not $name) { throw "Escribe tu nombre." }
 if ($name.Length -gt 120) { throw "El nombre puede tener hasta 120 caracteres." }
-if ([regex]::IsMatch($name, '[\u0000-\u001F\u007F]')) { throw "El nombre no es válido." }
+if ([regex]::IsMatch($name, '[\u0000-\u001F\u007F]')) { throw "El nombre no es valido." }
 
 $cursorDir = Join-Path $homeDir ".cursor"
 $enlazaDir = Join-Path $cursorDir "enlaza"
@@ -93,11 +93,11 @@ if (Test-Path -LiteralPath $hooksPath) {
   $stamp = Get-Date -Format "yyyyMMddHHmmss"
   $backup = "$hooksPath.bak-$stamp"
   Copy-Item -LiteralPath $hooksPath -Destination $backup -Force
-  Write-Host "Guardé una copia de hooks.json en $backup"
+  Write-Host "Guarde una copia de hooks.json en $backup"
   try {
     $hooks = Get-Content -LiteralPath $hooksPath -Raw -Encoding UTF8 | ConvertFrom-Json
   } catch {
-    throw "hooks.json no se pudo leer. La copia quedó en $backup y no lo reemplacé."
+    throw "hooks.json no se pudo leer. La copia quedo en $backup y no lo reemplace."
   }
 }
 
@@ -133,8 +133,8 @@ if ($hooks -and $hooks.version) { $version = $hooks.version }
 $document = [ordered]@{ version = $version; hooks = $merged }
 [System.IO.File]::WriteAllText($hooksPath, (($document | ConvertTo-Json -Depth 6) + "`n"), $utf8)
 
-Write-Host "Listo. Enlaza lee lo que mandás en el chat de Cursor y la respuesta del agente."
+Write-Host "Listo. Enlaza lee lo que envias en el chat de Cursor y la respuesta del agente."
 Write-Host "Sala: $($parsedInvite.salaId)"
 Write-Host "Miembro: $name"
-Write-Host "Cursor recarga los ganchos solo. Si no ves el envío, cerralo y volvé a abrirlo."
+Write-Host "Cursor recarga los ganchos solo. Si no ves el envio, cerralo y volve a abrirlo."
 exit 0

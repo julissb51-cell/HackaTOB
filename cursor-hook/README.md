@@ -22,7 +22,7 @@ Cursor recarga los ganchos solo. Si el primer mensaje no aparece en la sala, cer
 2. En Cursor, en el chat del agente, mandá un mensaje y esperá la respuesta.
 3. En la actividad de la sala tiene que aparecer tu nombre, la IA **Cursor**, el prompt y la respuesta.
 
-El gancho no frena el chat. Si no hay internet, Cursor sigue y el mensaje no se guarda.
+El gancho no frena el chat. Si no hay internet, Cursor sigue y el mensaje no se guarda. El resultado de cada envío queda en `%USERPROFILE%\.cursor\enlaza\hook.log` (hora, evento y código o error; sin el token ni el texto).
 
 ## Desinstalar
 
