@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { LoadingScreen } from "./loading-screen";
 import { AppHeader } from "./app-header";
 
 export function Shell({
@@ -36,10 +37,7 @@ export function Shell({
   );
 }
 
-export function ScreenFallback({ wide = false }: { wide?: boolean }) {
-  return (
-    <main className={`mx-auto flex w-full flex-1 flex-col px-6 py-8 ${wide ? "max-w-6xl" : "max-w-xl"}`}>
-      <p className="font-display text-2xl font-medium tracking-tight">Enlaza</p>
-    </main>
-  );
+export function ScreenFallback({ wide = false, room = false }: { wide?: boolean; room?: boolean }) {
+  void wide;
+  return <LoadingScreen label={room ? "room" : "page"} />;
 }

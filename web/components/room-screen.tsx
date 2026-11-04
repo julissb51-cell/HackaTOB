@@ -40,6 +40,7 @@ import { RoomTopBar, SettingsDrawer } from "./room-top-bar";
 import { ShareDialog } from "./share-dialog";
 import { secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
+import { FilesButton, FilesDrawer, useRoomFiles } from "./room-files";
 
 const PREVIEW = 420;
 const idleSettings: SettingsState = { status: "idle" };
@@ -77,6 +78,15 @@ export function RoomScreen({
   const [shareOpen, setShareOpen] = useState(false);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const closeSummary = useCallback(() => setSummaryOpen(false), []);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const closeFiles = useCallback(() => setFilesOpen(false), []);
+  const roomFiles = useRoomFiles(room.id);
+  const reloadFiles = roomFiles.reload;
+  const newestEvent = feed.events[0]?.eventId;
+  useEffect(() => {
+    // Un prompt nuevo puede traer enlaces detectados.
+    if (newestEvent) void reloadFiles();
+  }, [newestEvent, reloadFiles]);
   const due = !room.dueDate
     ? text.dueUnset
     : room.dueDate === NO_DATE
@@ -120,7 +130,7 @@ export function RoomScreen({
 
   const aiByMember = new Map<string, string>();
   for (const event of feed.events)
-    if (event.ai && !aiByMember.has(event.member))
+    if (event.ai && event.ai !== "enlaza" && !aiByMember.has(event.member))
       aiByMember.set(event.member, event.ai);
   const promptByMember = new Map(
     analysis.board.fuente === "ia"
@@ -197,6 +207,22 @@ export function RoomScreen({
               viewerName={room.viewerName}
               context={context}
               onOpen={() => setSummaryOpen(true)}
+              filesSlot={
+                <FilesButton
+                  count={roomFiles.files?.length ?? 0}
+                  onOpen={() => {
+                    setFilesOpen(true);
+                    void reloadFiles();
+                  }}
+                />
+              }
+            />
+            <FilesDrawer
+              open={filesOpen}
+              onClose={closeFiles}
+              roomId={room.id}
+              files={roomFiles.files}
+              onChanged={() => void reloadFiles()}
             />
             {analysis.board.pending && feed.events.length > 0 ? (
               <p role="status" className="-mt-3 px-2 text-sm text-muted">
@@ -795,7 +821,7 @@ function EventCard({
             </span>
             <span className="mx-2 text-muted">·</span>
             <span className="font-semibold">{event.member}</span>
-            <span className="ml-2 text-sm text-muted">{event.ai}</span>
+            <span className="ml-2 text-sm text-muted">{event.ai === "enlaza" ? "Enlaza" : event.ai}</span>
           </p>
           <time dateTime={event.createdAt} className="text-sm text-muted">
             {formatEventTime(event.createdAt)}

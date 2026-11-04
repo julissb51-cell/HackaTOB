@@ -144,3 +144,25 @@ body {
   -webkit-font-feature-settings: "liga";
   font-feature-settings: "liga";
 }
+
+/* Pantalla de carga: anillo cian que gira. */
+.enlaza-spinner {
+  display: block;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 4px solid color-mix(in srgb, var(--accent, #00b4d8) 22%, transparent);
+  border-top-color: var(--accent, #00b4d8);
+  animation: enlaza-spin 0.9s linear infinite;
+}
+@keyframes enlaza-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .enlaza-spinner {
+    animation: enlaza-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes enlaza-pulse {
+    50% { opacity: 0.45; }
+  }
+}

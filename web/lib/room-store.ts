@@ -1,5 +1,6 @@
 import "server-only";
 import { readSavedAnalysis } from "./analysis-db";
+import { listRoomFiles, publicFile, saveDetectedLinks } from "./room-files-db";
 import { createSupabaseServiceClient } from "./supabase/server";
 import { RoomStoreError } from "./room-store-error";
 import { isAiName, isEventType, type RoomRecord, type RoomStore, type SavedAnalysis, type StoredEvent } from "./room-types";
@@ -40,6 +41,8 @@ export const supabaseRoomStore: RoomStore = {
   listMembers,
   listEvents,
   readAnalysis,
+  saveDetectedLinks,
+  listFiles: async (roomId) => (await listRoomFiles(roomId, 20)).map(publicFile),
 };
 
 async function getRoom(id: string): Promise<RoomRecord | null> {

@@ -2,6 +2,7 @@ import { withPriorities } from "./priority";
 import { contextFromSaved } from "./analyst";
 import { buildContext } from "./context-from-events";
 import { parseEvent } from "./event-body";
+import { contextFiles } from "./room-files-core";
 import { json, optionsResponse } from "./http";
 import { RoomStoreError } from "./room-store-error";
 import type { RoomStore, StoredEvent } from "./room-types";
@@ -42,6 +43,14 @@ export async function postEvent(request: Request, roomId: string, store: RoomSto
     await store.ensureMember(roomId, event.member, parsed.event.suggestedPart);
   } catch (error) {
     return failure(request, error, "no se pudo guardar");
+  }
+
+  if (event.type === "prompt" && store.saveDetectedLinks) {
+    try {
+      await store.saveDetectedLinks(roomId, event.member, event.eventId, event.text);
+    } catch {
+      // La detección de enlaces es opcional: el evento ya quedó guardado.
+    }
   }
 
   return json(request, { ok: true }, 200);
@@ -93,7 +102,15 @@ export async function getRoomContext(request: Request, roomId: string, store: Ro
     });
     const saved = store.readAnalysis ? await store.readAnalysis(roomId) : null;
     const context = contextFromSaved(saved, member, fallback, room.dueDate);
-    return json(request, { ...context, advertencias: withPriorities(context.advertencias, room.dueDate) }, 200);
+    const body: Record<string, unknown> = { ...context, advertencias: withPriorities(context.advertencias, room.dueDate) };
+    if (store.listFiles) {
+      try {
+        body.archivos = contextFiles(await store.listFiles(roomId));
+      } catch {
+        // archivos es opcional en el contrato.
+      }
+    }
+    return json(request, body, 200);
   } catch (error) {
     return failure(request, error, "no se pudo leer la sala");
   }

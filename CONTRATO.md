@@ -179,6 +179,23 @@ La respuesta trae el resumen de la sala, los avisos, la parte de esa persona y u
 
 `prioridad` (opcional, aditivo) en cada advertencia: `"urgente"` | `"pronto"` | `"puede_esperar"`. Si falta, el servidor la completa: contradicción → urgente; falta de un entregable central a ≤3 días de la entrega → urgente, si no pronto; duplicado → pronto; detalles menores (bibliografía, formato, portada…) → puede_esperar. Los clientes que no la conozcan pueden ignorarla.
 
+`archivos` (opcional, aditivo): los 20 archivos y enlaces más recientes de la sala, del más nuevo al más viejo. Nunca trae URLs firmadas: `url` es el enlace externo o `null` si es un archivo subido (`subido: true`). `origen` es `"manual"` o `"detectado"` (enlace encontrado en un prompt capturado; el servidor solo lo guarda, nunca lo visita). `tipo`: `docs` | `drive` | `figma` | `pdf` | `image` | `file` | `link`.
+
+```json
+"archivos": [
+  { "nombre": "Informe final", "tipo": "docs", "url": "https://docs.google.com/document/d/…", "subido": false, "agregado_por": "Ana", "origen": "manual", "fecha": "2026-11-04T15:20:00+00:00" }
+]
+```
+
+### Archivos de la sala
+
+Con `x-room-token` (o la sesión de un miembro en la web):
+
+- `GET /api/rooms/{id}/files` → `{ "archivos": [...] }`.
+- `POST /api/rooms/{id}/files` con `{ "url", "name"? }` guarda un enlace (409 si ya está). Para subir (máx. 10 MB): `{ "name", "size", "mime" }` devuelve `{ "upload": { "path", "signedUrl" } }`; se hace `PUT` del archivo a `signedUrl` y luego `{ "name", "size", "mime", "path" }` lo registra. Cada archivo agregado escribe un evento `type: "archivo"`, `ia: "enlaza"` en el feed. Con token, `?member=Nombre` dice quién lo agregó.
+- `GET /api/rooms/{id}/files/{fileId}` redirige al enlace o a una descarga firmada de 60 s.
+- `DELETE /api/rooms/{id}/files/{fileId}`: solo quien lo agregó o el dueño de la sala, con sesión (403 con token).
+
 Cada aviso tiene:
 
 - `tipo`: `falta`, `contradiccion` o `duplicado`

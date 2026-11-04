@@ -1,4 +1,4 @@
-import { isAiName, isEventType, type AiName, type EventType } from "./room-types";
+import { isCaptureAi, isEventType, type AiName, type EventType } from "./room-types";
 
 export const TEXT_LIMIT = 100_000;
 
@@ -40,7 +40,7 @@ export function parseEvent(body: unknown): { ok: true; event: ParsedEvent } | { 
   const member = requiredName(pick(record, ["miembro", "member"]), "falta miembro", "miembro no válido");
   if (!member.ok) return member;
 
-  const ai = requiredChoice(pick(record, ["ia", "ai"]), "falta ia", "ia no válida", isAiName);
+  const ai = requiredChoice(pick(record, ["ia", "ai"]), "falta ia", "ia no válida", isCaptureAi);
   if (!ai.ok) return ai;
 
   const conversationId = requiredPlain(

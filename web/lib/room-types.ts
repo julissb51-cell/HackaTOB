@@ -1,6 +1,10 @@
+import type { RoomFile } from "./room-files-core";
 import type { RoomProgress } from "./progress";
 
-export const AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot"] as const;
+/** IAs que la extensión captura. */
+export const CAPTURE_AI_NAMES = ["chatgpt", "gemini", "cursor", "claude", "copilot"] as const;
+/** "enlaza" marca las líneas de actividad que escribe la propia app (por ejemplo, un archivo agregado). */
+export const AI_NAMES = [...CAPTURE_AI_NAMES, "enlaza"] as const;
 export const EVENT_TYPES = ["prompt", "respuesta", "archivo"] as const;
 
 export type AiName = (typeof AI_NAMES)[number];
@@ -8,6 +12,10 @@ export type EventType = (typeof EVENT_TYPES)[number];
 
 export function isAiName(value: string): value is AiName {
   return (AI_NAMES as readonly string[]).includes(value);
+}
+
+export function isCaptureAi(value: string): value is (typeof CAPTURE_AI_NAMES)[number] {
+  return (CAPTURE_AI_NAMES as readonly string[]).includes(value);
 }
 
 export function isEventType(value: string): value is EventType {
@@ -110,4 +118,7 @@ export type RoomStore = {
   listMembers(roomId: string): Promise<MemberRecord[]>;
   listEvents(roomId: string): Promise<StoredEvent[]>;
   readAnalysis?(roomId: string): Promise<SavedAnalysis | null>;
+  /** Guarda los enlaces de un prompt como archivos "detectado" (nunca los visita). */
+  saveDetectedLinks?(roomId: string, member: string, eventId: string, text: string): Promise<number>;
+  listFiles?(roomId: string): Promise<RoomFile[]>;
 };

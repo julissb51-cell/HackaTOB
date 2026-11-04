@@ -86,6 +86,7 @@ export function ProgressCard({
   viewerName,
   context,
   onOpen,
+  filesSlot,
 }: {
   avance: RoomProgress | null;
   board: RoomBoard;
@@ -93,6 +94,7 @@ export function ProgressCard({
   viewerName: string;
   context: ContextResponse;
   onOpen: () => void;
+  filesSlot?: ReactNode;
 }) {
   const text = useCopy();
   const priorities = countByPriority(withPriorities(board.alertas, null));
@@ -213,10 +215,11 @@ export function ProgressCard({
             })}
           </ul>
         ) : null}
+        <div className="mt-6 flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onOpen}
-          className={`mt-6 flex w-full cursor-pointer flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors ${priorities.urgente > 0 ? "border-urg-ink/40 bg-urg-bg/60 hover:bg-urg-bg" : "border-line hover:bg-structural/60"}`}
+          className={`flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors ${priorities.urgente > 0 ? "border-urg-ink/40 bg-urg-bg/60 hover:bg-urg-bg" : "border-line hover:bg-structural/60"}`}
         >
           {total === 0 ? (
             <span className="text-[15px] text-muted">{text.noticeNone}</span>
@@ -241,6 +244,8 @@ export function ProgressCard({
             <Symbol name="arrow_forward" className="text-[18px]" />
           </span>
         </button>
+        {filesSlot}
+        </div>
         {stepPrompt ? (
           <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-structural/60 px-4 py-3">
             <Symbol name="flag" className="text-[20px] text-link" />

@@ -23,7 +23,7 @@ type PageProps = { params: Promise<{ id: string }> };
 export default function RoomPage(props: PageProps) {
   return (
     <FusionRoot>
-      <Suspense fallback={<ScreenFallback wide />}>
+      <Suspense fallback={<ScreenFallback wide room />}>
         <RoomContent params={props.params} />
       </Suspense>
     </FusionRoot>
