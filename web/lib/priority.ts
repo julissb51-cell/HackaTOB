@@ -27,11 +27,12 @@ export function daysUntil(dueDate: string | null | undefined, now: Date = new Da
 }
 
 /** Prioridad por defecto cuando el aviso no trae una. */
-export function defaultPriority(warning: Pick<RoomWarning, "tipo" | "mensaje">, dueDate: string | null | undefined, now: Date = new Date()): WarningPriority {
+export function defaultPriority(warning: Pick<RoomWarning, "tipo" | "mensaje">, dueDate: string | null | undefined, now?: Date): WarningPriority {
   if (warning.tipo === "contradiccion") return "urgente";
   if (warning.tipo === "duplicado") return MINOR.test(warning.mensaje) ? "puede_esperar" : "pronto";
   if (MINOR.test(warning.mensaje)) return "puede_esperar";
-  const days = daysUntil(dueDate, now);
+  if (!dueDate) return "pronto";
+  const days = daysUntil(dueDate, now ?? new Date());
   return days !== null && days <= URGENT_DAYS ? "urgente" : "pronto";
 }
 
