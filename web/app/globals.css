@@ -98,3 +98,32 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-pop, .animate-fade { animation: none; }
 }
+
+/* Inicio /rooms con tipografía y geometría estilo Google. Solo dentro de .g-home; la sala no cambia. */
+:root { --logo-bg: #00d68f; --logo-ink: #06281c; }
+@media (prefers-color-scheme: dark) { :root { --logo-bg: #00e0a0; --logo-ink: #002b1e; } }
+.g-home {
+  --font-display: "Google Sans", Roboto, sans-serif;
+  --g-shadow: 0 1px 2px 0 rgb(60 64 67 / 0.3), 0 1px 3px 1px rgb(60 64 67 / 0.15);
+  --g-hover: rgb(0 0 0 / 0.04);
+  font-family: "Google Sans Text", "Google Sans", Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 48rem;
+}
+@media (prefers-color-scheme: dark) {
+  .g-home { --g-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.5), 0 1px 3px 1px rgb(0 0 0 / 0.3); --g-hover: rgb(255 255 255 / 0.06); }
+}
+.g-home .font-display, .g-home h1, .g-home h2, .g-home .g-brand, .g-home button { font-family: "Google Sans", Roboto, sans-serif; }
+.g-home h1 { font-weight: 400; letter-spacing: -0.01em; }
+.g-home .font-semibold { font-weight: 500; }
+.g-home button[type="submit"] { min-height: 40px; padding-inline: 24px; font-weight: 500; transition: box-shadow 0.2s, background-color 0.2s; }
+.g-home button[type="submit"]:hover { box-shadow: var(--g-shadow); }
+.g-home > div { padding-top: 3.5rem; }
+.g-home section > ul { border-color: transparent; border-radius: 24px; box-shadow: var(--g-shadow); padding: 8px; }
+.g-home section > ul > li { border-radius: 16px; border-color: transparent; padding: 14px 16px; transition: background-color 0.2s; }
+.g-home section > ul > li:hover { background: var(--g-hover); }
+.g-home section > p { border-radius: 24px; }
+.g-home button { position: relative; overflow: hidden; }
+.g-ripple { position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: currentColor; opacity: 0.16; pointer-events: none; animation: g-ripple 0.5s ease-out forwards; }
+@keyframes g-ripple { to { transform: scale(48); opacity: 0; } }

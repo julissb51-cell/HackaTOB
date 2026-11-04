@@ -5,18 +5,21 @@ export function Shell({
   signedIn,
   wide = false,
   bare = false,
+  googleHome = false,
   children,
 }: {
   signedIn: boolean;
   wide?: boolean;
   /** Sin encabezado ni márgenes: la pantalla pinta su propia barra superior a todo el ancho. */
   bare?: boolean;
+  /** Estilo Google (tipografía y geometría) solo para el inicio /rooms. */
+  googleHome?: boolean;
   children: ReactNode;
 }) {
   if (bare) return <main className="flex w-full flex-1 flex-col">{children}</main>;
   return (
-    <main className={`mx-auto flex w-full flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 ${wide ? "max-w-6xl" : "max-w-xl"}`}>
-      <AppHeader signedIn={signedIn} />
+    <main className={`${googleHome ? "g-home " : ""}mx-auto flex w-full flex-1 flex-col px-4 py-6 sm:px-6 sm:py-8 ${wide ? "max-w-6xl" : "max-w-xl"}`}>
+      <AppHeader signedIn={signedIn} mark={googleHome} />
       <div className="flex flex-1 flex-col pt-10">{children}</div>
     </main>
   );

@@ -10,10 +10,10 @@ export async function AccountSlot({ signedIn }: { signedIn: boolean }) {
   return <AccountMenu profile={profile} />;
 }
 
-export function AppHeader({ signedIn, children }: { signedIn: boolean; children?: ReactNode }) {
+export function AppHeader({ signedIn, children, mark = false }: { signedIn: boolean; children?: ReactNode; mark?: boolean }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4">
-      <Brand />
+      <Brand mark={mark} />
       <div className="flex items-center gap-3">
         {children}
         <AccountSlot signedIn={signedIn} />
