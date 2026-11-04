@@ -4,6 +4,15 @@ export type FileKind = (typeof FILE_KINDS)[number];
 export type FileSource = "manual" | "detectado";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/** Costa Rica no cambia de horario. El feed muestra estos dígitos tal cual. */
+const COSTA_RICA_OFFSET_MS = -6 * 60 * 60 * 1000;
+
+export function costaRicaIso(date = new Date()): string {
+  const wall = new Date(date.getTime() + COSTA_RICA_OFFSET_MS);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${wall.getUTCFullYear()}-${pad(wall.getUTCMonth() + 1)}-${pad(wall.getUTCDate())}T${pad(wall.getUTCHours())}:${pad(wall.getUTCMinutes())}:${pad(wall.getUTCSeconds())}-06:00`;
+}
 export const FILES_BUCKET = "room-files";
 export const ACTIVITY_AI = "enlaza";
 export const ACTIVITY_CONVERSATION = "enlaza-archivos";

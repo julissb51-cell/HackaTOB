@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from "./supabase/server";
 import {
   ACTIVITY_AI,
   ACTIVITY_CONVERSATION,
+  costaRicaIso,
   FILES_BUCKET,
   activityText,
   detectLinks,
@@ -185,7 +186,7 @@ export async function writeActivity(file: FileRecord, language: "es" | "en"): Pr
     conversation_id: ACTIVITY_CONVERSATION,
     conversation_name: language === "en" ? "Room files" : "Archivos de la sala",
     text: activityText(language, file.addedBy, file),
-    created_at: new Date().toISOString(),
+    created_at: costaRicaIso(),
   });
   if (error && error.code !== "23505") console.error("events.insert archivo", error.code);
 }

@@ -50,6 +50,8 @@ test("el feed ordena lo más nuevo primero y arma el filtro de realtime", () => 
   assert.equal(realtimeFailed("CLOSED"), true);
   assert.equal(realtimeFailed("SUBSCRIBED"), false);
   assert.equal(formatEventTime("2026-11-03T09:15:00-06:00"), "2026-11-03 09:15");
+  assert.equal(formatEventTime("2026-11-04T21:00:00.402Z"), "2026-11-04 15:00");
+  assert.equal(formatEventTime("2026-11-05T02:00:00Z"), "2026-11-04 20:00");
   assert.equal(formatEventTime("sin hora"), "sin hora");
 
   const newest = sortEventsNewestFirst([

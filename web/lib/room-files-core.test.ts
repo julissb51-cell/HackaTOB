@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanUrl, contextFiles, detectLinks, kindFromFile, kindFromUrl, parseFileBody, pathBelongsToRoom, storageFileName, type RoomFile } from "./room-files-core";
+import { cleanUrl, contextFiles, costaRicaIso, detectLinks, kindFromFile, kindFromUrl, parseFileBody, pathBelongsToRoom, storageFileName, type RoomFile } from "./room-files-core";
+
+test("la actividad de un archivo usa la hora de Costa Rica, no UTC", () => {
+  assert.equal(costaRicaIso(new Date("2026-11-04T21:00:00.402Z")), "2026-11-04T15:00:00-06:00");
+});
 
 test("kindFromUrl reconoce Docs, Drive, Figma y PDF", () => {
   assert.equal(kindFromUrl("https://docs.google.com/document/d/abc/edit"), "docs");

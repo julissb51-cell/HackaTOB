@@ -29,7 +29,18 @@ export function realtimeFailed(status: string): boolean {
   return status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED";
 }
 
+const COSTA_RICA_OFFSET_MS = -6 * 60 * 60 * 1000;
+
 export function formatEventTime(iso: string): string {
+  // Un Z es UTC. El resto ya trae la hora local en los dígitos (contrato: offset).
+  if (/Z$/i.test(iso)) {
+    const instant = Date.parse(iso);
+    if (!Number.isNaN(instant)) {
+      const wall = new Date(instant + COSTA_RICA_OFFSET_MS);
+      const pad = (value: number) => String(value).padStart(2, "0");
+      return `${wall.getUTCFullYear()}-${pad(wall.getUTCMonth() + 1)}-${pad(wall.getUTCDate())} ${pad(wall.getUTCHours())}:${pad(wall.getUTCMinutes())}`;
+    }
+  }
   const match = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
   return match ? `${match[1]} ${match[2]}` : iso;
 }
