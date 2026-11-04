@@ -26,7 +26,7 @@ export function LogoMark({ className = "size-8" }: { className?: string }) {
   );
 }
 
-/** Logo "Enlaza" del encabezado. Con `mark` muestra la marca provisional (solo en /rooms). */
+/** Logo "Enlaza" del encabezado. Con `mark` muestra la marca provisional (solo en el inicio /rooms). */
 export function Brand({ mark = false }: { mark?: boolean }) {
   if (!mark)
     return (
@@ -35,7 +35,7 @@ export function Brand({ mark = false }: { mark?: boolean }) {
       </Link>
     );
   return (
-    <Link href="/" className="g-brand flex items-center gap-2.5 text-[22px] font-medium tracking-tight">
+    <Link href="/" className="flex items-center gap-2.5 text-[19px] font-[650] tracking-[-0.3px]">
       <LogoMark />
       Enlaza
     </Link>

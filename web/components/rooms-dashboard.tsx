@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { deleteRoomAction, leaveRoomAction, quickCreateRoomAction } from "@/lib/room-actions";
 import { removalFor } from "@/lib/room-protection";
 import { invitePath } from "@/lib/room-fields";
+import { parseInviteLink } from "@/lib/invite-link";
 import { useCopy, useLanguage } from "./language";
-import { primaryButton, secondaryButton } from "./styles";
+import { secondaryButton } from "./styles";
 
 export type DashboardRoom = {
   id: string;
@@ -33,16 +35,33 @@ function NewRoomSubmit() {
   const text = useCopy();
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className={`${primaryButton} gap-2`} disabled={pending} aria-busy={pending}>
-      <span aria-hidden="true" className="text-lg leading-none">+</span>
+    <button type="submit" className={pillPrimary} disabled={pending} aria-busy={pending}>
+      <Symbol name="add" />
       {pending ? text.creating : text.newRoom}
     </button>
   );
 }
 
+const pillBase =
+  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-full px-[22px] text-[15px] font-semibold tracking-[0.2px] transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link disabled:cursor-wait disabled:opacity-70";
+const pillPrimary = `${pillBase} bg-accent text-accent-ink hover:bg-accent-hover`;
+const pillSecondary = `${pillBase} bg-structural text-foreground hover:bg-line`;
+
+/** Icono de Material Symbols Rounded (la fuente se carga solo en /rooms). */
+function Symbol({ name, className = "text-[22px]" }: { name: string; className?: string }) {
+  return (
+    <span aria-hidden="true" className={`m-symbol ${className}`}>
+      {name}
+    </span>
+  );
+}
+
+type Filter = "all" | "mine" | "shared";
+
 export function RoomsDashboard({ name, rooms: initial, failed }: { name: string; rooms: DashboardRoom[]; failed: boolean }) {
   const text = useCopy();
   const [rooms, setRooms] = useState(initial);
+  const [filter, setFilter] = useState<Filter>("all");
   const [toast, setToast] = useState<{ message: string; tone: "ok" | "error" } | null>(null);
   const [source, setSource] = useState(initial);
   if (source !== initial) {
@@ -68,31 +87,62 @@ export function RoomsDashboard({ name, rooms: initial, failed }: { name: string;
     },
     [rooms, text],
   );
+  const shown = rooms.filter((room) => (filter === "all" ? true : filter === "mine" ? room.owner : !room.owner));
+  const tabs: [Filter, string][] = [
+    ["all", text.tabAll],
+    ["mine", text.tabMine],
+    ["shared", text.tabShared],
+  ];
   return (
-    <section className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted">
-            {text.hello} <span className="text-foreground">{name}</span>
-          </p>
-          <h1 className="mt-1 font-display text-3xl font-medium tracking-tight sm:text-4xl">{text.recentRooms}</h1>
+    <section>
+      <div className="px-2 pb-10 pt-12 text-center sm:pt-16">
+        <h1 className="text-4xl font-[650] leading-[1.05] tracking-[-1.4px] sm:text-[64px]">
+          {text.greeting(name)}
+          <span aria-hidden="true" className="mx-1.5 inline-block size-9 rounded-[12px] bg-accent align-[-4px] sm:size-[52px] sm:rounded-[14px] sm:align-[-6px]" />
+          <br />
+          {text.greetingSub}
+        </h1>
+        <p className="mx-auto mb-8 mt-[18px] max-w-[34rem] text-lg text-muted">{text.homeLead}</p>
+        <div className="flex flex-wrap items-start justify-center gap-3">
+          <NewRoomButton />
+          <JoinWithLink />
         </div>
-        <NewRoomButton />
       </div>
       {failed ? (
-        <p role="alert" className="rounded-xl bg-contra-bg px-3 py-2 text-sm text-contra-ink">
+        <p role="alert" className="mx-auto mb-4 max-w-xl rounded-2xl bg-contra-bg px-4 py-3 text-center text-sm text-contra-ink">
           {text.createFailed}
         </p>
       ) : null}
-      {rooms.length === 0 ? (
-        <p className="rounded-2xl border border-line bg-surface px-4 py-6 text-muted">{text.noRooms}</p>
-      ) : (
-        <ul className="divide-y divide-line overflow-visible rounded-2xl border border-line bg-surface">
-          {rooms.map((room) => (
-            <RoomRow key={room.id} room={room} onRemove={remove} />
-          ))}
-        </ul>
-      )}
+      <div className="rounded-[28px] bg-structural p-3">
+        <div className="rounded-[20px] bg-surface px-4 pb-3 pt-6 sm:px-7 sm:pt-7">
+          <h2 className="mb-3 text-2xl font-[650] tracking-[-0.4px]">{text.recentRooms}</h2>
+          <div role="tablist" aria-label={text.tabsLabel} className="mb-3 flex gap-1.5">
+            {tabs.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={filter === key}
+                onClick={() => setFilter(key)}
+                className={`cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                  filter === key ? "bg-foreground text-background" : "text-muted hover:bg-structural hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {shown.length === 0 ? (
+            <p className="px-3 py-6 text-muted">{rooms.length === 0 ? text.noRooms : text.noRoomsFiltered}</p>
+          ) : (
+            <ul>
+              {shown.map((room, index) => (
+                <RoomRow key={room.id} room={room} first={index === 0} onRemove={remove} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
       {toast ? (
         <div
           role="status"
@@ -107,29 +157,105 @@ export function RoomsDashboard({ name, rooms: initial, failed }: { name: string;
   );
 }
 
+function JoinWithLink() {
+  const text = useCopy();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState(false);
+  const inputId = useId();
+  const errorId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (open) input.current?.focus();
+  }, [open]);
+  if (!open)
+    return (
+      <button type="button" className={pillSecondary} onClick={() => setOpen(true)}>
+        {text.joinLink}
+        <Symbol name="arrow_forward" className="text-[18px]" />
+      </button>
+    );
+  return (
+    <form
+      className="w-full max-w-md text-left"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const path = parseInviteLink(value);
+        if (!path) return setError(true);
+        router.push(path);
+      }}
+    >
+      <label htmlFor={inputId} className="sr-only">
+        {text.joinLinkLabel}
+      </label>
+      <div className="flex items-center gap-2 rounded-full bg-structural p-1 pl-4 focus-within:ring-2 focus-within:ring-link">
+        <Symbol name="link" className="text-[20px] text-muted" />
+        <input
+          ref={input}
+          id={inputId}
+          value={value}
+          onChange={(event) => {
+            setValue(event.target.value);
+            setError(false);
+          }}
+          onKeyDown={(event) => event.key === "Escape" && setOpen(false)}
+          placeholder={text.joinLinkPlaceholder}
+          aria-invalid={error}
+          aria-describedby={error ? errorId : undefined}
+          className="min-w-0 flex-1 bg-transparent py-2 text-[15px] outline-none placeholder:text-muted focus-visible:outline-none"
+        />
+        <button type="submit" className={`${pillPrimary} h-9 px-4`}>
+          {text.joinLinkGo}
+        </button>
+        <button type="button" aria-label={text.joinLinkCancel} onClick={() => setOpen(false)} className="grid size-9 cursor-pointer place-items-center rounded-full text-muted hover:bg-line">
+          <Symbol name="close" className="text-[20px]" />
+        </button>
+      </div>
+      {error ? (
+        <p id={errorId} role="alert" className="mt-2 rounded-2xl bg-contra-bg px-4 py-2 text-sm text-contra-ink">
+          {text.joinLinkInvalid}
+        </p>
+      ) : null}
+    </form>
+  );
+}
+
 type Remove = (room: DashboardRoom, mode: "delete" | "leave") => Promise<void>;
 
-function RoomRow({ room, onRemove }: { room: DashboardRoom; onRemove: Remove }) {
+function relativeTime(iso: string, lang: string): string {
+  const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
+  const format = new Intl.RelativeTimeFormat(lang === "en" ? "en" : "es", { numeric: "auto" });
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
+    ["year", 31536000],
+    ["month", 2592000],
+    ["week", 604800],
+    ["day", 86400],
+    ["hour", 3600],
+    ["minute", 60],
+  ];
+  for (const [unit, size] of steps) if (Math.abs(seconds) >= size) return format.format(Math.round(seconds / size), unit);
+  return format.format(0, "minute");
+}
+
+function RoomRow({ room, first, onRemove }: { room: DashboardRoom; first: boolean; onRemove: Remove }) {
   const text = useCopy();
   const { lang } = useLanguage();
-  const date = new Date(room.createdAt).toLocaleDateString(lang === "en" ? "en-US" : "es-CR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const letter = (room.topic.trim()[0] ?? "#").toLocaleUpperCase();
   return (
-    <li className="relative flex items-center gap-3 px-3 py-3 focus-within:z-20 sm:px-4">
-      <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-structural text-link">
-        <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.6">
-          <path d="M9 7h-2a4 4 0 0 0 0 8h2M15 7h2a4 4 0 0 1 0 8h-2M8 11h8" strokeLinecap="round" />
-        </svg>
+    <li className={`relative flex items-center gap-4 rounded-[14px] px-3 py-3.5 transition-colors focus-within:z-20 hover:bg-foreground/[0.04] ${first ? "" : "border-t border-line"}`}>
+      <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-xl text-lg font-[650] ${first ? "bg-accent text-accent-ink" : "bg-structural"}`}>
+        {letter}
       </span>
       <Link href={`/rooms/${room.id}`} className="min-w-0 flex-1 after:absolute after:inset-0">
-        <span className="block truncate font-semibold">{room.topic}</span>
+        <span className="block truncate font-semibold tracking-[-0.1px]">{room.topic}</span>
         <span className="block truncate text-sm text-muted">
-          {date} · {text.roomMembers(room.members)} · {text.roomEvents(room.events)}
+          {text.roomMembers(room.members)} · {text.roomEvents(room.events)}
         </span>
       </Link>
+      <time dateTime={room.createdAt} className="hidden shrink-0 text-sm text-muted sm:block">
+        {relativeTime(room.createdAt, lang)}
+      </time>
       <RoomMenu room={room} onRemove={onRemove} />
     </li>
   );
@@ -231,11 +357,7 @@ function RoomMenu({ room, onRemove }: { room: DashboardRoom; onRemove: Remove })
           open ? "bg-structural text-foreground" : ""
         }`}
       >
-        <svg viewBox="0 0 24 24" className="size-5" fill="currentColor" aria-hidden="true">
-          <circle cx="12" cy="5" r="1.7" />
-          <circle cx="12" cy="12" r="1.7" />
-          <circle cx="12" cy="19" r="1.7" />
-        </svg>
+        <Symbol name="more_vert" />
       </button>
       {open ? (
         <div
