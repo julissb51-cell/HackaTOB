@@ -17,6 +17,7 @@ import type {
 } from "@/lib/room-types";
 import { CopyButton } from "./invite-link";
 import { useCopy } from "./language";
+import { MobileCollapse } from "./mobile-collapse";
 import { Symbol, iconButton, pillSecondary } from "./symbol";
 
 function priorityTone(prioridad: WarningPriority | undefined): string {
@@ -54,7 +55,7 @@ function Bar({
 }) {
   return (
     <div
-      className={`w-full overflow-hidden rounded-full bg-structural ${big ? "h-4" : "h-2"}`}
+      className={`w-full overflow-hidden rounded-full bg-structural ${big ? "h-4 max-sm:h-2.5" : "h-2"}`}
       role="progressbar"
       aria-label={label}
       aria-valuenow={value}
@@ -108,8 +109,8 @@ export function ProgressCard({
   const stepPrompt = own?.prompt_sugerido || context.prompt_sugerido;
 
   return (
-    <section className="rounded-[28px] bg-structural p-3">
-      <div className="rounded-[20px] bg-surface px-4 pb-5 pt-6 sm:px-7 sm:pt-7">
+    <section className="rounded-[28px] bg-structural p-3 max-sm:rounded-none max-sm:bg-transparent max-sm:p-0">
+      <div className="rounded-[20px] bg-surface px-4 pb-5 pt-6 max-sm:bg-transparent max-sm:p-0 sm:px-7 sm:pt-7">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h2 className="inline-flex items-center gap-2 text-2xl font-[650] tracking-[-0.4px]">
@@ -164,6 +165,7 @@ export function ProgressCard({
           <Bar value={value} big label={text.progressTitle} />
         </div>
         {parts.length > 0 ? (
+          <MobileCollapse label={text.mobilePartsToggle} className="mt-4">
           <ul
             className={`mt-6 grid gap-4 ${parts.length >= 3 ? "sm:grid-cols-3" : parts.length === 2 ? "sm:grid-cols-2" : ""}`}
           >
@@ -214,12 +216,13 @@ export function ProgressCard({
               );
             })}
           </ul>
+          </MobileCollapse>
         ) : null}
         <div className="mt-6 flex flex-wrap gap-3">
         <button
           type="button"
           onClick={onOpen}
-          className={`flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left transition-colors ${priorities.urgente > 0 ? "border-urg-ink/40 bg-urg-bg/60 hover:bg-urg-bg" : "border-line hover:bg-structural/60"}`}
+          className={`flex min-w-0 flex-1 cursor-pointer flex-wrap items-center gap-2 rounded-2xl border px-4 py-3 text-left max-sm:min-h-14 max-sm:border-transparent transition-colors ${priorities.urgente > 0 ? "border-urg-ink/40 bg-urg-bg/60 hover:bg-urg-bg" : "border-line hover:bg-structural/60"}`}
         >
           {total === 0 ? (
             <span className="text-[15px] text-muted">{text.noticeNone}</span>
@@ -247,7 +250,7 @@ export function ProgressCard({
         {filesSlot}
         </div>
         {stepPrompt ? (
-          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-structural/60 px-4 py-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl bg-structural/60 px-4 py-3 max-sm:mt-4 max-sm:py-4">
             <Symbol name="flag" className="text-[20px] text-link" />
             <p className="min-w-0 flex-1 text-[15px] leading-[1.5]">
               <strong>{text.nextStep(viewerName)}</strong> {stepText}

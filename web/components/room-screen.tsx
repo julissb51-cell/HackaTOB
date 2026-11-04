@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
+import { MobileCollapse } from "./mobile-collapse";
 import {
   analyzeNowAction,
   readRoomBoardAction,
@@ -149,8 +150,8 @@ export function RoomScreen({
         account={account}
       />
       <RememberToken roomId={room.id} token={room.token} />
-      <div className="w-full px-4 pb-16 sm:px-8">
-        <section className="flex flex-col gap-6 pt-8 pb-10 sm:pt-12 lg:flex-row lg:items-end lg:justify-between">
+      <div className="w-full px-4 pb-16 max-sm:px-5 sm:px-8">
+        <section className="flex flex-col gap-6 pt-8 pb-10 max-sm:gap-5 max-sm:py-7 sm:pt-12 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 flex-1">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-muted">
               <span
@@ -160,6 +161,7 @@ export function RoomScreen({
               {text.roomKicker}
             </p>
             <EditableTitle roomId={room.id} topic={room.topic} />
+            <MobileCollapse label={text.mobileRoomDetails} className="mt-3">
             <p className="mt-2 max-w-[65ch] text-base leading-[1.5] text-muted">
               {text.roomPurpose}
             </p>
@@ -192,14 +194,15 @@ export function RoomScreen({
                 ))}
               </ul>
             )}
+            </MobileCollapse>
           </div>
           <div className="shrink-0">
             <AnalyzeButton roomId={room.id} onDone={analysis.refresh} />
           </div>
         </section>
 
-        <div className="grid gap-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="order-2 min-w-0 space-y-6 lg:order-none">
+        <div className="grid gap-6 gap-y-6 max-sm:gap-y-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="order-2 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none">
             <ProgressCard
               avance={analysis.board.avance}
               board={analysis.board}
@@ -284,7 +287,7 @@ export function RoomScreen({
               <div
                 role="group"
                 aria-label={text.filterLabel}
-                className="mt-4 flex flex-wrap gap-2"
+                className="mt-4 flex flex-wrap gap-2 max-sm:-mx-5 max-sm:flex-nowrap max-sm:gap-2.5 max-sm:overflow-x-auto max-sm:px-5 max-sm:pb-1"
               >
                 <FilterChip
                   selected={activeFilter === null}
@@ -311,7 +314,7 @@ export function RoomScreen({
                       : text.feedEmpty}
                 </p>
               ) : (
-                <ol className="mt-2 divide-y divide-line">
+                <ol className="mt-2 divide-y divide-line max-sm:divide-y-0">
                   {visible.map((event) => (
                     <li key={event.eventId}>
                       <EventCard
@@ -329,7 +332,7 @@ export function RoomScreen({
             </Panel>
           </div>
 
-          <div className="order-1 min-w-0 space-y-6 lg:order-none lg:sticky lg:top-6 lg:self-start">
+          <div className="order-1 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none lg:sticky lg:top-6 lg:self-start">
             <Panel>
               <h2 className="inline-flex items-center gap-2 text-2xl font-[650] tracking-[-0.4px]">
                 <Symbol name="group" className="text-[20px] text-muted" />
@@ -343,7 +346,7 @@ export function RoomScreen({
                       ? null
                       : promptByMember.get(member.name);
                   return (
-                    <li key={member.name} className="flex gap-3 py-2">
+                    <li key={member.name} className="flex gap-3 py-2 max-sm:py-3">
                       <Letter
                         name={member.name}
                         strong={member.name === room.viewerName}
@@ -366,12 +369,14 @@ export function RoomScreen({
                           {member.part ?? text.memberPart}
                         </p>
                         {prompt ? (
+                          <MobileCollapse label={text.mobilePromptToggle}>
                           <p className="mt-2 rounded-xl bg-structural px-3 py-2 text-sm leading-6">
                             <span className="block text-xs font-semibold text-muted">
                               {text.prompts}
                             </span>
                             {prompt}
                           </p>
+                          </MobileCollapse>
                         ) : null}
                       </div>
                     </li>
@@ -462,10 +467,10 @@ function Panel({
 }) {
   return (
     <section
-      className="rounded-[28px] bg-structural p-3"
+      className="rounded-[28px] bg-structural p-3 max-sm:rounded-none max-sm:bg-transparent max-sm:p-0"
       aria-live={live ? "polite" : undefined}
     >
-      <div className="rounded-[20px] bg-surface px-4 pb-5 pt-6 sm:px-7 sm:pt-7">
+      <div className="rounded-[20px] bg-surface px-4 pb-5 pt-6 max-sm:bg-transparent max-sm:p-0 sm:px-7 sm:pt-7">
         {children}
       </div>
     </section>
@@ -809,7 +814,7 @@ function EventCard({
         : "text-warm";
 
   return (
-    <article className="flex gap-3 py-4">
+    <article className="flex gap-3 py-4 max-sm:gap-3.5 max-sm:py-5">
       <Letter name={event.member} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
