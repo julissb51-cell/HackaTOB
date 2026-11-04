@@ -9,10 +9,7 @@
     ia: "copilot",
     placeholders: ["enviar un mensaje a copilot"],
     userSelectors: ['[data-testid="chatQuestion"]'],
-    assistantSelectors: [
-      '[data-testid="chatOutput"]',
-      '[data-testid="copilot-message-reply-div"]',
-    ],
+    assistantSelectors: ['[data-testid="chatOutput"]'],
     userTextSelectors: ['[data-testid="chatQuestion"]'],
     assistantTextSelectors: ['[data-testid="markdown-reply"]'],
     streamingSelectors: ['[data-testid="loading-message"]'],

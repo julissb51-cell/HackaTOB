@@ -32,11 +32,32 @@
     return queryAll(root, selector)[0] || null;
   }
 
-  function deepest(nodes) {
-    return nodes.filter((node) => !nodes.some((other) => other !== node && node.contains(other)));
+  function inside(node, ancestor) {
+    if (!node || !ancestor || node === ancestor) return false;
+    let current = node;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      if (current === ancestor) return true;
+      if (current.parentNode) {
+        current = current.parentNode;
+        continue;
+      }
+      const root = typeof current.getRootNode === "function" ? current.getRootNode() : null;
+      if (root && root.host) {
+        current = root.host;
+        continue;
+      }
+      break;
+    }
+    return false;
   }
 
-  function collect(root, selectors) {
+  function keep(nodes, outer) {
+    return nodes.filter((node) => !nodes.some((other) => other !== node && (outer ? inside(node, other) : inside(other, node))));
+  }
+
+  function collect(root, selectors, outer) {
     const found = [];
     const seen = new Set();
     for (const selector of selectors || []) {
@@ -46,7 +67,43 @@
         found.push(node);
       }
     }
-    return deepest(found);
+    return keep(found, outer);
+  }
+
+  function dedupeMessages(messages) {
+    const kept = [];
+    for (const message of messages || []) {
+      if (!message?.node) continue;
+      let nested = false;
+      for (let index = 0; index < kept.length; index += 1) {
+        const other = kept[index];
+        if (inside(message.node, other.node)) {
+          nested = true;
+          break;
+        }
+        if (inside(other.node, message.node)) {
+          kept[index] = message;
+          nested = true;
+          break;
+        }
+      }
+      if (nested) continue;
+      kept.push(message);
+    }
+    kept.sort((a, b) => {
+      const pos = a.node.compareDocumentPosition?.(b.node) || 0;
+      if (pos & 4) return -1;
+      if (pos & 2) return 1;
+      return 0;
+    });
+    const unique = [];
+    for (const message of kept) {
+      const prev = unique[unique.length - 1];
+      const sameText = prev && prev.role === message.role && prev.role === "assistant" && normalizeMessageText(prev.text) === normalizeMessageText(message.text);
+      if (sameText) continue;
+      unique.push(message);
+    }
+    return unique;
   }
 
   function normalizeMessageText(text) {
@@ -74,7 +131,7 @@
 
   function listChatMessages(root, site) {
     const messages = [];
-    const turns = collect(root, site.turnSelectors);
+    const turns = collect(root, site.turnSelectors, false);
     const userSelector = group(site.userSelectors);
     const assistantSelector = group(site.assistantSelectors);
     if (turns.length) {
@@ -92,19 +149,19 @@
           if (text) messages.push({ node: assistantNode || turn, role: "assistant", text });
         }
       }
-      if (messages.length) return messages;
+      if (messages.length) return dedupeMessages(messages);
     }
 
-    for (const node of collect(root, site.userSelectors)) {
+    for (const node of collect(root, site.userSelectors, true)) {
       const text = textFrom(node, site.userTextSelectors);
       if (text) messages.push({ node, role: "user", text });
     }
-    for (const node of collect(root, site.assistantSelectors)) {
+    for (const node of collect(root, site.assistantSelectors, true)) {
       const text = textFrom(node, site.assistantTextSelectors);
       if (text) messages.push({ node, role: "assistant", text });
     }
-    return messages;
+    return dedupeMessages(messages);
   }
 
-  return { listChatMessages, textFrom, collect, queryAll, queryOne, normalizeMessageText };
+  return { listChatMessages, dedupeMessages, inside, textFrom, collect, queryAll, queryOne, normalizeMessageText };
 });

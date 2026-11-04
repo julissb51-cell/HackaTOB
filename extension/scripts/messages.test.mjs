@@ -63,6 +63,9 @@ if (copilotSite.conversationId("https://copilot.microsoft.com/") !== "") throw n
 if (copilotSite.composerSelectors[0] !== "#m365-chat-editor-target-element") throw new Error("composer copilot");
 if (copilotSite.fileAnchorSelectors[0] !== '[data-testid="PlusMenuButton"]') throw new Error("ancla copilot");
 if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
+if (copilotSite.assistantSelectors.length !== 1 || copilotSite.assistantSelectors[0] !== '[data-testid="chatOutput"]') {
+  throw new Error("respuesta copilot");
+}
 console.log("avisos ok");
 
 let parseHTML;
@@ -164,6 +167,65 @@ const copilotDom = parseHTML(`<!doctype html><body>
 </body>`);
 const copilotMessages = messages.listChatMessages(copilotDom.document, copilotSite).map((item) => `${item.role}:${item.text}`);
 if (copilotMessages.join("|") !== "user:que hora es|assistant:Son las tres.") throw new Error(copilotMessages.join("|"));
+
+const nestedCopilot = {
+  userSelectors: ['[data-testid="chatQuestion"]'],
+  assistantSelectors: ['[data-testid="chatOutput"]', '[data-testid="copilot-message-reply-div"]'],
+  userTextSelectors: ['[data-testid="chatQuestion"]'],
+  assistantTextSelectors: ['[data-testid="markdown-reply"]'],
+};
+const nestedDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion">uno</div>
+  <div data-testid="chatOutput">
+    <div data-testid="copilot-message-div">
+      <div data-testid="copilot-message-reply-div">
+        <div data-testid="chat-response-message">
+          <div data-testid="markdown-reply">respuesta uno</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-testid="copilot-message-reply-div">
+    <div data-testid="markdown-reply">respuesta uno</div>
+  </div>
+  <div data-testid="chatQuestion">dos</div>
+  <div data-testid="chatOutput">
+    <div data-testid="copilot-message-reply-div">
+      <div data-testid="markdown-reply">respuesta dos</div>
+    </div>
+  </div>
+</body>`);
+const nestedMessages = messages.listChatMessages(nestedDom.document, nestedCopilot).map((item) => `${item.role}:${item.text}`);
+if (nestedMessages.join("|") !== "user:uno|assistant:respuesta uno|user:dos|assistant:respuesta dos") {
+  throw new Error(nestedMessages.join("|"));
+}
+const repeated = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion">uno</div>
+  <div data-testid="chatOutput"><div data-testid="markdown-reply">Sí.</div></div>
+  <div data-testid="chatQuestion">dos</div>
+  <div data-testid="chatOutput"><div data-testid="markdown-reply">Sí.</div></div>
+</body>`);
+const repeatedMessages = messages.listChatMessages(repeated.document, nestedCopilot).map((item) => `${item.role}:${item.text}`);
+if (repeatedMessages.join("|") !== "user:uno|assistant:Sí.|user:dos|assistant:Sí.") {
+  throw new Error(repeatedMessages.join("|"));
+}
+const shadowDoc = parseHTML(`<!doctype html><body><div data-testid="chatQuestion">uno</div></body>`).document;
+const output = shadowDoc.createElement("div");
+output.setAttribute("data-testid", "chatOutput");
+const host = shadowDoc.createElement("div");
+output.append(host);
+shadowDoc.body.append(output);
+const shadow = host.attachShadow({ mode: "open" });
+const reply = shadowDoc.createElement("div");
+reply.setAttribute("data-testid", "copilot-message-reply-div");
+const markdown = shadowDoc.createElement("div");
+markdown.setAttribute("data-testid", "markdown-reply");
+markdown.textContent = "desde shadow";
+reply.append(markdown);
+shadow.append(reply);
+if (!messages.inside(reply, output)) throw new Error("inside no cruza shadow");
+const shadowMessages = messages.listChatMessages(shadowDoc, nestedCopilot).map((item) => `${item.role}:${item.text}`);
+if (shadowMessages.join("|") !== "user:uno|assistant:desde shadow") throw new Error(shadowMessages.join("|"));
 
 const attached = parseHTML(`<!doctype html><body>
   <div class="ComposerLayoutAttachments-abc">

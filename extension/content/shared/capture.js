@@ -291,6 +291,11 @@
       const next = normalize(message.text);
       if (previous && normalize(previous) === next) return false;
       if (previous && next.length <= normalize(previous).length) return false;
+      const nested = messages.some((other) => other !== message && other.role === message.role && globalThis.EnlazaMessages.inside(message.node, other.node));
+      if (nested) {
+        nodeSent.set(message.node, next);
+        return false;
+      }
       const keyName = countKey(message.role, message.text);
       const inDom = countInDom(messages, message.role, message.text);
       const already = sentCounts.get(keyName) || 0;
