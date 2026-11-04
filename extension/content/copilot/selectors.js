@@ -6,6 +6,8 @@
 
   globalThis.EnlazaCopilotSite = {
     ia: "copilot",
+    pairTurns: true,
+    stableMs: 1500,
     placeholders: ["enviar un mensaje a copilot"],
     userSelectors: ['[data-testid="chatQuestion"]', "[data-content='user-message']", "[data-message-author-role='user']"],
     assistantSelectors: [

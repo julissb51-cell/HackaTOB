@@ -84,12 +84,12 @@
         await arm(site.conversationId(location.href) || "");
         settling = false;
       }
-      const keyName = countKey("user", text);
-      const inDom = countInDom(listMessages(), "user", text);
-      const already = sentCounts.get(keyName) || 0;
-      if (already > inDom) return;
-      sentCounts.set(keyName, Math.max(already, inDom) + 1);
-      await saveSeen(site.conversationId(location.href) || "", [...sentCounts.keys()]);
+      const conversationId = site.conversationId(location.href) || "";
+      const messages = listMessages();
+      const wanted = normalize(text);
+      let index = messages.findIndex((message) => message.role === "user" && normalize(message.text) === wanted);
+      if (index < 0) index = messages.length;
+      if (!reserve(conversationId, "user", index, text)) return;
       lastComposer = "";
       enqueue({ tipo: "prompt", texto: core.truncateText(text) });
     }
@@ -155,8 +155,18 @@
       return globalThis.EnlazaMessages.normalizeMessageText(text);
     }
 
-    function countKey(role, text) {
-      return globalThis.EnlazaMessages.seenKey(role, text);
+    const reserved = new Set();
+
+    function turnStorageKey(conversationId, role, index, text) {
+      return globalThis.EnlazaMessages.turnKey(conversationId, role, index, text);
+    }
+
+    function reserve(conversationId, role, index, text) {
+      const keyName = turnStorageKey(conversationId, role, index, text);
+      if (reserved.has(keyName)) return false;
+      reserved.add(keyName);
+      saveSeen(conversationId, [...reserved].filter((item) => item.startsWith(`${conversationId}|`)));
+      return true;
     }
 
     function countInDom(messages, role, text) {
@@ -208,23 +218,16 @@
     async function arm(key) {
       const persisted = await loadSeen(key);
       if ((site.conversationId(location.href) || "") !== key) return;
-      const live = sentCounts;
       const messages = listMessages();
       nodeSent = new WeakMap();
-      const counts = new Map();
-      for (const keyName of persisted) counts.set(keyName, 1);
-      const domCounts = new Map();
-      for (const message of messages) {
-        if (!message.text) continue;
-        const keyName = countKey(message.role, message.text);
-        domCounts.set(keyName, (domCounts.get(keyName) || 0) + 1);
+      for (const keyName of persisted) reserved.add(keyName);
+      messages.forEach((message, index) => {
+        if (!message.text) return;
+        reserved.add(turnStorageKey(key, message.role, index, message.text));
         nodeSent.set(message.node, normalize(message.text));
-      }
-      for (const [keyName, count] of domCounts) counts.set(keyName, Math.max(counts.get(keyName) || 0, count));
-      for (const [keyName, count] of live) counts.set(keyName, Math.max(counts.get(keyName) || 0, count));
-      sentCounts = counts;
+      });
       armedKey = key;
-      await saveSeen(key, [...counts.keys()]);
+      await saveSeen(key, [...reserved].filter((item) => item.startsWith(`${key}|`)));
     }
 
     function fallbackConversationId() {
@@ -346,7 +349,8 @@
         state.sawStream = true;
         return FAST_MS;
       }
-      const need = message.role === "user" ? USER_MS : state.sawStream ? FAST_MS : SLOW_MS;
+      const assistantWait = site.stableMs || (state.sawStream ? FAST_MS : SLOW_MS);
+      const need = message.role === "user" ? USER_MS : assistantWait;
       const age = Date.now() - state.lastChange;
       if (age < need) return need - age;
       return 0;
@@ -362,16 +366,13 @@
         nodeSent.set(message.node, next);
         return false;
       }
-      const keyName = countKey(message.role, message.text);
-      const inDom = countInDom(messages, message.role, message.text);
-      const already = sentCounts.get(keyName) || 0;
-      if (inDom <= already) {
+      const conversationId = site.conversationId(location.href) || armedKey || "";
+      const index = messages.indexOf(message);
+      if (!reserve(conversationId, message.role, index, message.text)) {
         nodeSent.set(message.node, next);
         return false;
       }
-      sentCounts.set(keyName, already + 1);
       nodeSent.set(message.node, next);
-      saveSeen(site.conversationId(location.href) || armedKey || "", [...sentCounts.keys()]);
       return true;
     }
 
@@ -555,10 +556,47 @@
       document.addEventListener("click", onComposerClick, true);
       document.addEventListener("input", onComposerInput, true);
       document.addEventListener("submit", onComposerSubmit, true);
+      installPageDebug();
       refreshActive();
       reportWatch();
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area === "local" && changes.session) refreshActive();
+      });
+    }
+
+    function debugReport() {
+      let messages = [];
+      let error = "";
+      try {
+        messages = listMessages();
+      } catch (err) {
+        error = err instanceof Error ? err.message : String(err);
+      }
+      return {
+        ia: site.ia,
+        href: location.href,
+        conversationId: site.conversationId(location.href) || "",
+        streaming: isStreaming(),
+        error,
+        messages: messages.map((message) => ({
+          role: message.role,
+          selector: message.selector || "",
+          testid: message.node?.getAttribute?.("data-testid") || "",
+          text: String(message.text || "").slice(0, 240),
+        })),
+      };
+    }
+
+    globalThis.__enlazaDebug = () => JSON.stringify(debugReport(), null, 2);
+
+    function installPageDebug() {
+      const node = document.createElement("script");
+      node.textContent = `window.__enlazaDebug=function(){return new Promise(function(resolve){var id=Math.random().toString(16).slice(2);function onMessage(event){if(event.source!==window||!event.data||event.data.type!=="enlaza-debug-result"||event.data.id!==id)return;window.removeEventListener("message",onMessage);resolve(event.data.json);}window.addEventListener("message",onMessage);window.postMessage({type:"enlaza-debug",id:id},"*");});}`;
+      (document.documentElement || document.head || document.body).appendChild(node);
+      node.remove();
+      window.addEventListener("message", (event) => {
+        if (event.source !== window || event.data?.type !== "enlaza-debug") return;
+        window.postMessage({ type: "enlaza-debug-result", id: event.data.id, json: globalThis.__enlazaDebug() }, "*");
       });
     }
 

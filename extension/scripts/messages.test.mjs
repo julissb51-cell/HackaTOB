@@ -82,6 +82,12 @@ if (geminiSite.composerSelectors[0] !== "rich-textarea .ql-editor") throw new Er
 if (geminiSite.userSelectors[0] !== "user-query") throw new Error("prompt gemini");
 if (geminiSite.assistantSelectors[0] !== "model-response") throw new Error("respuesta gemini");
 if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
+if (copilotSite.pairTurns !== true) throw new Error("pareo copilot");
+if (copilotSite.stableMs !== 1500) throw new Error("espera copilot");
+const sameTurn = messages.turnKey("conv-1", "user", 0, "hola de nuevo");
+if (sameTurn !== messages.turnKey("conv-1", "user", 0, "  hola   de nuevo ")) throw new Error("clave inestable");
+if (sameTurn === messages.turnKey("conv-1", "user", 1, "hola de nuevo")) throw new Error("indice igual");
+if (sameTurn === messages.turnKey("conv-1", "assistant", 0, "hola de nuevo")) throw new Error("rol igual");
 for (const selector of ['[data-testid="chatOutput"]', '[data-testid="copilot-message-reply-div"]', '[data-testid="markdown-reply"]']) {
   if (!copilotSite.assistantSelectors.includes(selector)) throw new Error("respuesta copilot");
 }
@@ -195,6 +201,13 @@ const echoDom = parseHTML(`<!doctype html><body>
 </body>`);
 const echoLine = messages.listChatMessages(echoDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
 if (echoLine !== "user:hoola|assistant:¡De nada!") throw new Error(echoLine);
+const againDom = parseHTML(`<!doctype html><body>
+  <div data-testid="chatQuestion">hola de nuevo</div>
+  <div data-testid="chatQuestion">hola de nuevo</div>
+  <div data-testid="chatOutput"><div data-testid="markdown-reply">Claro.</div></div>
+</body>`);
+const againLine = messages.listChatMessages(againDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (againLine !== "user:hola de nuevo|assistant:Claro.") throw new Error(againLine);
 
 const history = [
   { role: "user", text: "hoola" },

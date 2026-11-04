@@ -269,7 +269,105 @@
     return list.length ? list.join(", ") : "";
   }
 
+  function turnKey(conversationId, role, index, text) {
+    return `${conversationId || ""}|${role}|${index}|${hashText(normalizeMessageText(text))}`;
+  }
+
+  function uniqueTop(nodes) {
+    return (nodes || []).filter((node) => !nodes.some((other) => other !== node && inside(node, other)));
+  }
+
+  function sortByDocument(nodes) {
+    const order = documentOrder(nodes);
+    return nodes.slice().sort((a, b) => (order.get(a) || 0) - (order.get(b) || 0));
+  }
+
+  function nextElementDeep(node) {
+    if (!node) return null;
+    const inner = node.shadowRoot?.firstElementChild || node.firstElementChild;
+    if (inner) return inner;
+    let current = node;
+    const seen = new Set();
+    while (current && !seen.has(current)) {
+      seen.add(current);
+      if (current.nextElementSibling) return current.nextElementSibling;
+      const root = typeof current.getRootNode === "function" ? current.getRootNode() : null;
+      if (root && root.host) {
+        current = root.host;
+        continue;
+      }
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  function isComposerNode(node) {
+    if (!node || node.nodeType !== 1) return false;
+    if (node.id === "m365-chat-editor-target-element") return true;
+    return node.getAttribute?.("contenteditable") === "true";
+  }
+
+  function isReplyNode(node) {
+    if (!node || node.nodeType !== 1 || insideUserTurn(node)) return false;
+    const testid = node.getAttribute?.("data-testid") || "";
+    const content = node.getAttribute?.("data-content") || "";
+    return testid === "markdown-reply" || testid === "chatOutput" || testid === "copilot-message-reply-div" || testid === "chat-response-message" || content === "ai-message";
+  }
+
+  function followingAssistant(userNode, userText) {
+    const wanted = normalizeMessageText(userText);
+    let current = nextElementDeep(userNode);
+    const seen = new Set();
+    while (current && !seen.has(current) && seen.size < 500) {
+      seen.add(current);
+      if (isComposerNode(current)) return null;
+      const testid = current.getAttribute?.("data-testid") || "";
+      if (testid === "chatQuestion" || isUserTurn(current)) {
+        const text = normalizeMessageText(plain(current));
+        if (text && text !== wanted) return null;
+      } else if (isReplyNode(current)) {
+        const replyId = current.getAttribute?.("data-testid") || "";
+        const hasMarkdown = replyId !== "markdown-reply" && queryOne(current, "[data-testid='markdown-reply']");
+        if (!hasMarkdown) {
+          const text = normalizeMessageText(plain(current));
+          if (text && text !== wanted) return current;
+        }
+      }
+      current = nextElementDeep(current);
+    }
+    return null;
+  }
+
+  function listPairedMessages(root, site) {
+    const users = sortByDocument(uniqueTop(queryAll(root, group(site.userSelectors))));
+    const collapsed = [];
+    for (const node of users) {
+      const read = readText(node, site.userTextSelectors);
+      const prev = collapsed[collapsed.length - 1];
+      if (prev && normalizeMessageText(prev.text) === normalizeMessageText(read.text)) continue;
+      if (!read.text) continue;
+      collapsed.push({ node, text: read.text, selector: read.selector || (site.userSelectors || [])[0] || "" });
+    }
+    const messages = [];
+    for (const user of collapsed) {
+      messages.push({ node: user.node, role: "user", text: user.text, selector: user.selector });
+      const reply = followingAssistant(user.node, user.text);
+      if (!reply) continue;
+      const answer = readText(reply, site.assistantTextSelectors);
+      const text = answer.text || plain(reply);
+      if (!text || normalizeMessageText(text) === normalizeMessageText(user.text)) continue;
+      messages.push({
+        node: reply,
+        role: "assistant",
+        text,
+        selector: answer.selector || reply.getAttribute?.("data-testid") || "",
+      });
+    }
+    return messages;
+  }
+
   function listChatMessages(root, site) {
+    if (site?.pairTurns) return listPairedMessages(root, site);
     const messages = [];
     const turns = collect(root, site.turnSelectors, false);
     const userSelector = group(site.userSelectors);
@@ -315,6 +413,7 @@
     dedupeMessages,
     filterAssistantEchoes,
     seenKey,
+    turnKey,
     mergeSeen,
     freshMessages,
     inside,
