@@ -3,22 +3,24 @@
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Brand } from "./brand";
-import { Symbol, iconButton, pillSecondary } from "./symbol";
+import { Symbol, iconButton, pillPrimary } from "./symbol";
 import { useCopy } from "./language";
 
 /** Barra superior fina de la sala (estilo Mobbin x Google): logo, volver, nombre, Invitar, Ajustes y cuenta. */
 export function RoomTopBar({
   topic,
   onSettings,
+  onShare,
   account,
 }: {
   topic: string;
   onSettings: () => void;
+  onShare: () => void;
   account?: ReactNode;
 }) {
   const text = useCopy();
   return (
-    <header className="relative z-30 mx-auto flex h-[72px] w-full max-w-[1120px] items-center gap-2 px-4 sm:gap-3 sm:px-8">
+    <header className="relative z-30 flex h-[72px] w-full items-center gap-2 px-4 sm:gap-3 sm:px-8">
       <div className="hidden shrink-0 sm:block">
         <Brand mark />
       </div>
@@ -29,10 +31,10 @@ export function RoomTopBar({
         {topic}
       </p>
       <div className="flex-1" />
-      <a href="#invitar" className={`${pillSecondary} h-10 px-4 text-sm`}>
+      <button type="button" onClick={onShare} aria-haspopup="dialog" className={`${pillPrimary} h-10 px-4 text-sm sm:px-5`}>
         <Symbol name="person_add" className="text-[20px]" />
-        <span className="hidden sm:inline">{text.inviteShort}</span>
-      </a>
+        {text.share}
+      </button>
       <button type="button" onClick={onSettings} aria-label={text.settingsOpen} title={text.settingsOpen} className={iconButton}>
         <Symbol name="tune" />
       </button>

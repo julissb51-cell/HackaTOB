@@ -19,13 +19,13 @@ import {
 } from "@/lib/room-feed";
 import type { ContextResponse, StoredEvent, WarningType } from "@/lib/room-types";
 import { browserSupabase } from "@/lib/supabase/browser";
-import { CopyButton, CopyValue, InviteLink, RememberToken } from "./invite-link";
+import { CopyButton, CopyValue, RememberToken } from "./invite-link";
 import { EditableTitle } from "./editable-title";
 import { useCopy } from "./language";
 import { Symbol, pillPrimary } from "./symbol";
 import { RoomSettings } from "./room-settings";
 import { RoomTopBar, SettingsDrawer } from "./room-top-bar";
-import { InviteByEmail } from "./invite-email";
+import { ShareDialog } from "./share-dialog";
 import { fieldClass, secondaryButton } from "./styles";
 import { useRoomFeed } from "./use-room-feed";
 
@@ -58,6 +58,7 @@ export function RoomScreen({
   const analysis = useRoomAnalysis(room.id, initialBoard, feed.status === "polling" || feed.status === "offline");
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const due = !room.dueDate ? text.dueUnset : room.dueDate === NO_DATE ? text.noDate : room.dueDate;
   const names = feedMembers(feed.members, feed.events);
   const activeFilter = memberFilter && names.includes(memberFilter) ? memberFilter : null;
@@ -87,20 +88,26 @@ export function RoomScreen({
 
   return (
     <div className="m-home flex w-full flex-1 flex-col">
-      <RoomTopBar topic={room.topic} onSettings={() => setSettingsOpen(true)} account={account} />
+      <RoomTopBar topic={room.topic} onSettings={() => setSettingsOpen(true)} onShare={() => setShareOpen(true)} account={account} />
       <RememberToken roomId={room.id} token={room.token} />
-      <div className="mx-auto w-full max-w-[1120px] px-4 pb-20 sm:px-8">
-        <section className="flex flex-col gap-6 pt-6 pb-8 sm:pt-10 lg:flex-row lg:items-end lg:justify-between">
+      <div className="w-full px-4 pb-16 sm:px-8">
+        <section className="flex flex-col gap-6 pt-8 pb-10 sm:pt-12 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 flex-1">
             <p className="inline-flex items-center gap-2 text-sm font-medium text-muted">
               <span className="inline-block size-2 rounded-full bg-accent" aria-hidden="true" />
-              {text.roomKicker} · {due}
+              {text.roomKicker}
             </p>
             <EditableTitle roomId={room.id} topic={room.topic} />
+            <p className="mt-2 max-w-[65ch] text-base leading-[1.5] text-muted">{text.roomPurpose}</p>
+            <p className="mt-4 inline-flex items-center gap-2 text-sm">
+              <Symbol name="event" className="text-[18px] text-muted" />
+              <span className="font-semibold">{text.dueLabel}:</span>
+              <span className="text-muted">{due}</span>
+            </p>
             {parts.length === 0 ? (
               <p className="mt-4 text-sm text-muted">{text.partsEmpty}</p>
             ) : (
-              <ul aria-label={text.parts} className="mt-5 flex flex-wrap gap-2">
+              <ul aria-label={text.parts} className="mt-3 flex flex-wrap gap-2">
                 {parts.map((part) => (
                   <li
                     key={part.name}
@@ -122,14 +129,14 @@ export function RoomScreen({
           </div>
         </section>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 space-y-6">
+        <div className="grid gap-6 gap-y-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="order-2 min-w-0 space-y-6 lg:order-none">
             <Panel>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
                     <Symbol name="auto_awesome" className="text-[20px] text-link" />
-                    {text.contextTitle}
+                    {text.overviewTitle}
                   </h2>
                   <p className="mt-1 text-sm text-muted">
                     {text.forMember} <span className="text-foreground">{room.viewerName}</span>
@@ -154,18 +161,14 @@ export function RoomScreen({
               <div className="mt-5 space-y-5">
                 <div className="space-y-1">
                   <h3 className="text-sm font-semibold text-muted">{text.summary}</h3>
-                  <p className="text-[15px] leading-7">{context.resumen}</p>
+                  <p className="max-w-[75ch] text-[15px] leading-[1.5]">{context.resumen}</p>
                 </div>
                 {analysis.board.consejo ? (
                   <div className="space-y-1">
                     <h3 className="text-sm font-semibold text-muted">{text.teamAdvice}</h3>
-                    <p className="text-[15px] leading-7">{analysis.board.consejo}</p>
+                    <p className="max-w-[75ch] text-[15px] leading-[1.5]">{analysis.board.consejo}</p>
                   </div>
                 ) : null}
-                <div className="space-y-1">
-                  <h3 className="text-sm font-semibold text-muted">{text.yourPart}</h3>
-                  <p className="text-[15px]">{context.parte}</p>
-                </div>
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold text-muted">{text.warnings}</h3>
                   {context.advertencias.length === 0 ? (
@@ -175,16 +178,29 @@ export function RoomScreen({
                       {context.advertencias.map((warning, index) => (
                         <li key={`${warning.tipo}-${index}`} className={`flex gap-3 rounded-2xl px-4 py-3 ${warningTone(warning.tipo)}`}>
                           <Symbol name={warningIcon(warning.tipo)} className="mt-0.5 text-[20px]" />
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold tracking-[0.08em] uppercase">
-                              <WarningLabel tipo={warning.tipo} />
-                            </p>
-                            <p className="mt-1 text-sm leading-6">{warning.mensaje}</p>
-                          </div>
+                          <p className="min-w-0 text-[15px] leading-[1.5]">
+                            <strong className="font-semibold">
+                              <WarningLabel tipo={warning.tipo} />:
+                            </strong>{" "}
+                            {warning.mensaje}
+                          </p>
                         </li>
                       ))}
                     </ul>
                   )}
+                </div>
+              </div>
+            </Panel>
+
+            <Panel>
+              <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
+                <Symbol name="assignment_ind" className="text-[20px] text-muted" />
+                {text.yourWorkTitle}
+              </h2>
+              <div className="mt-5 space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-muted">{text.forMember} {room.viewerName}</h3>
+                  <p className="text-[15px]">{context.parte}</p>
                 </div>
                 <div className="space-y-2 rounded-2xl bg-structural p-4">
                   <label className="inline-flex items-center gap-2 text-sm font-semibold" htmlFor="prompt-sugerido">
@@ -259,7 +275,7 @@ export function RoomScreen({
             </Panel>
           </div>
 
-          <div className="min-w-0 space-y-6">
+          <div className="order-1 min-w-0 space-y-6 lg:order-none lg:sticky lg:top-6 lg:self-start">
             <Panel>
               <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
                 <Symbol name="group" className="text-[20px] text-muted" />
@@ -293,21 +309,44 @@ export function RoomScreen({
                 })}
               </ul>
             </Panel>
-            <div id="invitar" className="scroll-mt-6">
-              <Panel>
-                <h2 className="inline-flex items-center gap-2 text-lg font-[650] tracking-[-0.2px]">
-                  <Symbol name="person_add" className="text-[20px] text-muted" />
-                  {text.inviteTitle}
-                </h2>
-                <div className="mt-4 space-y-5">
-                  <InviteLink path={room.path} />
-                  <InviteByEmail topic={room.topic} path={room.path} />
-                </div>
-              </Panel>
-            </div>
           </div>
         </div>
       </div>
+      <footer className="mt-auto border-t border-line px-4 py-6 text-sm text-muted sm:px-8">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 Enlaza · HackaTOB</p>
+          <nav className="flex flex-wrap items-center gap-1" aria-label="Footer">
+            <Link href="/" className="rounded-full px-3 py-1.5 transition-colors hover:bg-foreground/5 hover:text-foreground">
+              {text.footerHome}
+            </Link>
+            <a
+              href="https://github.com/julissb51-cell/HackaTOB"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full px-3 py-1.5 transition-colors hover:bg-foreground/5 hover:text-foreground"
+            >
+              {text.footerRepo}
+            </a>
+            <a
+              href="https://github.com/julissb51-cell/HackaTOB/issues"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-full px-3 py-1.5 transition-colors hover:bg-foreground/5 hover:text-foreground"
+            >
+              {text.footerHelp}
+            </a>
+          </nav>
+        </div>
+      </footer>
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        topic={room.topic}
+        path={room.path}
+        members={feed.members}
+        viewerName={room.viewerName}
+        aiByMember={aiByMember}
+      />
       <SettingsDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)}>
         <RoomSettings initial={initialBoard} live={analysis.board} onSaved={analysis.refresh} />
         <details className="rounded-2xl bg-structural px-4 py-3">
@@ -327,8 +366,11 @@ export function RoomScreen({
 /** Panel plano: marco gris redondeado con una tarjeta blanca dentro. */
 function Panel({ children, live = false }: { children: ReactNode; live?: boolean }) {
   return (
-    <section className="rounded-[28px] bg-structural p-2.5" aria-live={live ? "polite" : undefined}>
-      <div className="rounded-[20px] bg-surface p-5 sm:p-6">{children}</div>
+    <section
+      className="rounded-[24px] border border-line bg-surface p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-7"
+      aria-live={live ? "polite" : undefined}
+    >
+      {children}
     </section>
   );
 }
