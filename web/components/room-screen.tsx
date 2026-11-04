@@ -332,7 +332,7 @@ export function RoomScreen({
             </Panel>
           </div>
 
-          <div className="order-1 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none lg:sticky lg:top-6 lg:self-start">
+          <div className="order-1 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none lg:self-start">
             <Panel>
               <h2 className="inline-flex items-center gap-2 text-2xl font-[650] tracking-[-0.4px]">
                 <Symbol name="group" className="text-[20px] text-muted" />
