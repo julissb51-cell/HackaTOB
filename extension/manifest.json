@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Enlaza",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Comparte prompts y respuestas de ChatGPT y Gemini con tu sala de Enlaza.",
   "permissions": ["storage", "sidePanel", "alarms", "tabs"],
   "host_permissions": [
     "https://enlaza-green.vercel.app/*",
     "https://chatgpt.com/*",
-    "https://gemini.google.com/*"
+    "https://gemini.google.com/*",
+    "https://*.supabase.co/*",
+    "https://*.googleusercontent.com/*"
   ],
   "background": {
     "service_worker": "background/service-worker.js"
@@ -33,7 +35,9 @@
         "content/shared/messages.js",
         "content/shared/capture.js",
         "content/chatgpt/selectors.js",
-        "content/chatgpt/content.js"
+        "content/chatgpt/content.js",
+        "lib/files.js",
+        "content/shared/files.js"
       ],
       "run_at": "document_idle",
       "all_frames": false
@@ -46,7 +50,9 @@
         "content/shared/messages.js",
         "content/shared/capture.js",
         "content/gemini/selectors.js",
-        "content/gemini/content.js"
+        "content/gemini/content.js",
+        "lib/files.js",
+        "content/shared/files.js"
       ],
       "run_at": "document_idle",
       "all_frames": false

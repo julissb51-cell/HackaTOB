@@ -1,6 +1,7 @@
-importScripts("../lib/core.js");
+importScripts("../lib/core.js", "../lib/files.js");
 
 const core = globalThis.EnlazaCore;
+const filesApi = globalThis.EnlazaFiles;
 const ALARM = "enlaza-context";
 const RETRIES = 3;
 const REFRESH_GAP_MS = 20000;
@@ -122,7 +123,7 @@ async function withRetries(run) {
   for (let attempt = 1; attempt <= RETRIES; attempt += 1) {
     last = await run();
     if (last.ok) return last;
-    if (last.status === 400 || last.status === 401) return last;
+    if (last.status === 400 || last.status === 401 || last.status === 409) return last;
     if (attempt < RETRIES) await delay(350 * attempt);
   }
   return last;
@@ -347,6 +348,112 @@ async function onInsert(text) {
   }
 }
 
+function filesUrl(session) {
+  return roomUrl(session.salaId, `/files?member=${encodeURIComponent(session.member)}`);
+}
+
+function decodeBase64(value) {
+  const binary = atob(String(value || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+async function requireSession() {
+  const session = await readSession();
+  if (!session?.connected || !session.consent || !session.token || !session.salaId) {
+    return { ok: false, error: "no_session" };
+  }
+  return session;
+}
+
+async function onLink(payload) {
+  const session = await requireSession();
+  if (session.ok === false) return session;
+  const url = filesApi.cleanShareUrl(payload?.url);
+  if (!url) return { ok: false, status: 400, error: "url no válida" };
+  const name = typeof payload?.name === "string" ? payload.name.trim().slice(0, 200) : "";
+  const result = await withRetries(() =>
+    request(filesUrl(session), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-room-token": session.token,
+      },
+      body: JSON.stringify(name ? { url, name } : { url }),
+    }),
+  );
+  if (result.status === 409) return { ok: true, duplicate: true, status: 409 };
+  if (result.status === 401) await noteFailure(result.error);
+  if (!result.ok) return { ok: false, status: result.status, error: result.error || "No se pudo enviar. Puedes reintentar." };
+  return { ok: true, status: result.status, archivo: result.body?.archivo || null };
+}
+
+async function signUpload(session, name, size, mime) {
+  return withRetries(() =>
+    request(filesUrl(session), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-room-token": session.token,
+      },
+      body: JSON.stringify({ name, size, mime }),
+    }),
+  );
+}
+
+async function putBytes(signedUrl, bytes, mime) {
+  const response = await fetch(signedUrl, {
+    method: "PUT",
+    headers: { "content-type": mime },
+    body: bytes,
+  });
+  return response.ok;
+}
+
+async function onFile(payload) {
+  const session = await requireSession();
+  if (session.ok === false) return session;
+  const file = payload?.file || {};
+  let bytes;
+  try {
+    bytes = decodeBase64(file.bytes);
+  } catch {
+    return { ok: false, status: 400, error: "cuerpo ilegible" };
+  }
+  const sizeError = filesApi.checkSize(bytes.byteLength);
+  if (sizeError) return { ok: false, status: 400, error: sizeError };
+  const name = String(file.name || "archivo").replace(/[\u0000-\u001F\u007F]/g, " ").trim().slice(0, 200) || "archivo";
+  const mime = filesApi.mimeOrDefault(file.mime);
+  let sign = await signUpload(session, name, bytes.byteLength, mime);
+  if (sign.status === 401) await noteFailure(sign.error);
+  if (!sign.ok || !sign.body?.upload?.signedUrl || !sign.body?.upload?.path) {
+    return { ok: false, status: sign.status, error: sign.error || "No se pudo preparar la subida." };
+  }
+  let uploaded = await putBytes(sign.body.upload.signedUrl, bytes, mime);
+  if (!uploaded) {
+    sign = await signUpload(session, name, bytes.byteLength, mime);
+    if (!sign.ok || !sign.body?.upload?.signedUrl) {
+      return { ok: false, status: sign.status, error: sign.error || "No se pudo preparar la subida." };
+    }
+    uploaded = await putBytes(sign.body.upload.signedUrl, bytes, mime);
+    if (!uploaded) return { ok: false, status: 0, error: "No se pudo subir el archivo. Puedes reintentar." };
+  }
+  const saved = await withRetries(() =>
+    request(filesUrl(session), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-room-token": session.token,
+      },
+      body: JSON.stringify({ name, size: bytes.byteLength, mime, path: sign.body.upload.path }),
+    }),
+  );
+  if (saved.status === 401) await noteFailure(saved.error);
+  if (!saved.ok) return { ok: false, status: saved.status, error: saved.error || "No se pudo guardar el archivo. Puedes reintentar." };
+  return { ok: true, status: saved.status, archivo: saved.body?.archivo || null };
+}
+
 async function onWatch(watch) {
   await writeCapture({
     watch: {
@@ -393,6 +500,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (type === "enlaza.insert") return onInsert(message.text);
     if (type === "enlaza.watch") return onWatch(message.watch);
     if (type === "enlaza.status") return onStatus();
+    if (type === "enlaza.link") return onLink(message);
+    if (type === "enlaza.file") return onFile(message);
     return Promise.resolve({ ok: false, error: "Acción desconocida." });
   };
   enqueue(task)

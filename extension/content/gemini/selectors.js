@@ -62,6 +62,20 @@
       'mat-icon[fonticon="stop"]',
       'mat-icon[data-mat-icon-name="stop"]',
     ],
+    fileSelectors: [
+      "user-query img",
+      "user-query a[download]",
+      'user-query a[href^="blob:"]',
+      'a[href*="googleusercontent.com"]',
+      "model-response a[download]",
+      'model-response a[href^="blob:"]',
+      '[data-test-id*="file"]',
+      '[data-test-id*="attachment"]',
+    ],
+    linkSelectors: [
+      "model-response a[href^='https://']",
+      "message-content a[href^='https://']",
+    ],
     composerSelectors: [
       "rich-textarea .ql-editor",
       "rich-textarea div[contenteditable='true']",

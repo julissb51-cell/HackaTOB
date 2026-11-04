@@ -55,6 +55,23 @@
       'button[aria-label="Enviar mensaje"]',
       'button[aria-label="Enviar"]',
     ],
+    fileSelectors: [
+      "a[download]",
+      'a[href^="blob:"]',
+      'a[href*="/backend-api/"]',
+      'a[href*="oaiusercontent.com"]',
+      'a[href*="/files/"]',
+      '[data-testid*="attachment"]',
+      '[data-testid*="file-thumbnail"]',
+      '[data-user-message-bubble] img',
+      '[data-message-author-role="user"] img',
+    ],
+    linkSelectors: [
+      '[data-message-author-role="assistant"] a[href^="https://"]',
+      '[data-content-search-unit-key$=":assistant"] a[href^="https://"]',
+      '[data-turn="assistant"] a[href^="https://"]',
+      ".markdown a[href^='https://']",
+    ],
     composerSelectors: [
       "#prompt-textarea",
       '[data-testid="prompt-textarea"]',

@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const messages = require(path.join(root, "content/shared/messages.js"));
 const core = require(path.join(root, "lib/core.js"));
+const files = require(path.join(root, "lib/files.js"));
 
 if (messages.normalizeMessageText("  que   dia\nes ") !== "que dia es") {
   throw new Error("normalize");
@@ -14,6 +15,13 @@ if (core.warningKind("Contradicción") !== "contradiccion") throw new Error("con
 if (core.warningKind("duplicado") !== "duplicado") throw new Error("duplicado");
 if (core.warningKind("falta") !== "falta") throw new Error("falta");
 if (core.warningLabel("contradiccion") !== "Contradicción") throw new Error("etiqueta");
+if (!core.AI_NAMES.includes("grok")) throw new Error("falta grok");
+if (files.MAX_FILE_BYTES !== 10_485_760) throw new Error("tope");
+if (files.checkSize(files.MAX_FILE_BYTES + 1) !== "el archivo pasa de 10 MB") throw new Error("10 mb");
+if (files.checkSize(0) !== "size no válido") throw new Error("size");
+if (!files.cleanShareUrl("https://example.com/informe.pdf")) throw new Error("url");
+if (files.cleanShareUrl("javascript:alert(1)")) throw new Error("url mala");
+if (files.mimeOrDefault("no") !== "application/octet-stream") throw new Error("mime");
 console.log("avisos ok");
 
 let parseHTML;
