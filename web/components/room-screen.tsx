@@ -8,6 +8,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import Link from "next/link";
 import { MobileCollapse } from "./mobile-collapse";
 import {
@@ -831,9 +833,9 @@ function EventCard({
         {chatName ? (
           <p className="mt-1 text-sm text-muted">{chatName}</p>
         ) : null}
-        <p className="mt-2 text-sm leading-6 break-words whitespace-pre-wrap">
-          {body}
-        </p>
+        <div className="enlaza-md mt-2 text-sm leading-6 break-words">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+        </div>
         {long ? (
           <button
             type="button"
