@@ -153,15 +153,11 @@ export function RoomScreen({
       <div className="w-full px-4 pb-16 max-sm:px-5 sm:px-8">
         <section className="flex flex-col gap-6 pt-8 pb-10 max-sm:gap-5 max-sm:py-7 sm:pt-12 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 flex-1">
-            <p className="inline-flex items-center gap-2 text-sm font-medium text-muted">
-              <span
-                className="inline-block size-3.5 rounded-[5px] bg-accent"
-                aria-hidden="true"
-              />
+            <p className="text-xs font-bold uppercase tracking-[3px] text-link">
               {text.roomKicker}
             </p>
             <EditableTitle roomId={room.id} topic={room.topic} />
-            <MobileCollapse label={text.mobileRoomDetails} className="mt-3">
+            <MobileCollapse label={text.mobileRoomDetails} className="mt-5">
             <p className="mt-2 max-w-[65ch] text-base leading-[1.5] text-muted">
               {text.roomPurpose}
             </p>
