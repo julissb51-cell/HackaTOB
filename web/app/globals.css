@@ -29,14 +29,16 @@
   --danger: #8a4b45;
   --info: #4f6172;
   --warm: #7a6a47;
-  --top-tint: rgba(0, 180, 216, 0.06);
+  --top-tint: rgba(0, 180, 216, 0.13);
+  --bottom-tint: rgba(0, 180, 216, 0.03);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
     --background: #0f0f0f;
-    --top-tint: rgba(34, 204, 238, 0.08);
+    --top-tint: rgba(34, 204, 238, 0.12);
+    --bottom-tint: rgba(34, 204, 238, 0.02);
     --surface: #1f1f1f;
     --structural: #2a2a2a;
     --line: #333333;
@@ -96,9 +98,9 @@
 }
 
 body {
-  /* Degradado suave de cian arriba, se desvanece en ~420px. */
+  /* Degradado suave de cian de arriba hacia abajo, fijo al viewport. */
   background:
-    linear-gradient(to bottom, var(--top-tint), transparent 420px) no-repeat top / 100% 420px,
+    linear-gradient(to bottom, var(--top-tint), var(--bottom-tint) 70%, transparent) fixed,
     var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), "Source Sans 3", sans-serif;
