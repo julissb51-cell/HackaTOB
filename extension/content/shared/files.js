@@ -119,8 +119,17 @@
     return clean.startsWith("http") ? clean : "";
   }
 
+  function inOverlay(node) {
+    if (!node?.closest) return false;
+    try {
+      return Boolean(node.closest(".cdk-overlay-container, .cdk-overlay-pane, mat-menu, .mat-menu-panel, .mat-mdc-menu-panel, mat-bottom-sheet, .mat-bottom-sheet-container, [role='menu']"));
+    } catch {
+      return false;
+    }
+  }
+
   function attach(node, info) {
-    if (!node || node.dataset?.enlazaFile === "1" || node.classList?.contains("enlaza-send")) return;
+    if (!node || inOverlay(node) || node.dataset?.enlazaFile === "1" || node.classList?.contains("enlaza-send")) return;
     node.dataset.enlazaFile = "1";
     const button = document.createElement("button");
     button.type = "button";
@@ -272,18 +281,78 @@
     return button;
   }
 
+  function composerScopes() {
+    const selectors = site.composerScopeSelectors;
+    if (!selectors?.length) return null;
+    const found = [];
+    for (const selector of selectors) {
+      let nodes = [];
+      try {
+        nodes = dom.queryAllDeep(selector);
+      } catch {
+        continue;
+      }
+      for (const node of nodes) {
+        if (node && !inOverlay(node)) found.push(node);
+      }
+    }
+    return found.filter((node) => !found.some((other) => other !== node && other.contains(node)));
+  }
+
+  function enlazaButtons() {
+    return [...document.querySelectorAll("button[data-enlaza-files='1']")];
+  }
+
+  function dropExtraButtons(keep) {
+    const kept = new Set(keep.filter(Boolean));
+    for (const button of enlazaButtons()) {
+      if (!kept.has(button) || inOverlay(button)) button.remove();
+    }
+  }
+
+  function visibleAnchor(scope) {
+    for (const selector of site.fileAnchorSelectors || []) {
+      let nodes = [];
+      try {
+        nodes = dom.queryAllDeep(selector, scope);
+      } catch {
+        continue;
+      }
+      const visible = nodes.filter((node) => onScreen(node) && !inOverlay(node) && scope.contains(node));
+      if (visible.length) return visible[visible.length - 1];
+    }
+    return null;
+  }
+
   function placeComposerButton() {
     if (!site.fileAnchorSelectors && !site.fileFooterSelectors) return;
+    const scopes = composerScopes();
+    if (scopes) {
+      const kept = [];
+      for (const scope of scopes) {
+        const anchor = visibleAnchor(scope);
+        if (!anchor) continue;
+        const inside = [...scope.querySelectorAll("button[data-enlaza-files='1']")].filter((button) => scope.contains(button) && !inOverlay(button));
+        let button = inside[0] || null;
+        if (!button) {
+          button = enlazaButtons().find((item) => inOverlay(item) || !scopes.some((other) => other.contains(item))) || makeComposerButton();
+        }
+        if (button.previousElementSibling !== anchor) anchor.insertAdjacentElement("afterend", button);
+        kept.push(button);
+      }
+      if (kept.length) dropExtraButtons(kept);
+      return;
+    }
     const current = document.querySelector("button[data-enlaza-files='1']");
     const plus = queryLast(site.fileAnchorSelectors);
-    if (plus) {
+    if (plus && !inOverlay(plus)) {
       if (current?.isConnected && current.previousElementSibling === plus) return;
       if (current) current.remove();
       plus.insertAdjacentElement("afterend", makeComposerButton());
       return;
     }
     const footer = queryLast(site.fileFooterSelectors);
-    if (!footer) return;
+    if (!footer || inOverlay(footer)) return;
     if (current?.isConnected && footer.contains(current)) return;
     if (current) current.remove();
     footer.appendChild(makeComposerButton());
@@ -405,7 +474,24 @@
   }
 
   async function sendComposer(button) {
-    const nodes = visibleAttachments();
+    if (site.preferPickedFiles) {
+      const cached = [...pickedFiles.values()].filter((file) => file?.size);
+      if (!cached.length) {
+        toast(copy.noFile);
+        return;
+      }
+      button.disabled = true;
+      button.classList.add("enlaza-send-busy");
+      try {
+        for (const file of cached) await sendFileObject(file);
+        for (const file of cached) pickedFiles.delete(file.name);
+      } finally {
+        button.disabled = false;
+        button.classList.remove("enlaza-send-busy");
+      }
+      return;
+    }
+    const nodes = visibleAttachments().filter((node) => !inOverlay(node));
     if (!nodes.length) {
       toast(copy.noFile);
       return;
