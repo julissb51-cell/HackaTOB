@@ -208,6 +208,16 @@ const againDom = parseHTML(`<!doctype html><body>
 </body>`);
 const againLine = messages.listChatMessages(againDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
 if (againLine !== "user:hola de nuevo|assistant:Claro.") throw new Error(againLine);
+const msDom = parseHTML(`<!doctype html><body>
+  <div data-content="user">probando una vez más</div>
+  <div data-content="user">probando una vez más</div>
+  <div data-content="assistant"><div class="ac-textBlock">Listo, ya quedó.</div></div>
+</body>`);
+const msLine = messages.listChatMessages(msDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (msLine !== "user:probando una vez más|assistant:Listo, ya quedó.") throw new Error(msLine);
+if (copilotSite.conversationId("https://copilot.microsoft.com/chats/6aea3d77-c8d8-83e8-ada3-561359e03e25") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
+  throw new Error("conversation microsoft");
+}
 
 const history = [
   { role: "user", text: "hoola" },

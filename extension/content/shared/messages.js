@@ -311,7 +311,8 @@
     if (!node || node.nodeType !== 1 || insideUserTurn(node)) return false;
     const testid = node.getAttribute?.("data-testid") || "";
     const content = node.getAttribute?.("data-content") || "";
-    return testid === "markdown-reply" || testid === "chatOutput" || testid === "copilot-message-reply-div" || testid === "chat-response-message" || content === "ai-message";
+    const className = typeof node.className === "string" ? node.className : "";
+    return testid === "markdown-reply" || testid === "chatOutput" || testid === "copilot-message-reply-div" || testid === "chat-response-message" || testid === "response-message" || content === "ai-message" || content === "assistant" || className.split(/\s+/).includes("bot-turn") || className.split(/\s+/).includes("ac-textBlock");
   }
 
   function followingAssistant(userNode, userText) {

@@ -8,6 +8,9 @@
 
   function start(site) {
     if (!site || globalThis.__enlazaCaptureStarted) return;
+    const pageRoot = document.documentElement;
+    if (pageRoot?.getAttribute("data-enlaza-capture") === site.ia) return;
+    pageRoot?.setAttribute("data-enlaza-capture", site.ia);
     globalThis.__enlazaCaptureStarted = true;
 
     const dom = globalThis.EnlazaDom;
@@ -79,17 +82,15 @@
     }
 
     async function sendLivePrompt(text) {
+      const keyName = countKey("user", text);
+      if (reserved.has(keyName)) return;
+      reserved.add(keyName);
       if (settling) {
         clearTimeout(armTimer);
         await arm(site.conversationId(location.href) || "");
         settling = false;
       }
-      const conversationId = site.conversationId(location.href) || "";
-      const messages = listMessages();
-      const wanted = normalize(text);
-      let index = messages.findIndex((message) => message.role === "user" && normalize(message.text) === wanted);
-      if (index < 0) index = messages.length;
-      if (!reserve(conversationId, "user", index, text)) return;
+      saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
       lastComposer = "";
       enqueue({ tipo: "prompt", texto: core.truncateText(text) });
     }
@@ -157,15 +158,15 @@
 
     const reserved = new Set();
 
-    function turnStorageKey(conversationId, role, index, text) {
-      return globalThis.EnlazaMessages.turnKey(conversationId, role, index, text);
+    function countKey(role, text) {
+      return globalThis.EnlazaMessages.seenKey(role, text);
     }
 
-    function reserve(conversationId, role, index, text) {
-      const keyName = turnStorageKey(conversationId, role, index, text);
+    function reserve(role, text) {
+      const keyName = countKey(role, text);
       if (reserved.has(keyName)) return false;
       reserved.add(keyName);
-      saveSeen(conversationId, [...reserved].filter((item) => item.startsWith(`${conversationId}|`)));
+      saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
       return true;
     }
 
@@ -221,13 +222,13 @@
       const messages = listMessages();
       nodeSent = new WeakMap();
       for (const keyName of persisted) reserved.add(keyName);
-      messages.forEach((message, index) => {
-        if (!message.text) return;
-        reserved.add(turnStorageKey(key, message.role, index, message.text));
+      for (const message of messages) {
+        if (!message.text) continue;
+        reserved.add(countKey(message.role, message.text));
         nodeSent.set(message.node, normalize(message.text));
-      });
+      }
       armedKey = key;
-      await saveSeen(key, [...reserved].filter((item) => item.startsWith(`${key}|`)));
+      await saveSeen(key, [...reserved]);
     }
 
     function fallbackConversationId() {
@@ -366,9 +367,7 @@
         nodeSent.set(message.node, next);
         return false;
       }
-      const conversationId = site.conversationId(location.href) || armedKey || "";
-      const index = messages.indexOf(message);
-      if (!reserve(conversationId, message.role, index, message.text)) {
+      if (!reserve(message.role, message.text)) {
         nodeSent.set(message.node, next);
         return false;
       }

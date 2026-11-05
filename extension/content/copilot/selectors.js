@@ -9,8 +9,18 @@
     pairTurns: true,
     stableMs: 1500,
     placeholders: ["enviar un mensaje a copilot"],
-    userSelectors: ['[data-testid="chatQuestion"]', "[data-content='user-message']", "[data-message-author-role='user']"],
+    userSelectors: [
+      '[data-content="user"]',
+      ".user-turn",
+      '[data-testid="chatQuestion"]',
+      "[data-content='user-message']",
+      "[data-message-author-role='user']",
+    ],
     assistantSelectors: [
+      '[data-content="assistant"]',
+      ".bot-turn",
+      '[data-testid="response-message"]',
+      ".ac-textBlock",
       "[data-content='ai-message']",
       "[data-message-author-role='assistant']",
       "[data-turn='assistant']",
@@ -41,8 +51,9 @@
     ],
     conversationId(href) {
       try {
-        const match = new URL(href).pathname.match(/\/chat\/conversation\/([0-9a-fA-F-]+)/);
-        return match ? match[1] : "";
+        const url = new URL(href);
+        const match = url.pathname.match(/\/(?:chat\/conversation|chats|c)\/([0-9a-fA-F-]{8,})/);
+        return match ? match[1] : url.searchParams.get("conversationId") || "";
       } catch {
         return "";
       }
