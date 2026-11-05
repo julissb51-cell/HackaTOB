@@ -14,40 +14,40 @@ HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 La inteligencia artificial nos hizo más rápidos trabajando solos, pero más desordenados trabajando en grupo.
 
-Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini, Claude, Copilot o Cursor), y ninguna IA sabe lo que hacen las demás. Eso se descubre tarde, al unir el trabajo:
+Hoy, cuando un equipo de estudiantes hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini, Claude o Cursor), y ninguna IA sabe lo que hacen las demás. Eso se descubre tarde, al unir el trabajo:
 
 - **Trabajo repetido.**
-- **Decisiones que se contradicen:** por ejemplo, una persona guarda los datos en JSON y otra en una base de datos.
+- **Decisiones que se contradicen:** en una muestra, una persona describe `datos.json` y otra pide SQLite. No es una medición de usuarios de Enlaza.
 - **Partes que nadie hizo.**
 
-**Para quién es:** equipos que construyen un proyecto con IA. Gente que hace vibe coding, o un equipo que arma un MVP o un prototipo, cada quien desde su computadora.
+**Para quién es:** estudiantes y equipos de 2 a 5 que hacen un trabajo de curso o un hackathon. Cada quien usa su IA desde su computadora. El trabajo es seguir en el chat propio y, aun así, ver si el equipo se contradice, se repite o deja algo sin hacer.
 
 ### Evidencia
 
 - **El problema es real y está creciendo.**
   - El **78 %** de quienes usan IA en el trabajo lleva su propia herramienta ([Microsoft, 2024](https://www.microsoft.com/en-us/worklab/work-trend-index/ai-at-work-is-here-now-comes-the-hard-part)). Son 31 000 personas en 31 países.
-  - Así, en un mismo equipo, cada persona usa una IA distinta que no conoce lo que hacen las demás.
+  - Así, en un mismo equipo, cada persona puede usar una IA distinta. Esa cifra no mide usuarios de Enlaza ni disposición a pagar.
 - **Lo que dicen los usuarios:**
-  - En el [foro oficial de OpenAI](https://community.openai.com/t/feature-request-collaborative-projects-with-multiple-users-their-personal-chatgpts/1397310/2) piden no tener que «sincronizar a mano» dos conversaciones paralelas.
-  - En [Hacker News](https://news.ycombinator.com/item?id=48841133) cuentan que un compañero «había hecho una función idéntica» mientras otro tomaba una decisión contradictoria.
+  - En el [foro oficial de OpenAI](https://community.openai.com/t/feature-request-collaborative-projects-with-multiple-users-their-personal-chatgpts/1397310/2) piden no tener que «sincronizar a mano» dos conversaciones paralelas. Es un comentario público, no un estudio de Enlaza.
+  - En [Hacker News](https://news.ycombinator.com/item?id=48841133) cuentan que un compañero «había hecho una función idéntica» mientras otro tomaba una decisión contradictoria. También es una anécdota pública.
 - **Lo que hace ChatGPT:** el [Centro de ayuda de OpenAI](https://help.openai.com/en/articles/10169521-projects-in-chatgpt) dice que compartir un proyecto está en todos los planes, incluido Free: hasta 5 personas y 5 archivos. Eso sigue dentro de ChatGPT. **Enlaza coordina el trabajo cuando cada persona usa una IA distinta** (en la demo, ChatGPT, Gemini y Claude; Cursor en Windows con un gancho).
 - A nosotros también nos pasó en hackatones anteriores.
 
-**Antes:** cada persona trabaja a ciegas y los errores aparecen al final. **Con Enlaza:** el equipo trabaja en una sala compartida, y una IA analista avisa a tiempo de las contradicciones, el trabajo duplicado y las partes faltantes.
+**Antes:** cada persona trabaja a ciegas y los choques aparecen al unir el trabajo. **Con Enlaza:** la sala junta lo capturado y puede avisar de contradicciones, duplicados y faltas. Si el modelo no responde, quedan reglas o el resumen anterior. No es el mismo aviso en cualquier conversación.
 
 ## Qué es
 
 Enlaza es una **sala compartida** para un equipo que arma un proyecto con IAs distintas. Cada persona sigue en su chat. La sala junta lo que hicieron y se lo devuelve al equipo.
 
-El ejemplo: **Josué, Ana, Luis y Sofía** hacen con IA una app para dividir los gastos entre roommates. Josué define el producto, Ana escribe el flujo, Luis programa y Sofía arma la interfaz. Cada uno usa una IA distinta. Enlaza les muestra si se repiten, si se contradicen y qué les falta.
+El ejemplo de la muestra, no una medición: **Ana** escribe el informe y describe `datos.json`. **Luis** programa y pide SQLite. En [el ensayo local](docs/ensayo-json-sqlite.md) las reglas marcan ese choque para las dos personas. Si el mensaje posterior de Ana cierra en SQLite, el choque de almacenamiento deja de salir. Gemini no está obligado a repetir ese texto.
 
 Sirve para **ChatGPT, Gemini, Claude y Cursor**. Copilot no entra en esta demo.
 
 ## Cómo funciona
 
-1. Alguien crea una sala (con inicio de sesión de Google), le pone un tema y una fecha de entrega, y comparte el enlace de invitación.
-2. Cada integrante entra con su nombre.
-3. En el navegador, la **extensión de Chrome o Edge** lee los prompts y las respuestas que ya terminaron, y puede mandar un archivo o un enlace a Archivos de la sala.
+1. Alguien crea una sala (con inicio de sesión de Google), le pone un tema y comparte el enlace de invitación.
+2. Cada integrante abre ese enlace. En la computadora conecta la [extensión de Chrome o Edge](extension/README.md). No está en la Chrome Web Store y no es una extensión del celular.
+3. La extensión lee los prompts y las respuestas que ya terminaron, después del consentimiento, y puede mandar un archivo o un enlace a Archivos de la sala. En el teléfono se puede ver la sala.
 4. En **Cursor** (programa de escritorio), un gancho de Windows manda el prompt y la respuesta del agente. No pasa por la extensión.
 5. Todo llega a la sala con `POST /api/rooms/{salaId}/events`. El contrato de los campos está en [CONTRATO.md](CONTRATO.md).
 6. Un **analista con IA** (Gemini por defecto; se puede pasar a Grok con `AI_PROVIDER`) lee la sala y arma el contexto de cada miembro: `GET /api/rooms/{salaId}/context`.
@@ -186,9 +186,8 @@ Pruebas: `npm test`, `npm run lint` y `npm run build`. Más detalle en [web/READ
 
 > Es una propuesta para la hackathon. Todavía no está validada con clientes. Estos precios no están en el producto.
 
-- **Gratis:** la sala, la captura y el trabajo en equipo. No hace falta pagar para usarlos.
-- **Plus opcional:** una propuesta, no está en el producto. Serían extras, por ejemplo otro plan de análisis. No hay análisis ilimitado: hoy se usa el plan gratis de Gemini, con cupo.
-- **Panel para docentes:** idea futura, no construida. Si algún día se valida, sería una licencia para universidades en la que el docente ve el avance de cada grupo.
+- **Gratis:** la sala, la invitación, la captura y el trabajo en equipo. No hace falta pagar para usarlos.
+- **Plus opcional:** una propuesta, no está en el producto. No hay cobro ni análisis ilimitado: hoy se usa el plan gratis de Gemini, con cupo. No ofrecemos un panel para docentes.
 
 ## Riesgos
 
@@ -217,13 +216,13 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 ## Hoja de ruta
 
 - Avisos por correo cuando se acerca la fecha de entrega.
-- Publicar la extensión en la Chrome Web Store.
+- Publicar la extensión en la Chrome Web Store. Todavía no está.
 
 ---
 
 ## English summary
 
-**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, and Cursor): vibe coders, or a group shipping an MVP. Copilot is not part of this demo. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing only: the room, capture, and collaboration stay free. An optional Plus for extras such as another analysis plan is not in the product. Analysis is not unlimited. A teacher panel for universities is a future idea and is not built. ChatGPT project sharing is on every plan, including Free (up to 5 people and 5 files; [OpenAI Help Center](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)). Enlaza coordinates work across different AIs. Demo video: coming soon (link pending). Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
+**Enlaza** is a shared room for students and teams of 2 to 5 building a project with different AIs (ChatGPT, Gemini, Claude, and Cursor). Copilot is not part of this demo. A desktop Chrome or Edge extension captures finished prompts and replies after consent. It is not in the Chrome Web Store and it is not a mobile extension; the phone can open the room. Cursor on Windows uses a hook. The room runs a free Gemini analyst, which can fail over to rules or keep the previous summary, and can show a summary, parts, contradiction/duplicate/missing alerts, and a next prompt. That is not guaranteed for every chat. Sample, not a user study: Ana describes datos.json and Luis asks for SQLite ([local write-up](docs/ensayo-json-sqlite.md)). Proposed pricing only: the room, invites, capture, and collaboration stay free. An optional Plus is not in the product. There is no charge, no unlimited analysis, and no teacher panel. Public forum posts describe the pain; they are not Enlaza users or willingness to pay. ChatGPT project sharing is on every plan, including Free (up to 5 people and 5 files; [OpenAI Help Center](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)). Enlaza is for work across different AIs. Demo video: coming soon (link pending). Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
 
 ## Licencia
 
