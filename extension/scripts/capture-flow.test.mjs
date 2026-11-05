@@ -346,4 +346,48 @@ if (spiderPrompts[0].nombre_chat !== "cuantas patas tiene una arana") {
   throw new Error(spiderPrompts[0].nombre_chat || "(sin titulo)");
 }
 
+const signedIn = await runScenario({
+  startUrl: "https://chatgpt.com/c/arana-real",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  prepare({ document }) {
+    document.title = "ChatGPT: Chat, Work, Create & Code with AI";
+    document.body.innerHTML = `<div data-turn-key="old-user">
+        <div data-chatgpt-search-unit-key="fallback-turn-1:0:user" data-chatgpt-search-message-ids="old-user">
+          <div data-user-message-bubble="true"><div class="whitespace-pre-wrap">hola viejo</div></div>
+        </div>
+      </div>
+      <div data-turn-key="old-assistant" data-talvt-turn-state="complete">
+        <div data-chatgpt-search-unit-key="fallback-turn-1:1:assistant" data-chatgpt-search-message-ids="old-assistant">
+          <div data-markdown-text-style="assistant-message">respuesta vieja</div>
+          <button aria-label="Copy"></button>
+        </div>
+      </div>`;
+  },
+  async play({ document, advance }) {
+    document.body.insertAdjacentHTML("beforeend", `<div data-turn-key="new-user">
+        <div data-chatgpt-search-unit-key="fallback-turn-2:0:user" data-chatgpt-search-message-ids="new-user">
+          <div data-user-message-bubble="true"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+        </div>
+      </div>
+      <div data-turn-key="new-assistant" data-talvt-turn-state="complete">
+        <div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="new-assistant">
+          <div data-markdown-text-style="assistant-message">Una araña tiene 8 patas!</div>
+          <button aria-label="Copy"></button>
+          <button aria-label="Regenerate response"></button>
+        </div>
+      </div>`);
+    await advance(8000);
+  },
+});
+if (signedIn.events.some((event) => event.texto.includes("respuesta vieja") || event.texto.includes("hola viejo"))) {
+  throw new Error(`reenvió el chat abierto: ${signedIn.events.map((event) => event.texto).join(" | ")}`);
+}
+const newPrompts = signedIn.events.filter((event) => event.tipo === "prompt" && event.texto.includes("cuantas patas tiene una arana"));
+const newReplies = signedIn.events.filter((event) => event.tipo === "respuesta" && event.texto.includes("8 patas"));
+if (newPrompts.length !== 1 || newReplies.length !== 1) {
+  throw new Error(signedIn.events.map((event) => `${event.tipo}:${event.texto}`).join(" || ") || "(nada)");
+}
+if (newPrompts[0].nombre_chat !== "cuantas patas tiene una arana") throw new Error(newPrompts[0].nombre_chat || "(titulo)");
+
 console.log("capture-flow ok");

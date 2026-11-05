@@ -149,13 +149,18 @@
           continue;
         }
         if (beforePrompt && message.role === "assistant" && message.text) {
-          historyAssistants.add(countKey("assistant", message.text));
+          historyAssistants.add(messageKey(message));
         }
       }
     }
 
+    function messageKey(message) {
+      if (message?.id) return `${message.role}|id|${message.id}`;
+      return countKey(message.role, message.text);
+    }
+
     function assistantIsNew(message, messages) {
-      if (historyAssistants.has(countKey("assistant", message.text))) return false;
+      if (historyAssistants.has(messageKey(message))) return false;
       const slot = assistantSlot(messages, message);
       if (slot && sentSlots.has(slot)) return false;
       return true;
@@ -163,7 +168,7 @@
 
     function freezeMessage(message) {
       if (!message?.text) return;
-      const keyName = countKey(message.role, message.text);
+      const keyName = messageKey(message);
       reserved.add(keyName);
       if (message.role === "assistant") historyAssistants.add(keyName);
       nodeSent.set(message.node, normalize(message.text));
@@ -390,9 +395,9 @@
           if (!message.text) return;
           const replyJustSent = promptsThisSession > 0 && message.role === "assistant" && index > lastUser;
           if (replyJustSent) return;
-          reserved.add(countKey(message.role, message.text));
+          reserved.add(messageKey(message));
           nodeSent.set(message.node, normalize(message.text));
-          if (message.role === "assistant") historyAssistants.add(countKey("assistant", message.text));
+          if (message.role === "assistant") historyAssistants.add(messageKey(message));
         });
       } catch {
         // Si el lector falla, el filtro de la sesión igual no reenvía historial.
@@ -424,7 +429,6 @@
       if (generation !== armGeneration) return;
       const current = site.conversationId(location.href) || "";
       if (current !== key) return;
-      absorbSettledHistory();
       const now = snapshot();
       const nextStable = now === previous ? stable + 1 : 0;
       if (nextStable < 3 && elapsed < 20) {
@@ -571,6 +575,10 @@
       }
       if (!message.text) return 400;
       const age = Date.now() - state.lastChange;
+      if (message.role === "assistant" && message.done) {
+        if (age < 300) return 300 - age;
+        return 0;
+      }
       if (message.role === "assistant" && tail && message.node === tail.node && streaming) {
         state.sawStream = true;
         const quiet = site.stableMs || SLOW_MS;
@@ -586,6 +594,10 @@
     function claim(message, messages) {
       const previous = nodeSent.get(message.node);
       const next = normalize(message.text);
+      if (message.id && reserved.has(messageKey(message))) {
+        nodeSent.set(message.node, next);
+        return false;
+      }
       if (previous && normalize(previous) === next) return false;
       if (previous && next.length <= normalize(previous).length) return false;
       const nested = messages.some((other) => other !== message && other.role === message.role && globalThis.EnlazaMessages.inside(message.node, other.node));
@@ -593,7 +605,9 @@
         nodeSent.set(message.node, next);
         return false;
       }
-      if (!reserve(message.role, message.text)) {
+      if (message.id) {
+        reserved.add(messageKey(message));
+      } else if (!reserve(message.role, message.text)) {
         nodeSent.set(message.node, next);
         return false;
       }
@@ -630,8 +644,7 @@
         if (!message.text) continue;
         if (site.promptsFromComposer && message.role === "user") continue;
         if (message.role === "assistant" && !assistantIsNew(message, visible)) {
-          reserve(message.role, message.text);
-          nodeSent.set(message.node, normalize(message.text));
+          freezeMessage(message);
           continue;
         }
         if (delay > 0) {

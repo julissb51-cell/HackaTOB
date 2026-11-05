@@ -34,8 +34,10 @@ const sandbox = { globalThis: {} };
 sandbox.globalThis = sandbox;
 runInNewContext(chatgptSource, sandbox);
 const chatgpt = sandbox.EnlazaChatgptSite;
-if (chatgpt.composerSelectors[0] !== 'form div.ProseMirror[contenteditable="true"]') throw new Error("composer");
-if (chatgpt.composerSelectors[1] !== "#prompt-textarea") throw new Error("composer respaldo");
+if (chatgpt.composerSelectors[0] !== 'div.ProseMirror[contenteditable="true"][aria-label="Ask ChatGPT"]') throw new Error("composer");
+if (!chatgpt.composerSelectors.includes('form div.ProseMirror[contenteditable="true"]')) throw new Error("composer formulario");
+if (!chatgpt.assistantSelectors.includes('[data-chatgpt-search-unit-key$=":assistant"]')) throw new Error("respuesta nueva");
+if (!chatgpt.composerSelectors.includes("#prompt-textarea")) throw new Error("composer respaldo");
 if (chatgpt.fileAnchorSelectors[0] !== 'button[aria-label="Añadir archivos y más"]') throw new Error("ancla");
 if (!chatgpt.fileAnchorSelectors.includes('button[aria-label="Add files and more"]')) throw new Error("ancla en");
 if (chatgpt.fileFooterSelectors[0] !== '[class*="ComposerLayoutFooter"]') throw new Error("footer");
@@ -224,6 +226,37 @@ const loggedOut = parseHTML(`<!doctype html><body>
 </body>`);
 const loggedLine = messages.listChatMessages(loggedOut.document, chatgpt).map((item) => `${item.role}:${item.text}`).join("|");
 if (loggedLine !== "user:cuantas patas tiene una arana|assistant:Una araña tiene 8 patas!") throw new Error(loggedLine);
+const signedIn = parseHTML(`<!doctype html><body>
+  <div data-turn-key="turn-user-1">
+    <div data-content-search-turn-key="fallback-turn-1">
+      <div class="group" data-talvt-turn-state="complete">
+        <h4 class="sr-only" data-conversation-role="user">You said:</h4>
+        <div data-chatgpt-search-unit-key="fallback-turn-1:0:user" data-chatgpt-search-message-ids="msg-user-1">
+          <div data-user-message-bubble="true"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-turn-key="turn-assistant-1">
+    <div data-content-search-turn-key="fallback-turn-2">
+      <div class="group" data-talvt-turn-state="complete">
+        <h4 class="sr-only" data-conversation-role="assistant">ChatGPT said:</h4>
+        <div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="msg-a msg-b">
+          <div data-dil-source-message-id="msg-a" data-markdown-copy="contents">
+            <div data-markdown-text-style="assistant-message">Una araña tiene 8 patas!</div>
+          </div>
+          <button aria-label="Copy"></button>
+          <button aria-label="Regenerate response"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ProseMirror" contenteditable="true" aria-label="Ask ChatGPT"></div>
+</body>`);
+const signed = messages.listChatMessages(signedIn.document, chatgpt);
+const signedLine = signed.map((item) => `${item.role}:${item.id}:${item.text}`).join("|");
+if (signedLine !== "user:msg-user-1:cuantas patas tiene una arana|assistant:msg-a:Una araña tiene 8 patas!") throw new Error(signedLine);
+if (!signed.find((item) => item.role === "assistant")?.done) throw new Error("la respuesta con Copy no está terminada");
 
 const claudeCode = parseHTML(`<!doctype html><body>
   <div data-testid="assistant-message">

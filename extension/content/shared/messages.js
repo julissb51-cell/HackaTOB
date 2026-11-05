@@ -710,6 +710,45 @@
     return found;
   }
 
+  function messageIdentity(node) {
+    let current = node;
+    const seen = new Set();
+    while (current && current.nodeType === 1 && !seen.has(current)) {
+      seen.add(current);
+      const source = current.getAttribute?.("data-dil-source-message-id") || "";
+      if (source.trim()) return source.trim().split(/\s+/)[0];
+      const ids = current.getAttribute?.("data-chatgpt-search-message-ids") || "";
+      if (ids.trim()) return ids.trim().split(/\s+/)[0];
+      current = current.parentElement;
+    }
+    return "";
+  }
+
+  function assistantFinished(node) {
+    let current = node;
+    const seen = new Set();
+    while (current && current.nodeType === 1 && !seen.has(current)) {
+      seen.add(current);
+      if (current.getAttribute?.("data-talvt-turn-state") === "complete") return true;
+      try {
+        if (current.querySelector?.('button[aria-label="Copy"], button[aria-label="Copiar"]')) return true;
+      } catch {
+        // Un selector inválido no decide si la respuesta terminó.
+      }
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  function stamp(message) {
+    const id = messageIdentity(message.node);
+    return {
+      ...message,
+      id,
+      done: message.role !== "assistant" || assistantFinished(message.node),
+    };
+  }
+
   function publishMessages(messages, site) {
     // El filtro de eco (un nodo de usuario dentro de la respuesta) es de Copilot.
     // En ChatGPT ese nodo es una cita y, si se aplica, la respuesta desaparece.
@@ -736,12 +775,12 @@
         const assistant = queryOne(turn, assistantSelector);
         if (explicit === "user" || bubble) {
           const read = readText(bubble || turn, site.userTextSelectors);
-          if (read.text) messages.push({ node: bubble || turn, role: "user", text: read.text, selector: read.selector });
+          if (read.text) messages.push(stamp({ node: bubble || turn, role: "user", text: read.text, selector: read.selector }));
         }
         const assistantNode = assistant && assistant !== bubble && !inside(assistant, bubble) ? assistant : null;
         if (explicit === "assistant" || (assistantNode && explicit !== "user")) {
           const read = readText(assistantNode || turn, site.assistantTextSelectors);
-          if (read.text) messages.push({ node: assistantNode || turn, role: "assistant", text: read.text, selector: read.selector });
+          if (read.text) messages.push(stamp({ node: assistantNode || turn, role: "assistant", text: read.text, selector: read.selector }));
         }
       }
     }
@@ -750,7 +789,7 @@
 
     for (const node of collect(root, site.userSelectors, false)) {
       const read = readText(node, site.userTextSelectors);
-      if (read.text) messages.push({ node, role: "user", text: read.text, selector: read.selector });
+      if (read.text) messages.push(stamp({ node, role: "user", text: read.text, selector: read.selector }));
     }
     for (const node of collect(root, site.assistantSelectors, false)) {
       const nodeSelector = (site.assistantSelectors || []).find((selector) => {
@@ -761,7 +800,7 @@
         }
       }) || "";
       const read = readText(node, site.assistantTextSelectors);
-      if (read.text) messages.push({ node, role: "assistant", text: read.text, selector: read.selector || nodeSelector });
+      if (read.text) messages.push(stamp({ node, role: "assistant", text: read.text, selector: read.selector || nodeSelector }));
     }
     return publishMessages(messages, site);
   }
