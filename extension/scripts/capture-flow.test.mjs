@@ -18,7 +18,7 @@ function assertEvents(events, expected, label) {
   }
 }
 
-async function runScenario({ startUrl, selectors, siteName, play, trackScripts }) {
+async function runScenario({ startUrl, selectors, siteName, play, trackScripts, prepare }) {
   const { window } = parseHTML("<!doctype html><html><head></head><body></body></html>");
   const document = window.document;
   const events = [];
@@ -99,6 +99,7 @@ async function runScenario({ startUrl, selectors, siteName, play, trackScripts }
     runInNewContext(readFileSync(path.join(root, file), "utf8"), sandbox, { filename: file });
   }
   sandbox.EnlazaDom.isVisible = () => true;
+  if (prepare) prepare({ document, location });
   sandbox.EnlazaCapture.start(sandbox[siteName]);
 
   async function flush() {
@@ -203,5 +204,31 @@ const copilot = await runScenario({
   },
 });
 if (copilot.scripts !== 0) throw new Error(`Copilot no debe inyectar script (${copilot.scripts})`);
+
+const reloaded = await runScenario({
+  startUrl: "https://gemini.google.com/app/pitch-1",
+  selectors: "content/gemini/selectors.js",
+  siteName: "EnlazaGeminiSite",
+  prepare({ document }) {
+    document.body.innerHTML = `<user-query><div class="query-text">como armar un pitch</div></user-query>
+      <model-response><message-content class="model-response-text">Tablero Kanban interactivo y colaborativo.</message-content></model-response>`;
+  },
+  async play({ document, advance }) {
+    document.body.innerHTML = `<user-query><div class="query-text">como armar un pitch</div></user-query>
+      <model-response><message-content class="model-response-text">Tablero Kanban interactivo y colaborativo.</message-content></model-response>
+      <user-query><div class="query-text">Escribi 3 consejos cortos para el equipo.</div></user-query>
+      <model-response><message-content class="model-response-text">Centralicen la documentacion.</message-content></model-response>
+      <model-response><message-content class="model-response-text">Centralicen la documentacion. Asignen un responsable.</message-content></model-response>`;
+    await advance(8000);
+  },
+});
+const oldReply = reloaded.events.filter((event) => event.texto.includes("Tablero Kanban"));
+if (oldReply.length !== 0) throw new Error(`reenvió historial: ${oldReply.map((event) => event.texto).join(" | ")}`);
+const freshReplies = reloaded.events.filter((event) => event.tipo === "respuesta");
+if (freshReplies.length !== 1 || !freshReplies[0].texto.includes("Asignen un responsable")) {
+  throw new Error(freshReplies.map((event) => event.texto).join(" | ") || "(sin respuesta)");
+}
+const freshPrompts = reloaded.events.filter((event) => event.tipo === "prompt" && event.texto.includes("3 consejos"));
+if (freshPrompts.length !== 1) throw new Error(`prompts ${freshPrompts.length}`);
 
 console.log("capture-flow ok");

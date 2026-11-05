@@ -796,8 +796,6 @@ function EventCard({
   const text = useCopy();
   const [open, setOpen] = useState(false);
   const long = event.text.length > PREVIEW;
-  const body =
-    long && !open ? `${event.text.slice(0, PREVIEW).trimEnd()}…` : event.text;
   const typeLabel =
     event.type === "prompt"
       ? text.typePrompt
@@ -833,8 +831,12 @@ function EventCard({
         {chatName ? (
           <p className="mt-1 text-sm text-muted">{chatName}</p>
         ) : null}
-        <div className="enlaza-md mt-2 text-sm leading-6 break-words">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
+        <div
+          className={`enlaza-activity enlaza-md mt-2 text-sm leading-6 break-words${long && !open ? " enlaza-activity-clamp" : ""}`}
+        >
+          <ReactMarkdown skipHtml remarkPlugins={[remarkGfm]}>
+            {event.text}
+          </ReactMarkdown>
         </div>
         {long ? (
           <button

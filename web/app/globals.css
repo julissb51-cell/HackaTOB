@@ -152,6 +152,11 @@ body {
   font-feature-settings: "liga";
 }
 
+.enlaza-activity { white-space: normal; }
+.enlaza-activity-clamp {
+  max-height: 10.5rem;
+  overflow: hidden;
+}
 .enlaza-md > :first-child { margin-top: 0; }
 .enlaza-md > :last-child { margin-bottom: 0; }
 .enlaza-md p,

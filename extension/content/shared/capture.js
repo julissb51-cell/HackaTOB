@@ -34,6 +34,9 @@
     let armGeneration = 0;
     let liveUntil = 0;
     let titleMemory = { id: "", title: "" };
+    let promptsThisSession = 0;
+    const historyAssistants = new Set();
+    const sentSlots = new Set();
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -101,11 +104,75 @@
       liveUntil = Date.now() + 90000;
     }
 
+    function preferFullTurns(messages) {
+      return messages.filter((message) => {
+        if (message.role !== "assistant") return true;
+        const text = normalize(message.text);
+        return !messages.some((other) => {
+          if (other === message || other.role !== "assistant") return false;
+          const longer = normalize(other.text);
+          return longer.length > text.length && longer.includes(text);
+        });
+      });
+    }
+
+    function assistantSlot(messages, message) {
+      let users = 0;
+      let assistants = 0;
+      for (const item of messages) {
+        if (item.role === "user") {
+          users += 1;
+          assistants = 0;
+          continue;
+        }
+        if (item.role !== "assistant") continue;
+        assistants += 1;
+        if (item === message) return `${users}:${assistants}`;
+      }
+      return "";
+    }
+
+    function rememberAssistantsBefore(messages, userMessage) {
+      promptsThisSession += 1;
+      let list = messages;
+      if (!list) {
+        try {
+          list = listMessages();
+        } catch {
+          list = [];
+        }
+      }
+      let beforePrompt = true;
+      for (const message of list) {
+        if (userMessage && message === userMessage) {
+          beforePrompt = false;
+          continue;
+        }
+        if (beforePrompt && message.role === "assistant" && message.text) {
+          historyAssistants.add(countKey("assistant", message.text));
+        }
+      }
+    }
+
+    function assistantIsNew(message, messages) {
+      if (historyAssistants.has(countKey("assistant", message.text))) return false;
+      const slot = assistantSlot(messages, message);
+      if (slot && sentSlots.has(slot)) return false;
+      if (promptsThisSession > 0) return true;
+      let afterNewPrompt = false;
+      for (const item of messages) {
+        if (item.role === "user" && !reserved.has(countKey("user", item.text))) afterNewPrompt = true;
+        if (item === message) return afterNewPrompt;
+      }
+      return false;
+    }
+
     async function sendLivePrompt(text) {
       const keyName = countKey("user", text);
       if (reserved.has(keyName)) return;
       reserved.add(keyName);
       markLiveTurn();
+      rememberAssistantsBefore(null, null);
       if (settling) {
         const generation = ++armGeneration;
         clearTimeout(armTimer);
@@ -296,6 +363,23 @@
       clearTimeout(armTimer);
       armedKey = key;
       settling = false;
+      try {
+        const messages = listMessages();
+        let lastUser = -1;
+        messages.forEach((message, index) => {
+          if (message.role === "user") lastUser = index;
+        });
+        messages.forEach((message, index) => {
+          if (!message.text) return;
+          const replyJustSent = promptsThisSession > 0 && message.role === "assistant" && index > lastUser;
+          if (replyJustSent) return;
+          reserved.add(countKey(message.role, message.text));
+          nodeSent.set(message.node, normalize(message.text));
+          if (message.role === "assistant") historyAssistants.add(countKey("assistant", message.text));
+        });
+      } catch {
+        // Si el lector falla, el filtro de la sesión igual no reenvía historial.
+      }
       saveSeen(key, [...reserved]);
     }
 
@@ -497,19 +581,31 @@
         reportWatch();
         return;
       }
-      const tail = lastAssistant(messages);
+      const visible = preferFullTurns(messages);
+      const tail = lastAssistant(visible);
       const streaming = isStreaming();
       let nextWait = 0;
-      for (const message of messages) {
+      for (const message of visible) {
         const delay = readyDelay(message, tail, streaming);
         if (!message.text) continue;
         if (site.promptsFromComposer && message.role === "user") continue;
+        if (message.role === "assistant" && !assistantIsNew(message, visible)) {
+          reserve(message.role, message.text);
+          nodeSent.set(message.node, normalize(message.text));
+          continue;
+        }
         if (delay > 0) {
           nextWait = nextWait === 0 ? delay : Math.min(nextWait, delay);
           continue;
         }
-        if (!claim(message, messages)) continue;
-        if (message.role === "user") markLiveTurn();
+        if (!claim(message, visible)) continue;
+        if (message.role === "user") {
+          markLiveTurn();
+          rememberAssistantsBefore(visible, message);
+        } else {
+          const slot = assistantSlot(visible, message);
+          if (slot) sentSlots.add(slot);
+        }
         enqueue({
           tipo: message.role === "user" ? "prompt" : "respuesta",
           texto: core.truncateText(message.text),

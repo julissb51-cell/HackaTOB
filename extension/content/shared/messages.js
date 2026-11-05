@@ -220,6 +220,7 @@
       return inner ? `*${inner}*` : "";
     }
     if (tag === "ul" || tag === "ol") return `\n${renderList(node).trim()}\n`;
+    if (isTableNode(node)) return `\n${renderTable(node).trim()}\n`;
     return renderInlineChildren(node);
   }
 
@@ -250,11 +251,57 @@
     return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   }
 
+  function isTableNode(node) {
+    if (!node || node.nodeType !== 1) return false;
+    const tag = String(node.tagName || "").toLowerCase();
+    const role = node.getAttribute?.("role") || "";
+    return tag === "table" || role === "table" || role === "grid";
+  }
+
+  function isRowNode(node) {
+    const tag = String(node.tagName || "").toLowerCase();
+    const role = node.getAttribute?.("role") || "";
+    return tag === "tr" || role === "row";
+  }
+
+  function isCellNode(node) {
+    const tag = String(node.tagName || "").toLowerCase();
+    const role = node.getAttribute?.("role") || "";
+    return tag === "td" || tag === "th" || role === "cell" || role === "columnheader" || role === "rowheader";
+  }
+
+  function tableRows(table) {
+    const rows = [];
+    const walk = (node) => {
+      for (const child of node.children || []) {
+        if (isRowNode(child)) rows.push(child);
+        else if (!isCellNode(child) && !isTableNode(child)) walk(child);
+      }
+    };
+    walk(table);
+    return rows;
+  }
+
+  function renderTable(table) {
+    const matrix = tableRows(table).map((row) => [...(row.children || [])].filter(isCellNode).map((cell) => renderInline(cell).trim().replace(/\|/g, "\\|").replace(/\n+/g, " ")));
+    const usable = matrix.filter((row) => row.some((cell) => cell));
+    if (!usable.length) return "";
+    const width = Math.max(...usable.map((row) => row.length));
+    const lines = usable.map((row) => {
+      const cells = row.slice();
+      while (cells.length < width) cells.push("");
+      return `| ${cells.join(" | ")} |`;
+    });
+    const rule = `| ${Array.from({ length: width }, () => "---").join(" | ")} |`;
+    lines.splice(1, 0, rule);
+    return `${lines.join("\n")}\n\n`;
+  }
+
   function hasBlockChild(node) {
     for (const child of node.children || []) {
       const tag = String(child.tagName || "").toLowerCase();
-      if (/^(p|ul|ol|pre|blockquote|table|h1|h2|h3|h4|h5|h6|li)$/.test(tag)) return true;
-      if ((tag === "div" || tag === "section") && (hasBlockChild(child) || child.querySelector?.("p, ul, ol, pre"))) return true;
+      if (/^(p|ul|ol|pre|blockquote|table|h1|h2|h3|h4|h5|h6|li)$/.test(tag) || isTableNode(child)) return true;
+      if ((tag === "div" || tag === "section") && (hasBlockChild(child) || child.querySelector?.("p, ul, ol, pre, table"))) return true;
     }
     return false;
   }
@@ -277,6 +324,7 @@
     const tag = String(node.tagName || "").toLowerCase();
     if (tag === "pre") return renderPre(node);
     if (tag === "ul" || tag === "ol") return renderList(node);
+    if (isTableNode(node)) return renderTable(node);
     if (tag === "p" || tag === "blockquote" || /^h[1-6]$/.test(tag)) {
       const inner = renderInline(node).trim();
       return inner ? `${inner}\n\n` : "";
@@ -304,6 +352,7 @@
     const tag = String(node.tagName || "").toLowerCase();
     if (tag === "pre") return tidyMarkdown(renderPre(node));
     if (tag === "ul" || tag === "ol") return tidyMarkdown(renderList(node));
+    if (isTableNode(node)) return tidyMarkdown(renderTable(node));
     const className = typeof node.className === "string" ? node.className : "";
     if (/whitespace-pre/.test(className) && !hasBlockChild(node)) {
       return String(node.innerText || node.textContent || "").replace(/\u00a0/g, " ").trim();

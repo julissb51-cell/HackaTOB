@@ -195,6 +195,22 @@ const richExpected = [
   "2. Pega la **clave**.",
 ].join("\n");
 if (richText !== richExpected) throw new Error(richText);
+const tableDom = parseHTML(`<!doctype html><body>
+  <div class="markdown">
+    <table>
+      <tr><th>Tiempo</th><th>Sección</th><th>Qué debes decir / mostrar</th></tr>
+      <tr><td>0:00 - 0:30</td><td><strong>1. El Gancho</strong></td><td>Presenta una historia breve.</td></tr>
+    </table>
+  </div>
+</body>`);
+const tableText = messages.textFrom(tableDom.document.querySelector(".markdown"), [".markdown"]);
+const tableExpected = [
+  "| Tiempo | Sección | Qué debes decir / mostrar |",
+  "| --- | --- | --- |",
+  "| 0:00 - 0:30 | **1. El Gancho** | Presenta una historia breve. |",
+].join("\n");
+if (tableText !== tableExpected) throw new Error(tableText);
+if (tableText.includes("TiempoSección")) throw new Error(tableText);
 
 const claudeCode = parseHTML(`<!doctype html><body>
   <div data-testid="assistant-message">
