@@ -724,28 +724,70 @@
     return "";
   }
 
-  function assistantFinished(node) {
+  function ownTurn(node) {
     let current = node;
     const seen = new Set();
     while (current && current.nodeType === 1 && !seen.has(current)) {
       seen.add(current);
-      if (current.getAttribute?.("data-talvt-turn-state") === "complete") return true;
-      try {
-        if (current.querySelector?.('button[aria-label="Copy"], button[aria-label="Copiar"]')) return true;
-      } catch {
-        // Un selector inválido no decide si la respuesta terminó.
+      if (
+        current.hasAttribute?.("data-talvt-turn-state") ||
+        current.hasAttribute?.("data-turn-key") ||
+        current.hasAttribute?.("data-content-search-turn-key") ||
+        (current.getAttribute?.("data-testid") || "").startsWith("conversation-turn")
+      ) {
+        return current;
+      }
+      current = current.parentElement;
+    }
+    return node;
+  }
+
+  function isNewChatgptTurn(node) {
+    let current = node;
+    const seen = new Set();
+    while (current && current.nodeType === 1 && !seen.has(current)) {
+      seen.add(current);
+      if (
+        current.hasAttribute?.("data-chatgpt-search-unit-key") ||
+        current.hasAttribute?.("data-talvt-turn-state") ||
+        current.hasAttribute?.("data-dil-source-message-id") ||
+        current.getAttribute?.("data-markdown-text-style") === "assistant-message"
+      ) {
+        return true;
       }
       current = current.parentElement;
     }
     return false;
   }
 
+  function assistantFinished(node) {
+    const turn = ownTurn(node);
+    if (!turn || turn.nodeType !== 1) return false;
+    if (turn.getAttribute?.("data-talvt-turn-state") === "complete") return true;
+    let buttons = [];
+    try {
+      buttons = turn.querySelectorAll?.('button[aria-label="Copy"], button[aria-label="Copiar"]') || [];
+    } catch {
+      buttons = [];
+    }
+    for (const button of buttons) {
+      const label = button.getAttribute?.("aria-label") || "";
+      if (/message|mensaje/i.test(label)) continue;
+      const buttonTurn = button.closest?.("[data-turn-key], [data-content-search-turn-key], [data-testid^='conversation-turn']");
+      if (buttonTurn && buttonTurn !== turn && !turn.contains(button)) continue;
+      return true;
+    }
+    return false;
+  }
+
   function stamp(message) {
     const id = messageIdentity(message.node);
+    const strict = message.role === "assistant" && isNewChatgptTurn(message.node);
     return {
       ...message,
       id,
-      done: message.role !== "assistant" || assistantFinished(message.node),
+      strict,
+      done: strict ? assistantFinished(message.node) : true,
     };
   }
 

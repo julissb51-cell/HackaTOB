@@ -257,6 +257,21 @@ const signed = messages.listChatMessages(signedIn.document, chatgpt);
 const signedLine = signed.map((item) => `${item.role}:${item.id}:${item.text}`).join("|");
 if (signedLine !== "user:msg-user-1:cuantas patas tiene una arana|assistant:msg-a:Una araña tiene 8 patas!") throw new Error(signedLine);
 if (!signed.find((item) => item.role === "assistant")?.done) throw new Error("la respuesta con Copy no está terminada");
+const streamingNext = parseHTML(`<!doctype html><body>
+  <div data-turn-key="old" data-talvt-turn-state="complete">
+    <div data-chatgpt-search-unit-key="fallback-turn-1:1:assistant" data-chatgpt-search-message-ids="old-a">
+      <div data-markdown-text-style="assistant-message">respuesta vieja</div>
+      <button aria-label="Copy"></button>
+    </div>
+  </div>
+  <div data-turn-key="live">
+    <div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="live-a">
+      <div data-markdown-text-style="assistant-message">- Se pueden</div>
+    </div>
+  </div>
+</body>`);
+const liveOnly = messages.listChatMessages(streamingNext.document, chatgpt).find((item) => item.id === "live-a");
+if (!liveOnly || liveOnly.done) throw new Error("el Copy de otro turno marcó esta respuesta como lista");
 
 const claudeCode = parseHTML(`<!doctype html><body>
   <div data-testid="assistant-message">

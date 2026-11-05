@@ -390,4 +390,48 @@ if (newPrompts.length !== 1 || newReplies.length !== 1) {
 }
 if (newPrompts[0].nombre_chat !== "cuantas patas tiene una arana") throw new Error(newPrompts[0].nombre_chat || "(titulo)");
 
+const reloadedLate = await runScenario({
+  startUrl: "https://chatgpt.com/c/arana-real",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  leadMs: 200,
+  async play({ document, advance }) {
+    document.body.innerHTML = `<div data-turn-key="u1"><div data-chatgpt-search-unit-key="fallback-turn-1:0:user" data-chatgpt-search-message-ids="u1"><div data-user-message-bubble="true"><div class="whitespace-pre-wrap">primera pregunta</div></div></div></div>
+      <div data-turn-key="a1" data-talvt-turn-state="complete"><div data-chatgpt-search-unit-key="fallback-turn-1:1:assistant" data-chatgpt-search-message-ids="a1"><div data-markdown-text-style="assistant-message">primera respuesta</div><button aria-label="Copy"></button></div></div>
+      <div data-turn-key="u2"><div data-chatgpt-search-unit-key="fallback-turn-2:0:user" data-chatgpt-search-message-ids="u2"><div data-user-message-bubble="true"><div class="whitespace-pre-wrap">segunda pregunta</div></div></div></div>
+      <div data-turn-key="a2" data-talvt-turn-state="complete"><div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="a2"><div data-markdown-text-style="assistant-message">segunda respuesta</div><button aria-label="Copy"></button></div></div>`;
+    await advance(4000);
+    document.body.insertAdjacentHTML("beforeend", `<div data-turn-key="u3"><div data-chatgpt-search-unit-key="fallback-turn-3:0:user" data-chatgpt-search-message-ids="u3"><div data-user-message-bubble="true"><div class="whitespace-pre-wrap">pregunta nueva</div></div></div></div>
+      <div data-turn-key="a3" data-talvt-turn-state="complete"><div data-chatgpt-search-unit-key="fallback-turn-3:1:assistant" data-chatgpt-search-message-ids="a3"><div data-markdown-text-style="assistant-message">respuesta nueva completa</div><button aria-label="Copy"></button></div></div>`);
+    await advance(8000);
+  },
+});
+if (reloadedLate.events.some((event) => /primera|segunda/.test(event.texto))) {
+  throw new Error(`reenvió historial: ${reloadedLate.events.map((event) => event.texto).join(" | ")}`);
+}
+if (reloadedLate.events.filter((event) => event.texto.includes("pregunta nueva")).length !== 1) throw new Error("falta el prompt nuevo");
+if (reloadedLate.events.filter((event) => event.texto.includes("respuesta nueva completa")).length !== 1) throw new Error("falta la respuesta nueva");
+
+const cutOff = await runScenario({
+  startUrl: "https://chatgpt.com/c/jupiter",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  leadMs: 4000,
+  async play({ document, advance }) {
+    document.body.innerHTML = `<div data-turn-key="uj"><div data-chatgpt-search-unit-key="fallback-turn-1:0:user" data-chatgpt-search-message-ids="uj"><div data-user-message-bubble="true"><div class="whitespace-pre-wrap">y en jupiter?</div></div></div></div>
+      <div data-turn-key="aj"><div data-chatgpt-search-unit-key="fallback-turn-1:1:assistant" data-chatgpt-search-message-ids="aj"><div data-markdown-text-style="assistant-message">- Se pueden</div></div></div>`;
+    await advance(4000);
+    const box = document.querySelector('[data-markdown-text-style="assistant-message"]');
+    box.textContent = "- Se pueden ver los anillos y las lunas.";
+    box.parentElement.insertAdjacentHTML("beforeend", '<button aria-label="Copy"></button>');
+    box.parentElement.setAttribute("data-talvt-turn-state", "complete");
+    await advance(3000);
+  },
+});
+const partial = cutOff.events.filter((event) => event.tipo === "respuesta" && event.texto.includes("Se pueden") && !event.texto.includes("anillos"));
+const full = cutOff.events.filter((event) => event.tipo === "respuesta" && event.texto.includes("anillos"));
+if (partial.length !== 0 || full.length !== 1) {
+  throw new Error(cutOff.events.map((event) => `${event.tipo}:${event.texto}`).join(" || ") || "(nada)");
+}
+
 console.log("capture-flow ok");

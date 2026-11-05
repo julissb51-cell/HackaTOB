@@ -37,6 +37,7 @@
     let promptsThisSession = 0;
     const historyAssistants = new Set();
     const sentSlots = new Set();
+    const bootAt = Date.now();
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -160,18 +161,43 @@
     }
 
     function assistantIsNew(message, messages) {
-      if (historyAssistants.has(messageKey(message))) return false;
+      if (alreadySeen(message)) return false;
       const slot = assistantSlot(messages, message);
       if (slot && sentSlots.has(slot)) return false;
       return true;
     }
 
-    function freezeMessage(message) {
+    function rememberMessage(message) {
       if (!message?.text) return;
-      const keyName = messageKey(message);
-      reserved.add(keyName);
-      if (message.role === "assistant") historyAssistants.add(keyName);
+      const textKey = countKey(message.role, message.text);
+      reserved.add(textKey);
+      historyAssistants.add(textKey);
+      if (message.id) {
+        const idKey = messageKey(message);
+        reserved.add(idKey);
+        historyAssistants.add(idKey);
+      }
       nodeSent.set(message.node, normalize(message.text));
+    }
+
+    function alreadySeen(message) {
+      if (historyAssistants.has(countKey(message.role, message.text))) return true;
+      if (message.id && historyAssistants.has(messageKey(message))) return true;
+      if (reserved.has(countKey(message.role, message.text))) return true;
+      if (message.id && reserved.has(messageKey(message))) return true;
+      return false;
+    }
+
+    function freezeMessage(message) {
+      rememberMessage(message);
+    }
+
+    function freezeOnScreen() {
+      if (Date.now() < liveUntil || promptsThisSession > 0) return;
+      if (Date.now() - bootAt > 3000) return;
+      const messages = safeMessages().filter((message) => message.text);
+      if (!messages.length || looksLikeFirstTurn(messages)) return;
+      for (const message of messages) freezeMessage(message);
     }
 
     async function sendLivePrompt(text) {
@@ -575,6 +601,11 @@
       }
       if (!message.text) return 400;
       const age = Date.now() - state.lastChange;
+      if (message.role === "assistant" && message.strict) {
+        if (!message.done) return 400;
+        if (age < 1500) return 1500 - age;
+        return 0;
+      }
       if (message.role === "assistant" && message.done) {
         if (age < 300) return 300 - age;
         return 0;
@@ -594,7 +625,7 @@
     function claim(message, messages) {
       const previous = nodeSent.get(message.node);
       const next = normalize(message.text);
-      if (message.id && reserved.has(messageKey(message))) {
+      if (alreadySeen(message)) {
         nodeSent.set(message.node, next);
         return false;
       }
@@ -605,12 +636,8 @@
         nodeSent.set(message.node, next);
         return false;
       }
-      if (message.id) {
-        reserved.add(messageKey(message));
-      } else if (!reserve(message.role, message.text)) {
-        nodeSent.set(message.node, next);
-        return false;
-      }
+      rememberMessage(message);
+      saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
       nodeSent.set(message.node, next);
       return true;
     }
@@ -621,6 +648,7 @@
         reportWatch();
         return;
       }
+      freezeOnScreen();
       noteConversationChange();
       attachShadows(document);
       let messages = [];
