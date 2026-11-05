@@ -8,7 +8,8 @@
     ia: "chatgpt",
     turnSelectors: [
       "[data-turn-key]",
-      "[data-testid^='conversation-turn-']",
+      "article[data-testid^='conversation-turn']",
+      "[data-testid^='conversation-turn']",
       "article[data-turn]",
       "[data-turn='user']",
       "[data-turn='assistant']",
@@ -44,7 +45,7 @@
       'button[aria-label="Stop generating"]',
       'button[aria-label="Detener respuesta"]',
       'button[aria-label="Detener la respuesta"]',
-      'button[aria-label="Detener"]',
+      'button[aria-label="Detener generación"]',
     ],
     sendSelectors: [
       'button[data-testid="send-button"]',

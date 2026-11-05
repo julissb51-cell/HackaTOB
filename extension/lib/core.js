@@ -146,9 +146,18 @@
     return clipPlain(found || "", 80);
   }
 
+  function isGenericSiteTitle(title) {
+    const value = stripControl(title).replace(/\s+/g, " ").trim().toLowerCase();
+    if (!value) return true;
+    if (/^(chatgpt|google gemini|gemini|claude|grok|copilot|microsoft copilot|nuevo chat|new chat|chat|inicio|home)$/i.test(value)) return true;
+    if (/chatgpt/.test(value) && /create/.test(value) && /code/.test(value)) return true;
+    if (/^chatgpt\s*:/.test(value) && /chat/.test(value) && /work/.test(value)) return true;
+    return false;
+  }
+
   function chatNameFrom(title, text) {
     let name = stripControl(title).replace(/\s[-|–—]\s*(ChatGPT|Gemini|Google Gemini|Claude|Grok|Microsoft Copilot|Copilot).*/i, "").trim();
-    if (/^(chatgpt|google gemini|gemini|claude|grok|copilot|microsoft copilot|nuevo chat|new chat|chat|inicio|home)$/i.test(name)) name = "";
+    if (isGenericSiteTitle(name) || isGenericSiteTitle(title)) name = "";
     if (!name) name = stripControl(text).trim().split("\n")[0] || "";
     return clipPlain(name, 80);
   }

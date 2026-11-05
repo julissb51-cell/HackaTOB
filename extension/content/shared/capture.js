@@ -341,9 +341,12 @@
     }
 
     function looksLikeFirstTurn(messages) {
-      const users = messages.filter((message) => message.role === "user" && message.text).length;
-      const assistants = messages.filter((message) => message.role === "assistant" && message.text).length;
-      return users <= 1 && assistants <= 1;
+      const users = new Set();
+      for (const message of messages) {
+        if (message.role === "user" && message.text) users.add(normalize(message.text));
+      }
+      // Varias cajas de la misma respuesta (mientras escribe) no son un chat viejo.
+      return users.size < 2;
     }
 
     function noteConversationChange() {
@@ -561,8 +564,9 @@
 
     function readyDelay(message, tail, streaming) {
       const state = stateFor(message.node);
-      if (message.text !== state.lastText) {
-        state.lastText = message.text;
+      const comparable = normalize(message.text).replace(/[\u2580-\u259F\u25A0-\u25FF\u2800-\u28FF]+$/g, "").trim();
+      if (comparable !== state.lastText) {
+        state.lastText = comparable;
         state.lastChange = Date.now();
       }
       if (!message.text) return 400;

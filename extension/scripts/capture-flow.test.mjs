@@ -312,4 +312,38 @@ if (oldChat.events.length !== 0) {
   throw new Error(`un chat viejo no debe vaciarse al abrirlo: ${oldChat.events.map((event) => event.texto).join(" | ")}`);
 }
 
+const loggedOut = await runScenario({
+  startUrl: "https://chatgpt.com/",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  leadMs: 350,
+  async play({ document, location, advance }) {
+    document.title = "ChatGPT: Chat, Work, Create & Code with AI";
+    location.href = "https://chatgpt.com/c/arana-1";
+    document.body.innerHTML = `<article data-testid="conversation-turn-2">
+        <div data-message-author-role="user"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+      </article>
+      <article data-testid="conversation-turn-3">
+        <div data-message-author-role="assistant"><div class="markdown">Una</div></div>
+        <button data-testid="stop-button" aria-label="Stop streaming"></button>
+      </article>
+      <article data-testid="conversation-turn-4">
+        <div data-message-author-role="assistant"><div class="markdown">Una araña tiene 8 patas!</div></div>
+      </article>`;
+    await advance(500);
+    const stop = document.querySelector('[data-testid="stop-button"]');
+    if (stop) stop.remove();
+    document.querySelectorAll(".markdown")[1].textContent = "Una araña tiene 8 patas!";
+    await advance(8000);
+  },
+});
+const spiderPrompts = loggedOut.events.filter((event) => event.tipo === "prompt" && event.texto.includes("cuantas patas tiene una arana"));
+const spiderReplies = loggedOut.events.filter((event) => event.tipo === "respuesta" && event.texto.includes("8 patas"));
+if (spiderPrompts.length !== 1 || spiderReplies.length !== 1) {
+  throw new Error(loggedOut.events.map((event) => `${event.tipo}:${event.texto}`).join(" || ") || "(nada)");
+}
+if (spiderPrompts[0].nombre_chat !== "cuantas patas tiene una arana") {
+  throw new Error(spiderPrompts[0].nombre_chat || "(sin titulo)");
+}
+
 console.log("capture-flow ok");

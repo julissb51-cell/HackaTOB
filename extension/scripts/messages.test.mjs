@@ -100,6 +100,8 @@ const staleTitle = core.chooseChatTitle({
   previous: { id: "chat-1", title: "Definición de hackatón" },
 });
 if (staleTitle !== "") throw new Error(staleTitle);
+const genericPage = core.deriveChatFields("cuantas patas tiene una arana", "ChatGPT: Chat, Work, Create & Code with AI");
+if (genericPage.nombre_chat !== "cuantas patas tiene una arana") throw new Error(genericPage.nombre_chat);
 const freshTitle = core.chooseChatTitle({
   pageTitle: "Definición de hackatón - ChatGPT",
   domTitle: "Conectar Supabase",
@@ -211,6 +213,17 @@ const tableExpected = [
 ].join("\n");
 if (tableText !== tableExpected) throw new Error(tableText);
 if (tableText.includes("TiempoSección")) throw new Error(tableText);
+const loggedOut = parseHTML(`<!doctype html><body>
+  <article data-testid="conversation-turn-2">
+    <div data-message-author-role="user"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+  </article>
+  <article data-testid="conversation-turn-3">
+    <div data-message-author-role="assistant"><div class="markdown">Una araña tiene 8 patas!</div></div>
+    <button data-testid="stop-button" aria-label="Stop streaming"></button>
+  </article>
+</body>`);
+const loggedLine = messages.listChatMessages(loggedOut.document, chatgpt).map((item) => `${item.role}:${item.text}`).join("|");
+if (loggedLine !== "user:cuantas patas tiene una arana|assistant:Una araña tiene 8 patas!") throw new Error(loggedLine);
 
 const claudeCode = parseHTML(`<!doctype html><body>
   <div data-testid="assistant-message">
