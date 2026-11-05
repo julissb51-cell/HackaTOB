@@ -231,4 +231,82 @@ if (freshReplies.length !== 1 || !freshReplies[0].texto.includes("Asignen un res
 const freshPrompts = reloaded.events.filter((event) => event.tipo === "prompt" && event.texto.includes("3 consejos"));
 if (freshPrompts.length !== 1) throw new Error(`prompts ${freshPrompts.length}`);
 
+const freshChat = [
+  {
+    label: "chatgpt nuevo",
+    ia: "chatgpt",
+    startUrl: "https://chatgpt.com/",
+    nextUrl: "https://chatgpt.com/c/nuevo-1",
+    selectors: "content/chatgpt/selectors.js",
+    siteName: "EnlazaChatgptSite",
+    prompt: "que es una hackaton",
+    reply: "Una hackaton es un evento corto.",
+    html(prompt, reply) {
+      return `<div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">${prompt}</div></div></div>
+        <div data-turn="assistant"><div class="markdown">${reply}</div></div>`;
+    },
+  },
+  {
+    label: "gemini nuevo",
+    ia: "gemini",
+    startUrl: "https://gemini.google.com/app",
+    nextUrl: "https://gemini.google.com/app/nuevo-1",
+    selectors: "content/gemini/selectors.js",
+    siteName: "EnlazaGeminiSite",
+    prompt: "como armar un pitch",
+    reply: "Empieza por el problema.",
+    html(prompt, reply) {
+      return `<user-query><div class="query-text">${prompt}</div></user-query>
+        <model-response><message-content class="model-response-text">${reply}</message-content></model-response>`;
+    },
+  },
+  {
+    label: "claude nuevo",
+    ia: "claude",
+    startUrl: "https://claude.ai/new",
+    nextUrl: "https://claude.ai/chat/6aea3d77-c8d8-83e8-ada3-561359e03e25",
+    selectors: "content/claude/selectors.js",
+    siteName: "EnlazaClaudeSite",
+    prompt: "resumi en 3 pasos supabase",
+    reply: "Instala, crea el env y conecta.",
+    html(prompt, reply) {
+      return `<div data-testid="user-message">${prompt}</div>
+        <div data-testid="assistant-message"><div class="standard-markdown">${reply}</div></div>`;
+    },
+  },
+];
+for (const site of freshChat) {
+  const run = await runScenario({
+    startUrl: site.startUrl,
+    selectors: site.selectors,
+    siteName: site.siteName,
+    async play({ document, location, advance }) {
+      location.href = site.nextUrl;
+      document.body.innerHTML = site.html(site.prompt, site.reply);
+      await advance(8000);
+    },
+  });
+  assertEvents(run.events, [
+    { ia: site.ia, tipo: "prompt", text: site.prompt },
+    { ia: site.ia, tipo: "respuesta", text: site.reply },
+  ], site.label);
+}
+
+const oldChat = await runScenario({
+  startUrl: "https://chatgpt.com/",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  async play({ document, location, advance }) {
+    location.href = "https://chatgpt.com/c/viejo";
+    document.body.innerHTML = `<div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">primer tema</div></div></div>
+      <div data-turn="assistant"><div class="markdown">respuesta vieja uno</div></div>
+      <div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">segundo tema</div></div></div>
+      <div data-turn="assistant"><div class="markdown">respuesta vieja dos</div></div>`;
+    await advance(8000);
+  },
+});
+if (oldChat.events.length !== 0) {
+  throw new Error(`un chat viejo no debe vaciarse al abrirlo: ${oldChat.events.map((event) => event.texto).join(" | ")}`);
+}
+
 console.log("capture-flow ok");

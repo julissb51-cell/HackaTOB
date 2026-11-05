@@ -342,6 +342,20 @@
       }
     }
 
+    function safeMessages() {
+      try {
+        return listMessages();
+      } catch {
+        return [];
+      }
+    }
+
+    function looksLikeFirstTurn(messages) {
+      const users = messages.filter((message) => message.role === "user" && message.text).length;
+      const assistants = messages.filter((message) => message.role === "assistant" && message.text).length;
+      return users <= 1 && assistants <= 1;
+    }
+
     function noteConversationChange() {
       const key = site.conversationId(location.href) || "";
       if (armedKey === null) {
@@ -349,20 +363,30 @@
         return;
       }
       if (key === armedKey) return;
-      // El id nuevo justo después del prompt es el chat que se acaba de crear.
-      // No se marca la respuesta como ya vista: eso la borraba en ChatGPT y Gemini.
+      const createdNow = armedKey === "" && key;
+      const messages = safeMessages();
+      // / , /app o /new pasan a /c/id, /app/id o /chat/id con el primer turno ya pintado.
+      // Si eso se toma como historial, el prompt y la respuesta no salen.
+      if (createdNow && (Date.now() < liveUntil || looksLikeFirstTurn(messages))) {
+        adoptConversation(key, true);
+        return;
+      }
       if (Date.now() < liveUntil) {
-        adoptConversation(key);
+        adoptConversation(key, false);
         return;
       }
       beginBaseline(key);
     }
 
-    function adoptConversation(key) {
+    function adoptConversation(key, freshTurn) {
       armGeneration += 1;
       clearTimeout(armTimer);
       armedKey = key;
       settling = false;
+      if (freshTurn) {
+        saveSeen(key, [...reserved]);
+        return;
+      }
       try {
         const messages = listMessages();
         let lastUser = -1;
