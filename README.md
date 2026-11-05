@@ -6,7 +6,7 @@ HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 - **App en vivo:** [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app)
 - **X:** [@enlazaxyz](https://x.com/enlazaxyz)
-- **Video:** próximamente
+- **Video:** próximamente (enlace pendiente). Coming soon (link pending).
 
 ---
 
@@ -30,7 +30,7 @@ Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio
 - **Lo que dicen los usuarios:**
   - En el [foro oficial de OpenAI](https://community.openai.com/t/feature-request-collaborative-projects-with-multiple-users-their-personal-chatgpts/1397310/2) piden no tener que «sincronizar a mano» dos conversaciones paralelas.
   - En [Hacker News](https://news.ycombinator.com/item?id=48841133) cuentan que un compañero «había hecho una función idéntica» mientras otro tomaba una decisión contradictoria.
-- **Lo que hacen las grandes empresas:** OpenAI ya ofrece [proyectos compartidos](https://academy.openai.com/en/public/clubs/work-users-ynjqu/resources/projects) «en lugar de copiar y pegar entre chats», pero solo dentro de ChatGPT y en planes de pago. **Enlaza funciona entre IAs distintas y es gratis.**
+- **Lo que hace ChatGPT:** el [Centro de ayuda de OpenAI](https://help.openai.com/en/articles/10169521-projects-in-chatgpt) dice que compartir un proyecto está en todos los planes, incluido Free: hasta 5 personas y 5 archivos. Eso sigue dentro de ChatGPT. **Enlaza coordina el trabajo cuando cada persona usa una IA distinta** (en la demo, ChatGPT, Gemini y Claude; Cursor en Windows con un gancho).
 - A nosotros también nos pasó en hackatones anteriores.
 
 **Antes:** cada persona trabaja a ciegas y los errores aparecen al final. **Con Enlaza:** el equipo trabaja en una sala compartida, y una IA analista avisa a tiempo de las contradicciones, el trabajo duplicado y las partes faltantes.
@@ -41,7 +41,7 @@ Enlaza es una **sala compartida** para un equipo que arma un proyecto con IAs di
 
 El ejemplo: **Josué, Ana, Luis y Sofía** hacen con IA una app para dividir los gastos entre roommates. Josué define el producto, Ana escribe el flujo, Luis programa y Sofía arma la interfaz. Cada uno usa una IA distinta. Enlaza les muestra si se repiten, si se contradicen y qué les falta.
 
-Sirve para **ChatGPT, Gemini, Claude, Copilot y Cursor**.
+Sirve para **ChatGPT, Gemini, Claude y Cursor**. Copilot no entra en esta demo.
 
 ## Cómo funciona
 
@@ -63,7 +63,7 @@ Sirve para **ChatGPT, Gemini, Claude, Copilot y Cursor**.
 ```mermaid
 flowchart LR
   subgraph Navegador
-    ext["Extensión MV3<br/>ChatGPT · Gemini · Claude · Copilot"]
+    ext["Extensión MV3<br/>ChatGPT · Gemini · Claude"]
     web["Sala web<br/>Next.js"]
   end
   cursor["Gancho de Cursor"]
@@ -119,7 +119,7 @@ También están el inicio y la sala en claro y oscuro:
 1. Abrí `chrome://extensions` o `edge://extensions`.
 2. Activá el **Modo de desarrollador**.
 3. Pulsá **Cargar extensión sin empaquetar** y elegí la carpeta `extension/` de este repo.
-4. Recargá las pestañas de ChatGPT, Gemini, Claude o Copilot.
+4. Recargá las pestañas de ChatGPT, Gemini o Claude.
 5. En la web, copiá el enlace de invitación de tu sala.
 6. Abrí el popup de Enlaza, pegá ese enlace, escribí tu nombre y pulsá **Conectar**.
 
@@ -184,10 +184,11 @@ Pruebas: `npm test`, `npm run lint` y `npm run build`. Más detalle en [web/READ
 
 ## Modelo de negocio (propuesta)
 
-> Es una propuesta para la hackathon. Todavía no está validada con clientes.
+> Es una propuesta para la hackathon. Todavía no está validada con clientes. Estos precios no están en el producto.
 
 - **Gratis** para un equipo con una sala.
 - **Suscripción mensual** cuando necesitan más salas, más integrantes o más IAs conectadas.
+- **Panel para docentes:** idea futura, no construida. Si algún día se valida, sería una licencia para universidades en la que el docente ve el avance de cada grupo.
 
 ## Riesgos
 
@@ -207,7 +208,7 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 
 ## Limitaciones
 
-- La extensión lee ChatGPT, Gemini, Claude y Copilot en el navegador. Si esas páginas cambian, hay que ajustar los selectores.
+- La demo de la extensión cubre ChatGPT, Gemini y Claude en el navegador. Copilot no entra en la demo. Si esas páginas cambian, hay que ajustar los selectores.
 - Cursor no se captura con la extensión. En Windows se usa el gancho de `cursor-hook/`. Hay scripts de ganchos para Claude Code en `extension/hooks/`, aparte del manifiesto.
 - Borrar un archivo pide la sesión de Google de quien lo agregó o del dueño de la sala. El enlace de invitación no alcanza para borrarlo.
 - El análisis depende del nivel gratuito de Gemini, que tiene cupo.
@@ -222,7 +223,7 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 
 ## English summary
 
-**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor): vibe coders, or a group shipping an MVP. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
+**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, and Cursor): vibe coders, or a group shipping an MVP. Copilot is not part of this demo. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing only: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. A teacher panel for universities is a future idea and is not built. ChatGPT project sharing is on every plan, including Free (up to 5 people and 5 files; [OpenAI Help Center](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)). Enlaza coordinates work across different AIs. Demo video: coming soon (link pending). Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
 
 ## Licencia
 

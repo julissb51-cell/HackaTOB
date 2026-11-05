@@ -57,6 +57,18 @@ export function Landing() {
           </div>
         ))}
       </section>
+      <section aria-label={t.valueLabel} className="mx-auto mt-8 w-full max-w-3xl rounded-3xl border border-line bg-surface/80 px-6 py-5 backdrop-blur-sm sm:px-8">
+        <div className="grid gap-4 text-left sm:grid-cols-2 sm:gap-8">
+          <div>
+            <h2 className="text-[13px] font-medium text-link">{t.valueWhoLabel}</h2>
+            <p className="mt-1.5 text-[15px] leading-6">{t.valueWho}</p>
+          </div>
+          <div>
+            <h2 className="text-[13px] font-medium text-link">{t.valuePlanLabel}</h2>
+            <p className="mt-1.5 text-[15px] leading-6 text-muted">{t.valuePlan}</p>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
