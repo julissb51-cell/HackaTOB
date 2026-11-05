@@ -374,6 +374,22 @@
         selector: answer.selector || reply.getAttribute?.("data-testid") || "",
       });
     }
+    const seenAssistant = new Set(messages.filter((message) => message.role === "assistant").map((message) => normalizeMessageText(message.text)));
+    const userTexts = new Set(messages.filter((message) => message.role === "user").map((message) => normalizeMessageText(message.text)));
+    for (const node of collect(root, site.assistantSelectors, false)) {
+      if (insideUserTurn(node)) continue;
+      const answer = readText(node, site.assistantTextSelectors);
+      const text = answer.text || plain(node);
+      const norm = normalizeMessageText(text);
+      if (!norm || userTexts.has(norm) || seenAssistant.has(norm)) continue;
+      seenAssistant.add(norm);
+      messages.push({
+        node,
+        role: "assistant",
+        text,
+        selector: answer.selector || node.getAttribute?.("data-testid") || "",
+      });
+    }
     return messages;
   }
 

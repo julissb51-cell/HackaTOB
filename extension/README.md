@@ -13,7 +13,7 @@ En Chrome o en Edge:
 3. Elegí **Cargar extensión sin empaquetar** (Load unpacked).
 4. Seleccioná la carpeta `extension` de este repo, la que tiene `manifest.json`.
 
-No hace falta compilar. La versión actual es 1.6.8. Si ChatGPT, Gemini, Claude o Copilot ya estaban abiertos, recargá esas pestañas.
+No hace falta compilar. La versión actual es 1.6.9. Si ChatGPT, Gemini, Claude o Copilot ya estaban abiertos, recargá esas pestañas.
 
 <!-- TODO: captura de edge://extensions con Enlaza cargada -->
 ![Extensión cargada](docs/extensiones.png)
@@ -117,7 +117,7 @@ En Windows hace falta `node` en el PATH. Si el envío falla, el error queda en s
 
 - **El ícono muestra !** y el panel dice que el token no es válido. El enlace no corresponde a la sala. Pegá de nuevo el enlace de invitación y conectá.
 - **Eventos enviados no sube** después de un prompt nuevo. Recargá la pestaña del chat (F5). El panel debe decir que ChatGPT o Gemini ve mensajes. Si dice que no está el lector, en Extensiones pulsá **Actualizar** en Enlaza y volvé a recargar el chat.
-- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.6.8. Después recargá ChatGPT, Gemini, Claude y Copilot. Si Copilot no manda la respuesta, en la consola de la página pegá `await __enlazaDebug()` y mandá el JSON.
+- **Actualizaste el código** con `git pull`. En `edge://extensions` o `chrome://extensions`, pulsá **Actualizar**. La versión tiene que decir 1.6.9. Después recargá ChatGPT, Gemini, Claude y Copilot. Si Copilot no manda la respuesta, en la consola de la página pegá `await __enlazaDebug()` y mandá el JSON.
 - **Insertar no pone el texto.** La pestaña activa tiene que ser ChatGPT o Gemini, y el chat tiene que estar recargado después de instalar.
 
 ## Limitaciones

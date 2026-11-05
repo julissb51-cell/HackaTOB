@@ -7,7 +7,7 @@
   globalThis.EnlazaCopilotSite = {
     ia: "copilot",
     pairTurns: true,
-    promptsFromDomOnly: true,
+    promptsFromComposer: true,
     stableMs: 1500,
     placeholders: ["enviar un mensaje a copilot"],
     userSelectors: [

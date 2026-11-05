@@ -83,7 +83,7 @@ if (geminiSite.userSelectors[0] !== "user-query") throw new Error("prompt gemini
 if (geminiSite.assistantSelectors[0] !== "model-response") throw new Error("respuesta gemini");
 if (copilotSite.streamingSelectors[0] !== '[data-testid="loading-message"]') throw new Error("carga copilot");
 if (copilotSite.pairTurns !== true) throw new Error("pareo copilot");
-if (copilotSite.promptsFromDomOnly !== true) throw new Error("prompt solo del lector");
+if (copilotSite.promptsFromComposer !== true) throw new Error("prompt desde el enter");
 if (messages.normalizeMessageText("prueba final\n\nprueba final") !== "prueba final") throw new Error("texto gemelo");
 if (messages.seenKey("user", "prueba final") !== messages.seenKey("user", "prueba final\n\nprueba final")) throw new Error("hash gemelo");
 if (copilotSite.stableMs !== 1500) throw new Error("espera copilot");
@@ -218,6 +218,11 @@ const msDom = parseHTML(`<!doctype html><body>
 </body>`);
 const msLine = messages.listChatMessages(msDom.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
 if (msLine !== "user:probando una vez más|assistant:Listo, ya quedó.") throw new Error(msLine);
+const onlyReply = parseHTML(`<!doctype html><body>
+  <div data-content="assistant"><div class="ac-textBlock">Respuesta sola.</div></div>
+</body>`);
+const onlyLine = messages.listChatMessages(onlyReply.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (onlyLine !== "assistant:Respuesta sola.") throw new Error(onlyLine);
 if (copilotSite.conversationId("https://copilot.microsoft.com/chats/6aea3d77-c8d8-83e8-ada3-561359e03e25") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
   throw new Error("conversation microsoft");
 }

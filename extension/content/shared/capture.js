@@ -394,6 +394,7 @@
       for (const message of messages) {
         const delay = readyDelay(message, tail, streaming);
         if (!message.text) continue;
+        if (site.promptsFromComposer && message.role === "user") continue;
         if (delay > 0) {
           nextWait = nextWait === 0 ? delay : Math.min(nextWait, delay);
           continue;
@@ -551,12 +552,10 @@
       const root = document.documentElement || document.body;
       if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
       pollTimer = setInterval(scan, 1000);
-      if (!site.promptsFromDomOnly) {
-        document.addEventListener("keydown", onComposerKey, true);
-        document.addEventListener("click", onComposerClick, true);
-        document.addEventListener("submit", onComposerSubmit, true);
-      }
+      document.addEventListener("keydown", onComposerKey, true);
+      document.addEventListener("click", onComposerClick, true);
       document.addEventListener("input", onComposerInput, true);
+      document.addEventListener("submit", onComposerSubmit, true);
       installPageDebug();
       refreshActive();
       reportWatch();
