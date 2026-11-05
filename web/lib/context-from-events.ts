@@ -1,4 +1,5 @@
 import type { ContextResponse, MemberRecord, RoomInfo, RoomWarning, StoredEvent } from "./room-types";
+import { storageConflicts } from "./storage-conflict";
 
 const STOP = new Set([
   "sobre",
@@ -142,7 +143,13 @@ function buildWarnings(
 
   warnings.push(...contradictions(memberName, members, events));
   warnings.push(...duplicates(memberName, part, members, events));
-  return warnings.slice(0, 8);
+  const mine = memberName.toLocaleLowerCase("es");
+  const storage = storageConflicts({
+    room: { language: "es" },
+    members,
+    events,
+  }).filter((warning) => warning.destinatario.toLocaleLowerCase("es") === mine);
+  return [...storage, ...warnings].slice(0, 8);
 }
 
 function contradictions(memberName: string, members: MemberRecord[], events: StoredEvent[]): RoomWarning[] {

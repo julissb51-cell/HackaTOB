@@ -18,7 +18,7 @@ function assertEvents(events, expected, label) {
   }
 }
 
-async function runScenario({ startUrl, selectors, siteName, play, trackScripts, prepare, leadMs = 5000 }) {
+async function runScenario({ startUrl, selectors, siteName, play, trackScripts, prepare, leadMs = 5000, session = { connected: true, consent: true, member: "Ana" } }) {
   const { window } = parseHTML("<!doctype html><html><head></head><body></body></html>");
   const document = window.document;
   const events = [];
@@ -26,7 +26,7 @@ async function runScenario({ startUrl, selectors, siteName, play, trackScripts, 
   let now = 1_000_000;
   let seq = 1;
   let scripts = 0;
-  const store = { session: { connected: true, consent: true, member: "Ana" } };
+  const store = { session };
   const location = { href: startUrl };
   const realCreate = document.createElement.bind(document);
   document.createElement = (tag, options) => {
@@ -432,6 +432,23 @@ const partial = cutOff.events.filter((event) => event.tipo === "respuesta" && ev
 const full = cutOff.events.filter((event) => event.tipo === "respuesta" && event.texto.includes("anillos"));
 if (partial.length !== 0 || full.length !== 1) {
   throw new Error(cutOff.events.map((event) => `${event.tipo}:${event.texto}`).join(" || ") || "(nada)");
+}
+
+const noConsent = await runScenario({
+  startUrl: "https://chatgpt.com/",
+  selectors: "content/chatgpt/selectors.js",
+  siteName: "EnlazaChatgptSite",
+  leadMs: 400,
+  session: { connected: true, consent: false, member: "Ana" },
+  async play({ document, location, advance }) {
+    location.href = "https://chatgpt.com/c/sin-consentimiento";
+    document.body.innerHTML = `<div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">prompt sin consentimiento</div></div></div>
+      <div data-turn="assistant"><div class="markdown">respuesta sin consentimiento</div></div>`;
+    await advance(8000);
+  },
+});
+if (noConsent.events.length !== 0) {
+  throw new Error(`sin consentimiento no se captura: ${noConsent.events.map((event) => event.texto).join(" | ")}`);
 }
 
 console.log("capture-flow ok");

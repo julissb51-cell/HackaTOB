@@ -1,0 +1,55 @@
+{
+  "label": "Muestra de ensayo local. No es una sala de producción y no se envía a ningún servidor.",
+  "room": {
+    "id": "ensayo-local",
+    "topic": "Sistema de gestión de biblioteca (muestra)",
+    "dueDate": "2026-11-06",
+    "parts": ["Informe escrito", "Código", "Presentación"],
+    "language": "es"
+  },
+  "members": [
+    { "name": "Ana", "part": "Informe escrito" },
+    { "name": "Luis", "part": "Código" },
+    { "name": "Sofía", "part": "Presentación" }
+  ],
+  "conflict": [
+    {
+      "member": "Luis",
+      "ai": "gemini",
+      "type": "prompt",
+      "text": "Quiero guardar los datos de la biblioteca en SQLite. Dame el script para crear las tablas libros, socios y prestamos."
+    },
+    {
+      "member": "Luis",
+      "ai": "gemini",
+      "type": "respuesta",
+      "text": "CREATE TABLE libros (isbn TEXT PRIMARY KEY); CREATE TABLE socios (id INTEGER PRIMARY KEY); CREATE TABLE prestamos (isbn TEXT, socio_id INTEGER). Usa el módulo sqlite3 y el archivo biblioteca.db."
+    },
+    {
+      "member": "Ana",
+      "ai": "chatgpt",
+      "type": "prompt",
+      "text": "Redacta la sección de diseño del informe: cómo se guardan los datos del sistema de biblioteca."
+    },
+    {
+      "member": "Ana",
+      "ai": "chatgpt",
+      "type": "respuesta",
+      "text": "Los datos se guardan en un archivo datos.json con las listas libros, usuarios y prestamos. Se eligió JSON porque no requiere instalar un motor de base de datos."
+    }
+  ],
+  "resolution": [
+    {
+      "member": "Ana",
+      "ai": "chatgpt",
+      "type": "prompt",
+      "text": "Corrige el diseño: ya no usamos datos.json. Los datos van en SQLite, en biblioteca.db, igual que el código de Luis."
+    },
+    {
+      "member": "Ana",
+      "ai": "chatgpt",
+      "type": "respuesta",
+      "text": "Diseño corregido: se deja datos.json. La persistencia queda en SQLite, archivo biblioteca.db, con las tablas libros, socios y prestamos."
+    }
+  ]
+}

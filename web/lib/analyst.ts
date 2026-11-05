@@ -1,6 +1,9 @@
 import { readPriority, withPriorities } from "./priority";
 import { readChecklist, rulesChecklist, type ChecklistItem } from "./progress";
 import { buildContext } from "./context-from-events";
+import { familiesMentioned, storageConflicts } from "./storage-conflict";
+
+export { storageConflicts };
 import { parseDueDate, parseParts } from "./room-fields";
 import type {
   AnalysisChat,
@@ -201,7 +204,16 @@ export function contextFromSaved(
   fallback: ContextResponse,
   dueDate: string | null = null,
 ): ContextResponse {
-  if (!saved || saved.fuente !== "ia") return fallback;
+  if (!saved || saved.fuente !== "ia") {
+    if (saved?.fuente !== "reglas") return fallback;
+    return {
+      ...fallback,
+      advertencias: withPriorities(
+        dedupeSimilar(dedupeWarnings([...fallback.advertencias, ...warningsFor(saved.alertas, [], member)])),
+        dueDate,
+      ),
+    };
+  }
   const found =
     saved.miembros.find((item) => item.nombre === member) ??
     saved.miembros.find((item) => item.nombre.toLocaleLowerCase("es") === member.toLocaleLowerCase("es"));
@@ -266,71 +278,6 @@ export function deliverableOverlaps(input: AnalysisInput): RoomWarning[] {
   return result;
 }
 
-const STORAGE: Array<{ id: string; label: string; pattern: RegExp; family: string }> = [
-  { id: "json", label: "JSON", pattern: /\bjson\b/, family: "archivo-json" },
-  { id: "csv", label: "CSV", pattern: /\bcsv\b/, family: "archivo-csv" },
-  { id: "sqlite", label: "SQLite", pattern: /\bsqlite3?\b/, family: "sqlite" },
-  { id: "mysql", label: "MySQL", pattern: /\bmysql\b|\bmariadb\b/, family: "mysql" },
-  { id: "postgres", label: "PostgreSQL", pattern: /\bpostgres(ql)?\b/, family: "postgres" },
-  { id: "supabase", label: "Supabase", pattern: /\bsupabase\b/, family: "postgres" },
-  { id: "mongodb", label: "MongoDB", pattern: /\bmongo(db)?\b/, family: "mongodb" },
-  { id: "firebase", label: "Firebase", pattern: /\bfirebase\b|\bfirestore\b/, family: "firebase" },
-  { id: "localstorage", label: "localStorage", pattern: /\blocalstorage\b/, family: "localstorage" },
-];
-
-/** La forma de guardar datos que más menciona cada miembro. */
-function storageByMember(events: readonly StoredEvent[]): Map<string, (typeof STORAGE)[number]> {
-  const counts = new Map<string, Map<string, number>>();
-  for (const event of events) {
-    const text = foldText(event.text);
-    for (const item of STORAGE) {
-      const hits = text.match(new RegExp(item.pattern.source, "g"))?.length ?? 0;
-      if (!hits) continue;
-      const mine = counts.get(event.member) ?? new Map<string, number>();
-      mine.set(item.id, (mine.get(item.id) ?? 0) + hits);
-      counts.set(event.member, mine);
-    }
-  }
-  const result = new Map<string, (typeof STORAGE)[number]>();
-  for (const [member, mine] of counts) {
-    const top = [...mine.entries()].sort((a, b) => b[1] - a[1])[0];
-    const item = STORAGE.find((s) => s.id === top[0]);
-    if (item) result.set(member, item);
-  }
-  return result;
-}
-
-/** Contradicción cuando los miembros guardan los datos de formas distintas. Un aviso por miembro afectado. */
-export function storageConflicts(input: AnalysisInput): RoomWarning[] {
-  const english = input.room.language === "en";
-  const byMember = storageByMember(input.events);
-  const families = new Set([...byMember.values()].map((item) => item.family));
-  if (families.size < 2) return [];
-  const join = (names: string[]) => names.join(english ? " and " : " y ");
-  const result: RoomWarning[] = [];
-  for (const [member, mine] of byMember) {
-    const others = [...byMember.entries()].filter(([, item]) => item.family !== mine.family);
-    const otherText = unique(others.map(([, item]) => item.label))
-      .map((label) => `${english ? "the work of " : "en lo de "}${join(others.filter(([, item]) => item.label === label).map(([name]) => name))} ${english ? "uses" : "se usa"} ${label}`)
-      .join("; ");
-    const parts = [member, ...others.map(([name]) => name)]
-      .map((name) => input.members.find((m) => m.name === name)?.part)
-      .filter((part): part is string => Boolean(part));
-    result.push({
-      tipo: "contradiccion",
-      destinatario: member,
-      partes: unique(parts),
-      mensaje: english
-        ? `${member}'s work uses ${mine.label} for the data, but ${otherText}. Agree on one way to store the data.`
-        : `En lo de ${member} los datos van en ${mine.label}, pero ${otherText}. Pónganse de acuerdo en una sola forma de guardar los datos.`,
-      prompt_sugerido: english
-        ? `My team stores the data in ${others[0][1].label} and I used ${mine.label}. Help me compare both and adapt my part to the option we choose.`
-        : `En mi equipo guardan los datos en ${others[0][1].label} y yo usé ${mine.label}. Ayúdame a comparar las dos opciones y a adaptar mi parte a la que elijamos.`,
-    });
-  }
-  return result;
-}
-
 /** Junta avisos casi iguales (mismo tipo y destinatario, y casi las mismas palabras o el mismo entregable). */
 export function dedupeSimilar(warnings: readonly RoomWarning[]): RoomWarning[] {
   const kept: RoomWarning[] = [];
@@ -356,7 +303,7 @@ function nearlySame(left: string, right: string, tipo: WarningType): boolean {
     if (ta.length > 0 && ta.length === tb.length && ta.every((t) => tb.includes(t))) return true;
   }
   if (tipo === "contradiccion") {
-    const tech = (text: string) => STORAGE.filter((item) => item.pattern.test(text)).map((item) => item.family);
+    const tech = (text: string) => familiesMentioned(text);
     const ta = new Set(tech(a));
     const tb = tech(b);
     if (ta.size >= 2 && tb.length >= 2 && tb.every((t) => ta.has(t))) return true;
@@ -369,12 +316,11 @@ function nearlySame(left: string, right: string, tipo: WarningType): boolean {
 }
 
 function hasStorageConflict(warnings: readonly RoomWarning[], member: string, wanted: RoomWarning): boolean {
-  const needed = STORAGE.filter((item) => item.pattern.test(foldText(wanted.mensaje))).map((item) => item.family);
+  const needed = familiesMentioned(wanted.mensaje);
   return warnings.some((warning) => {
     if (warning.tipo !== "contradiccion") return false;
     if (warning.destinatario.toLocaleLowerCase("es") !== member.toLocaleLowerCase("es") && warning.destinatario !== "equipo") return false;
-    const text = foldText(warning.mensaje);
-    const found = new Set(STORAGE.filter((item) => item.pattern.test(text)).map((item) => item.family));
+    const found = new Set(familiesMentioned(warning.mensaje));
     return needed.every((family) => found.has(family));
   });
 }
