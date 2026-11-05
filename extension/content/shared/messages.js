@@ -390,7 +390,46 @@
         selector: answer.selector || node.getAttribute?.("data-testid") || "",
       });
     }
+    for (const found of repliesAboveActions(root)) {
+      const norm = normalizeMessageText(found.text);
+      if (!norm || userTexts.has(norm) || seenAssistant.has(norm)) continue;
+      if (insideUserTurn(found.node)) continue;
+      seenAssistant.add(norm);
+      messages.push({ node: found.node, role: "assistant", text: found.text, selector: "acciones" });
+    }
     return messages;
+  }
+
+  function repliesAboveActions(root) {
+    const buttons = queryAll(root, "button[aria-label], button[title]");
+    const action = /copiar|copy|me gusta|like|no me gusta|dislike|thumbs|regenerar|regenerate|intentar de nuevo|try again/i;
+    const found = [];
+    const seen = new Set();
+    for (const button of buttons) {
+      const label = `${button.getAttribute?.("aria-label") || ""} ${button.getAttribute?.("title") || ""}`;
+      if (!action.test(label)) continue;
+      let node = button;
+      for (let depth = 0; depth < 6 && node; depth += 1) {
+        let prev = node.previousElementSibling;
+        while (prev) {
+          if (!isComposerNode(prev) && !insideUserTurn(prev)) {
+            const text = plain(prev);
+            const norm = normalizeMessageText(text);
+            if (norm.length >= 12 && !seen.has(norm)) {
+              seen.add(norm);
+              found.push({ node: prev, text });
+              prev = null;
+              node = null;
+              break;
+            }
+          }
+          prev = prev?.previousElementSibling || null;
+        }
+        if (!node) break;
+        node = node.parentElement;
+      }
+    }
+    return found;
   }
 
   function listChatMessages(root, site) {

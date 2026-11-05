@@ -223,6 +223,17 @@ const onlyReply = parseHTML(`<!doctype html><body>
 </body>`);
 const onlyLine = messages.listChatMessages(onlyReply.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
 if (onlyLine !== "assistant:Respuesta sola.") throw new Error(onlyLine);
+const finished = parseHTML(`<!doctype html><body>
+  <div class="reply">Prueba recibida: la comunicacion funciona correctamente.</div>
+  <div class="actions">
+    <button aria-label="Copiar"></button>
+    <button aria-label="Me gusta"></button>
+    <button aria-label="No me gusta"></button>
+    <button aria-label="Regenerar"></button>
+  </div>
+</body>`);
+const finishedLine = messages.listChatMessages(finished.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
+if (finishedLine !== "assistant:Prueba recibida: la comunicacion funciona correctamente.") throw new Error(finishedLine);
 if (copilotSite.conversationId("https://copilot.microsoft.com/chats/6aea3d77-c8d8-83e8-ada3-561359e03e25") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
   throw new Error("conversation microsoft");
 }
