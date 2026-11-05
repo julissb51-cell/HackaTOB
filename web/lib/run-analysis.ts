@@ -120,7 +120,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
       );
     }
     await rememberEventCount(roomId, events.length);
-    if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
+    await markAnalysisPending(roomId);
     return "ran";
   }
   // Solo se reutiliza la lista anterior si viene de la misma fuente; una lista de IA reemplaza a la de reglas.
