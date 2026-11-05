@@ -237,6 +237,16 @@ La clave gratuita de Gemini se crea en [Google AI Studio](https://aistudio.googl
 
 Entre llamadas al modelo hay 30 segundos. Esa espera la guarda `room_analysis.ran_at` y vale también para «Analizar ahora», así que se cumple aunque haya varios servidores. Si no hay eventos nuevos ni un análisis pendiente, abrir la sala no vuelve a llamar a Gemini. El mapa en memoria de cada servidor solo evita dos llamadas a la vez en esa instancia: no es un cupo diario ni un plan de pago. No hay contador de gasto. Al modelo se le manda un recorte de la sala; formas obvias de secreto se omiten en esa copia y el texto guardado no cambia. Eso no detecta todos los secretos. El contexto de la sala sigue pidiendo el token de invitación.
 
+## Qué cubre `npm test` y qué no
+
+`npm test` y `npm run build` en `web` usan datos de mentira. No abren ChatGPT, Gemini ni Claude, no inician sesión en Google y no tocan la base de producción. El mismo par de comandos está en `.github/workflows/web.yml`, sin claves. Si esa acción todavía no aparece en el repositorio, el resultado local no es un chequeo de GitHub.
+
+El token de invitación autoriza eventos, contexto y archivos. Borrar un archivo pide además la sesión de quien lo subió o del dueño. El tablero de la sala pide la cuenta de Google de un miembro. El consentimiento de la extensión vive en el navegador: el servidor no puede saber si la persona lo aceptó. Un nombre en un evento no se compara con una cuenta.
+
+Si Gemini no responde y ya había un análisis de IA, se conserva ese resumen y la sala queda pendiente para intentarlo de nuevo. No es una garantía de que el resumen esté al día.
+
+Para una prueba de dos personas hace falta, fuera de este comando: una sala de ensayo, la extensión cargada, consentimiento aceptado, un chat nuevo en ChatGPT y otro en Gemini, y mirar que el evento no se duplique al recargar.
+
 `lib/supabase/client.ts` crea el cliente con la clave anónima. `lib/supabase/server.ts` crea el cliente con la clave de servicio. La sesión de Google usa otro cliente, el de `@supabase/ssr`, con la misma clave anónima y cookies. La clave de servicio no entra en esa sesión.
 
 El Client ID y el Client Secret de Google no son variables de esta app. Viven solo en el proveedor Google de Supabase.
