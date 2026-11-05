@@ -46,7 +46,23 @@ export function Landing() {
         </a>
         <p className="mt-4 text-sm text-muted">{t.landingNote}</p>
       </section>
-      <section aria-label={t.featuresLabel} className="mt-16 grid gap-3 sm:mt-20 sm:grid-cols-3 sm:gap-4">
+      <section aria-label={t.stepsLabel} className="mx-auto mt-14 w-full max-w-3xl text-left">
+        <h2 className="text-[13px] font-medium text-link">{t.stepsLabel}</h2>
+        <ol className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[
+            [t.step1Title, t.step1Body],
+            [t.step2Title, t.step2Body],
+            [t.step3Title, t.step3Body],
+          ].map(([title, body], index) => (
+            <li key={title} className="rounded-3xl border border-line bg-surface/80 p-5">
+              <p className="text-[13px] font-semibold text-link">{index + 1}</p>
+              <h3 className="mt-1 text-[15px] font-semibold">{title}</h3>
+              <p className="mt-1.5 text-[15px] leading-6 text-muted">{body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+      <section aria-label={t.featuresLabel} className="mt-10 grid gap-3 sm:grid-cols-3 sm:gap-4">
         {features.map((f) => (
           <div key={f.icon} className="motion-card rounded-3xl border border-line bg-surface/80 p-6 backdrop-blur-sm hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--line))]">
             <span className="grid size-11 place-items-center rounded-2xl bg-accent/15 text-link">
@@ -68,6 +84,21 @@ export function Landing() {
             <p className="mt-1.5 text-[15px] leading-6 text-muted">{t.valuePlan}</p>
           </div>
         </div>
+      </section>
+      <section aria-label={t.sampleTitle} className="mx-auto mt-4 w-full max-w-3xl rounded-3xl border border-line bg-surface/80 px-6 py-5 text-left">
+        <h2 className="text-[13px] font-medium text-link">{t.sampleTitle}</h2>
+        <p className="mt-1.5 text-[15px] leading-6 text-muted">{t.sampleBody}</p>
+        <p className="mt-3 flex flex-col gap-2 text-[15px] sm:flex-row sm:gap-4">
+          <a className="font-semibold text-link underline-offset-2 hover:underline" href="https://github.com/julissb51-cell/HackaTOB/blob/main/docs/ensayo-json-sqlite.md">
+            {t.sampleLink}
+          </a>
+          <a className="font-semibold text-link underline-offset-2 hover:underline" href="https://github.com/julissb51-cell/HackaTOB/blob/main/extension/README.md">
+            {t.extensionLink}
+          </a>
+        </p>
+        <p className="mt-3 text-[15px] leading-6 text-muted">{t.extensionNote}</p>
+        <p className="mt-2 text-[15px] leading-6 text-muted">{t.landingPrivacy}</p>
+        <p className="mt-2 text-[15px] leading-6 text-muted">{t.landingEvidence}</p>
       </section>
     </div>
   );
