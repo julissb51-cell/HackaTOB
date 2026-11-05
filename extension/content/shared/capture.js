@@ -158,13 +158,15 @@
       if (historyAssistants.has(countKey("assistant", message.text))) return false;
       const slot = assistantSlot(messages, message);
       if (slot && sentSlots.has(slot)) return false;
-      if (promptsThisSession > 0) return true;
-      let afterNewPrompt = false;
-      for (const item of messages) {
-        if (item.role === "user" && !reserved.has(countKey("user", item.text))) afterNewPrompt = true;
-        if (item === message) return afterNewPrompt;
-      }
-      return false;
+      return true;
+    }
+
+    function freezeMessage(message) {
+      if (!message?.text) return;
+      const keyName = countKey(message.role, message.text);
+      reserved.add(keyName);
+      if (message.role === "assistant") historyAssistants.add(keyName);
+      nodeSent.set(message.node, normalize(message.text));
     }
 
     async function sendLivePrompt(text) {
@@ -174,13 +176,8 @@
       markLiveTurn();
       rememberAssistantsBefore(null, null);
       if (settling) {
-        const generation = ++armGeneration;
+        armGeneration += 1;
         clearTimeout(armTimer);
-        try {
-          await arm(site.conversationId(location.href) || "", generation);
-        } catch (error) {
-          console.debug("enlaza", error);
-        }
         settling = false;
       }
       try {
@@ -314,17 +311,10 @@
     }
 
     async function arm(key, generation) {
-      const messages = listMessages();
       const persisted = await loadSeen(key);
       if (generation != null && generation !== armGeneration) return;
       if ((site.conversationId(location.href) || "") !== key) return;
-      nodeSent = new WeakMap();
       for (const keyName of persisted) reserved.add(keyName);
-      for (const message of messages) {
-        if (!message.text) continue;
-        reserved.add(countKey(message.role, message.text));
-        nodeSent.set(message.node, normalize(message.text));
-      }
       armedKey = key;
       await saveSeen(key, [...reserved]);
     }
@@ -407,10 +397,21 @@
       saveSeen(key, [...reserved]);
     }
 
+    function absorbSettledHistory() {
+      if (Date.now() < liveUntil || promptsThisSession > 0) return;
+      const messages = safeMessages();
+      const fresh = messages.filter((message) => message.text && !reserved.has(countKey(message.role, message.text)));
+      if (!fresh.length) return;
+      const hadHistory = messages.some((message) => message.text && reserved.has(countKey(message.role, message.text)));
+      if (!hadHistory && looksLikeFirstTurn(messages)) return;
+      for (const message of fresh) freezeMessage(message);
+    }
+
     function beginBaseline(key) {
       settling = true;
       armedKey = key;
       const generation = ++armGeneration;
+      for (const message of safeMessages()) freezeMessage(message);
       const previous = snapshot();
       clearTimeout(armTimer);
       armTimer = setTimeout(() => finishArm(key, previous, 0, 0, generation), 400);
@@ -420,6 +421,7 @@
       if (generation !== armGeneration) return;
       const current = site.conversationId(location.href) || "";
       if (current !== key) return;
+      absorbSettledHistory();
       const now = snapshot();
       const nextStable = now === previous ? stable + 1 : 0;
       if (nextStable < 3 && elapsed < 20) {
@@ -493,16 +495,26 @@
     }
 
     function deliverNow(partial, conversationId) {
-      const fields = core.deriveChatFields(partial.texto, titleForSend(conversationId));
+      let nombre_chat = "";
+      let resumen = "";
+      let palabra_clave = "";
+      try {
+        const fields = core.deriveChatFields(partial.texto, titleForSend(conversationId));
+        nombre_chat = fields?.nombre_chat || "";
+        resumen = fields?.resumen || "";
+        palabra_clave = fields?.palabra_clave || "";
+      } catch (error) {
+        console.debug("enlaza", error);
+      }
       deliver({
         event_id: partial.event_id,
         tipo: partial.tipo,
         texto: partial.texto,
         ia: site.ia,
         conversation_id: conversationId,
-        nombre_chat: fields.nombre_chat,
-        resumen: fields.resumen,
-        palabra_clave: fields.palabra_clave,
+        nombre_chat,
+        resumen,
+        palabra_clave,
       });
     }
 
@@ -786,7 +798,6 @@
       document.addEventListener("click", onComposerClick, true);
       document.addEventListener("input", onComposerInput, true);
       document.addEventListener("submit", onComposerSubmit, true);
-      installPageDebug();
       refreshActive();
       reportWatch();
       chrome.storage.onChanged.addListener((changes, area) => {
@@ -818,28 +829,6 @@
     }
 
     globalThis.__enlazaDebug = () => JSON.stringify(debugReport(), null, 2);
-
-    function installPageDebug() {
-      if (site.ia === "copilot") return;
-      try {
-        const parent = document.documentElement || document.head || document.body;
-        if (!parent) return;
-        const node = document.createElement("script");
-        node.textContent = `window.__enlazaDebug=function(){return new Promise(function(resolve){var id=Math.random().toString(16).slice(2);function onMessage(event){if(event.source!==window||!event.data||event.data.type!=="enlaza-debug-result"||event.data.id!==id)return;window.removeEventListener("message",onMessage);resolve(event.data.json);}window.addEventListener("message",onMessage);window.postMessage({type:"enlaza-debug",id:id},"*");});}`;
-        parent.appendChild(node);
-        node.remove();
-      } catch {
-        return;
-      }
-      window.addEventListener("message", (event) => {
-        if (event.source !== window || event.data?.type !== "enlaza-debug") return;
-        try {
-          window.postMessage({ type: "enlaza-debug-result", id: event.data.id, json: globalThis.__enlazaDebug() }, "*");
-        } catch {
-          // La CSP de la página puede bloquear la respuesta. No es la captura.
-        }
-      });
-    }
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot, { once: true });

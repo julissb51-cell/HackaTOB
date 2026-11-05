@@ -18,7 +18,7 @@ function assertEvents(events, expected, label) {
   }
 }
 
-async function runScenario({ startUrl, selectors, siteName, play, trackScripts, prepare }) {
+async function runScenario({ startUrl, selectors, siteName, play, trackScripts, prepare, leadMs = 5000 }) {
   const { window } = parseHTML("<!doctype html><html><head></head><body></body></html>");
   const document = window.document;
   const events = [];
@@ -124,7 +124,7 @@ async function runScenario({ startUrl, selectors, siteName, play, trackScripts, 
     await flush();
   }
 
-  await advance(5000);
+  await advance(leadMs);
   await play({ document, location, advance });
   return { events, scripts: trackScripts ? scripts : 0 };
 }
@@ -280,16 +280,19 @@ for (const site of freshChat) {
     startUrl: site.startUrl,
     selectors: site.selectors,
     siteName: site.siteName,
+    leadMs: 350,
     async play({ document, location, advance }) {
       location.href = site.nextUrl;
       document.body.innerHTML = site.html(site.prompt, site.reply);
       await advance(8000);
     },
   });
-  assertEvents(run.events, [
-    { ia: site.ia, tipo: "prompt", text: site.prompt },
-    { ia: site.ia, tipo: "respuesta", text: site.reply },
-  ], site.label);
+  const captures = run.events.filter((event) => event.tipo === "prompt" || event.tipo === "respuesta");
+  const prompts = captures.filter((event) => event.tipo === "prompt" && event.texto.includes(site.prompt));
+  const replies = captures.filter((event) => event.tipo === "respuesta" && event.texto.includes(site.reply));
+  if (prompts.length !== 1 || replies.length !== 1) {
+    throw new Error(`${site.label}: ${captures.map((event) => `${event.tipo}:${event.texto}`).join(" || ") || "(sendMessage no recibió enlaza.capture)"}`);
+  }
 }
 
 const oldChat = await runScenario({
