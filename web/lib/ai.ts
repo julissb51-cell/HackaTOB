@@ -104,7 +104,7 @@ async function completeWithGemini(messages: AiMessage[], options: CompleteOption
     .join("")
     .trim();
   if (!text) throw new Error("Gemini respondió vacío");
-  return text;
+  return boundedModelText(text);
 }
 
 // Reintenta el modelo principal con espera exponencial y después prueba los
@@ -190,6 +190,13 @@ async function completeWithXai(messages: AiMessage[], options: CompleteOptions):
 
   const text = payload.choices?.[0]?.message?.content?.trim() ?? "";
   if (!text) throw new Error("Grok respondió vacío");
+  return boundedModelText(text);
+}
+
+const MAX_MODEL_CHARS = 20_000;
+
+function boundedModelText(text: string): string {
+  if (text.length > MAX_MODEL_CHARS) throw new Error("respuesta demasiado larga");
   return text;
 }
 

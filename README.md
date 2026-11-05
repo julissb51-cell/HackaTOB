@@ -186,8 +186,8 @@ Pruebas: `npm test`, `npm run lint` y `npm run build`. Más detalle en [web/READ
 
 > Es una propuesta para la hackathon. Todavía no está validada con clientes. Estos precios no están en el producto.
 
-- **Gratis** para un equipo con una sala.
-- **Suscripción mensual** cuando necesitan más salas, más integrantes o más IAs conectadas.
+- **Gratis:** la sala, la captura y el trabajo en equipo. No hace falta pagar para usarlos.
+- **Plus opcional:** una propuesta, no está en el producto. Serían extras, por ejemplo otro plan de análisis. No hay análisis ilimitado: hoy se usa el plan gratis de Gemini, con cupo.
 - **Panel para docentes:** idea futura, no construida. Si algún día se valida, sería una licencia para universidades en la que el docente ve el avance de cada grupo.
 
 ## Riesgos
@@ -223,7 +223,7 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 
 ## English summary
 
-**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, and Cursor): vibe coders, or a group shipping an MVP. Copilot is not part of this demo. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing only: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. A teacher panel for universities is a future idea and is not built. ChatGPT project sharing is on every plan, including Free (up to 5 people and 5 files; [OpenAI Help Center](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)). Enlaza coordinates work across different AIs. Demo video: coming soon (link pending). Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
+**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, and Cursor): vibe coders, or a group shipping an MVP. Copilot is not part of this demo. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing only: the room, capture, and collaboration stay free. An optional Plus for extras such as another analysis plan is not in the product. Analysis is not unlimited. A teacher panel for universities is a future idea and is not built. ChatGPT project sharing is on every plan, including Free (up to 5 people and 5 files; [OpenAI Help Center](https://help.openai.com/en/articles/10169521-projects-in-chatgpt)). Enlaza coordinates work across different AIs. Demo video: coming soon (link pending). Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
 
 ## Licencia
 

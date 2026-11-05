@@ -691,6 +691,11 @@ function AnalyzeButton({
           {text.analyzingNote}
         </p>
       ) : null}
+      {state.status === "recent" && !pending ? (
+        <p role="status" className="max-w-xs text-sm text-muted">
+          {text.analyzeRecent}
+        </p>
+      ) : null}
       {state.status === "error" && !pending ? (
         <p role="alert" className="max-w-xs text-sm text-danger">
           {text.analyzeError}

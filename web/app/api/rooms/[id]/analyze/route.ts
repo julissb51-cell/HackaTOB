@@ -15,5 +15,8 @@ export async function OPTIONS(request: Request) {
 export async function POST(request: Request, context: RouteContext) {
   await connection();
   const { id } = await context.params;
-  return postAnalyze(request, id, supabaseRoomStore, (roomId) => scheduleRoomAnalysis(roomId, { force: true }));
+  return postAnalyze(request, id, supabaseRoomStore, async (roomId) => {
+    const outcome = await scheduleRoomAnalysis(roomId, { force: true });
+    return outcome !== "failed";
+  });
 }

@@ -233,7 +233,9 @@ En local van en `web/.env.local`. En Vercel se cargan en Environment Variables d
 
 La clave gratuita de Gemini se crea en [Google AI Studio](https://aistudio.google.com/apikey).
 
-`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.5-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. El análisis pide JSON, espera como máximo 50 segundos y, si algo falla, deja el contexto de las reglas. El error queda en el log del servidor.
+`lib/ai.ts` lee `AI_PROVIDER`. Con `gemini` llama a la API de Gemini (`gemini-3.5-flash`). Con `xai` llama a `https://api.x.ai/v1/chat/completions` (compatible con OpenAI, modelo `grok-4.7`). No hace falta cambiar código para pasar de uno a otro. El análisis pide JSON, espera como máximo 50 segundos y, si algo falla, deja el contexto de las reglas. El log del servidor guarda el nombre del error, no el texto de la sala ni la clave.
+
+Entre llamadas al modelo hay 30 segundos. Esa espera la guarda `room_analysis.ran_at` y vale también para «Analizar ahora», así que se cumple aunque haya varios servidores. Si no hay eventos nuevos ni un análisis pendiente, abrir la sala no vuelve a llamar a Gemini. El mapa en memoria de cada servidor solo evita dos llamadas a la vez en esa instancia: no es un cupo diario ni un plan de pago. No hay contador de gasto. Al modelo se le manda un recorte de la sala; formas obvias de secreto se omiten en esa copia y el texto guardado no cambia. Eso no detecta todos los secretos. El contexto de la sala sigue pidiendo el token de invitación.
 
 `lib/supabase/client.ts` crea el cliente con la clave anónima. `lib/supabase/server.ts` crea el cliente con la clave de servicio. La sesión de Google usa otro cliente, el de `@supabase/ssr`, con la misma clave anónima y cookies. La clave de servicio no entra en esa sesión.
 

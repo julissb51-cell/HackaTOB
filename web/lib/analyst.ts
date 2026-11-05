@@ -2,8 +2,7 @@ import { readPriority, withPriorities } from "./priority";
 import { readChecklist, rulesChecklist, type ChecklistItem } from "./progress";
 import { buildContext } from "./context-from-events";
 import { familiesMentioned, storageConflicts } from "./storage-conflict";
-
-export { storageConflicts };
+import { ANALYSIS_INTERVAL_MS, redactForModel } from "./model-guard";
 import { parseDueDate, parseParts } from "./room-fields";
 import type {
   AnalysisChat,
@@ -17,7 +16,8 @@ import type {
   WarningType,
 } from "./room-types";
 
-export const ANALYSIS_INTERVAL_MS = 30_000;
+export { ANALYSIS_INTERVAL_MS, storageConflicts };
+
 export const ANALYST_LIMITS = {
   maxEvents: 40,
   maxEventChars: 1_200,
@@ -59,8 +59,7 @@ export type AnalystReport = {
 
 type TextComplete = (messages: AnalystMessage[]) => Promise<string>;
 
-export function analysisDue(ranAtMs: number | null, now: number, force: boolean): boolean {
-  if (force) return true;
+export function analysisDue(ranAtMs: number | null, now: number): boolean {
   if (ranAtMs === null || Number.isNaN(ranAtMs)) return true;
   return now - ranAtMs >= ANALYSIS_INTERVAL_MS;
 }
@@ -130,7 +129,7 @@ export function buildAnalystMessages(input: AnalysisInput): AnalystMessage[] {
         'Forma: {"resumen":"","consejo":"","miembros":[{"nombre":"","resumen":"","parte":"","prompt_sugerido":"","advertencias":[{"tipo":"falta","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":"","prioridad":"urgente"}]}],"alertas":[{"tipo":"duplicado","mensaje":"","destinatario":"","partes":[],"prompt_sugerido":"","prioridad":"pronto"}],"chats":[{"conversation_id":"","nombre":""}],"sugerencia":{"partes":[],"fecha_entrega":null,"asignaciones":[{"nombre":"","parte":""}]},"checklist":[{"parte":"","items":[{"texto":"","hecho":false,"evidencia":""}]}]}',
       ].join("\n"),
     },
-    { role: "user", content: fitPrompt(lines.join("\n")) },
+    { role: "user", content: fitPrompt(redactForModel(lines.join("\n")).text) },
   ];
 }
 

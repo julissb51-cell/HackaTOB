@@ -39,7 +39,24 @@ export async function readSavedAnalysis(roomId: string): Promise<SavedAnalysis |
   }
 }
 
-export async function claimAnalysisRun(roomId: string, force: boolean): Promise<"run" | "skip"> {
+export async function readAnalysisGate(roomId: string): Promise<{ pending: boolean; eventos: number; ranAtMs: number } | null> {
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase.from("room_analysis").select("pending, eventos, ran_at").eq("room_id", roomId).maybeSingle();
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+  if (!data) return null;
+  const row = data as { pending: boolean; eventos: number | null; ran_at: string };
+  const ranAtMs = Date.parse(row.ran_at);
+  return {
+    pending: row.pending === true,
+    eventos: typeof row.eventos === "number" ? row.eventos : 0,
+    ranAtMs: Number.isNaN(ranAtMs) ? 0 : ranAtMs,
+  };
+}
+
+export async function claimAnalysisRun(roomId: string): Promise<"run" | "skip"> {
   const supabase = createSupabaseServiceClient();
   const now = new Date().toISOString();
   const existing = await supabase.from("room_analysis").select("ran_at").eq("room_id", roomId).maybeSingle();
@@ -52,7 +69,7 @@ export async function claimAnalysisRun(roomId: string, force: boolean): Promise<
       .from("room_analysis")
       .insert({ room_id: roomId, ran_at: now, pending: false })
       .select("room_id");
-    if (inserted.error?.code === "23505") return force ? "run" : "skip";
+    if (inserted.error?.code === "23505") return "skip";
     if (inserted.error) {
       if (isMissingTable(inserted.error)) return "skip";
       throw inserted.error;
@@ -61,11 +78,14 @@ export async function claimAnalysisRun(roomId: string, force: boolean): Promise<
   }
 
   const ranAt = Date.parse((existing.data as { ran_at: string }).ran_at);
-  if (!analysisDue(ranAt, Date.now(), force)) return "skip";
+  if (!analysisDue(ranAt, Date.now())) return "skip";
 
-  let update = supabase.from("room_analysis").update({ ran_at: now, pending: false }).eq("room_id", roomId);
-  if (!force) update = update.lt("ran_at", new Date(Date.now() - ANALYSIS_INTERVAL_MS).toISOString());
-  const claimed = await update.select("room_id");
+  const claimed = await supabase
+    .from("room_analysis")
+    .update({ ran_at: now, pending: false })
+    .eq("room_id", roomId)
+    .lt("ran_at", new Date(Date.now() - ANALYSIS_INTERVAL_MS).toISOString())
+    .select("room_id");
   if (claimed.error) {
     if (isMissingTable(claimed.error)) return "skip";
     throw claimed.error;
