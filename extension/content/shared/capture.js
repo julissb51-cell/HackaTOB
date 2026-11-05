@@ -33,6 +33,7 @@
     let armTimer = 0;
     let armGeneration = 0;
     let liveUntil = 0;
+    let titleMemory = { id: "", title: "" };
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -331,8 +332,60 @@
       });
     }
 
+    function conversationLabel() {
+      const id = site.conversationId(location.href) || "";
+      const found = [];
+      const push = (node) => {
+        if (!node) return;
+        const text = String(node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text || text.length > 120) return;
+        const visible = !dom.isVisible || dom.isVisible(node);
+        found.push({ text, visible, length: text.length });
+      };
+      if (id) {
+        let links = [];
+        try {
+          links = dom.queryAllDeep("a[href]");
+        } catch {
+          links = [];
+        }
+        for (const link of links) {
+          const href = link.getAttribute?.("href") || "";
+          if (href.includes(id)) push(link);
+        }
+      }
+      for (const selector of site.titleSelectors || ['[data-testid="conversation-title"]', '[data-testid="chat-title"]', 'a[aria-current="page"]']) {
+        let nodes = [];
+        try {
+          nodes = dom.queryAllDeep(selector);
+        } catch {
+          continue;
+        }
+        for (const node of nodes) push(node);
+      }
+      found.sort((a, b) => Number(b.visible) - Number(a.visible) || a.length - b.length);
+      return found[0]?.text || "";
+    }
+
+    function titleForSend(conversationId) {
+      let domTitle = "";
+      try {
+        domTitle = conversationLabel();
+      } catch {
+        domTitle = "";
+      }
+      const chosen = core.chooseChatTitle({
+        pageTitle: document.title || "",
+        domTitle,
+        conversationId: conversationId || "",
+        previous: titleMemory,
+      });
+      if (conversationId && chosen) titleMemory = { id: conversationId, title: chosen };
+      return chosen;
+    }
+
     function deliverNow(partial, conversationId) {
-      const fields = core.deriveChatFields(partial.texto, document.title);
+      const fields = core.deriveChatFields(partial.texto, titleForSend(conversationId));
       deliver({
         event_id: partial.event_id,
         tipo: partial.tipo,

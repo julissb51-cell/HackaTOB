@@ -153,6 +153,19 @@
     return clipPlain(name, 80);
   }
 
+  function chooseChatTitle(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const domName = chatNameFrom(source.domTitle || "", "");
+    const pageName = chatNameFrom(source.pageTitle || "", "");
+    const candidate = domName || pageName;
+    const previous = source.previous && typeof source.previous === "object" ? source.previous : {};
+    const previousName = chatNameFrom(previous.title || "", "") || String(previous.title || "");
+    if (previous.id && source.conversationId && previous.id !== source.conversationId && candidate && candidate === previousName) {
+      return "";
+    }
+    return candidate;
+  }
+
   function deriveChatFields(text, title) {
     const plain = stripControl(text).trim();
     return {
@@ -254,6 +267,7 @@
     parseInvite,
     keywordFrom,
     chatNameFrom,
+    chooseChatTitle,
     deriveChatFields,
     buildEvent,
     validateEvent,
