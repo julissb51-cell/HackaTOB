@@ -111,7 +111,7 @@ export function RoomsDashboard({ name, rooms: initial, failed }: { name: string;
                 role="tab"
                 aria-selected={filter === key}
                 onClick={() => setFilter(key)}
-                className={`cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                className={`motion-chip cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-semibold ${
                   filter === key ? "bg-foreground text-background" : "text-muted hover:bg-structural hover:text-foreground"
                 }`}
               >
@@ -230,7 +230,7 @@ function RoomRow({ room, first, onRemove }: { room: DashboardRoom; first: boolea
   const { lang } = useLanguage();
   const letter = (room.topic.trim()[0] ?? "#").toLocaleUpperCase();
   return (
-    <li className={`relative flex items-center gap-4 rounded-[14px] px-3 py-3.5 transition-colors focus-within:z-20 hover:bg-foreground/[0.04] ${first ? "" : "border-t border-line"}`}>
+    <li className={`relative flex items-center gap-4 rounded-[14px] px-3 py-3.5 motion-card focus-within:z-20 hover:bg-surface ${first ? "" : "border-t border-line"}`}>
       <span aria-hidden="true" className={`grid size-11 shrink-0 place-items-center rounded-xl text-lg font-[650] ${first ? "bg-accent text-accent-ink" : "bg-structural"}`}>
         {letter}
       </span>

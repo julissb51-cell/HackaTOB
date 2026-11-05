@@ -1,6 +1,6 @@
-// Selectores de chatgpt.com. Si la página cambia, ajusta solo este archivo.
-// En octubre 2026 el hilo nuevo ya no usa data-message-id. El prompt va en
-// [data-user-message-bubble] y la respuesta en [data-content-search-unit-key$=":assistant"].
+// Selectores de chatgpt.com. Hay dos DOM: el de la sesión iniciada (nov 2026,
+// data-turn-key y data-chatgpt-search-unit-key) y el anterior
+// (conversation-turn / data-message-author-role). Se aceptan los dos.
 (function () {
   "use strict";
 
@@ -8,18 +8,24 @@
     ia: "chatgpt",
     turnSelectors: [
       "[data-turn-key]",
-      "[data-testid^='conversation-turn-']",
+      "[data-content-search-turn-key]",
+      "article[data-testid^='conversation-turn']",
+      "[data-testid^='conversation-turn']",
       "article[data-turn]",
       "[data-turn='user']",
       "[data-turn='assistant']",
     ],
     userSelectors: [
+      '[data-chatgpt-search-unit-key$=":user"]',
       "[data-user-message-bubble]",
       '[data-message-author-role="user"]',
       '[data-testid="user-message"]',
       '[data-turn="user"]',
     ],
     assistantSelectors: [
+      '[data-chatgpt-search-unit-key$=":assistant"]',
+      '[data-markdown-text-style="assistant-message"]',
+      "[data-dil-source-message-id]",
       '[data-content-search-unit-key$=":assistant"]',
       '[data-message-author-role="assistant"]',
       '[data-testid="assistant-message"]',
@@ -32,6 +38,8 @@
       ".text-message",
     ],
     assistantTextSelectors: [
+      '[data-markdown-text-style="assistant-message"]',
+      '[data-markdown-copy="contents"]',
       ".markdown",
       ".prose",
       '[class*="markdown"]',
@@ -44,7 +52,7 @@
       'button[aria-label="Stop generating"]',
       'button[aria-label="Detener respuesta"]',
       'button[aria-label="Detener la respuesta"]',
-      'button[aria-label="Detener"]',
+      'button[aria-label="Detener generación"]',
     ],
     sendSelectors: [
       'button[data-testid="send-button"]',
@@ -85,6 +93,7 @@
       ".markdown a[href^='https://']",
     ],
     composerSelectors: [
+      'div.ProseMirror[contenteditable="true"][aria-label="Ask ChatGPT"]',
       'form div.ProseMirror[contenteditable="true"]',
       "#prompt-textarea",
       '[data-testid="prompt-textarea"]',

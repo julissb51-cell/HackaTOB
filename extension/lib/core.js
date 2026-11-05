@@ -146,11 +146,33 @@
     return clipPlain(found || "", 80);
   }
 
+  function isGenericSiteTitle(title) {
+    const value = stripControl(title).replace(/\s+/g, " ").trim().toLowerCase();
+    if (!value) return true;
+    if (/^(chatgpt|google gemini|gemini|claude|grok|copilot|microsoft copilot|nuevo chat|new chat|chat|inicio|home)$/i.test(value)) return true;
+    if (/chatgpt/.test(value) && /create/.test(value) && /code/.test(value)) return true;
+    if (/^chatgpt\s*:/.test(value) && /chat/.test(value) && /work/.test(value)) return true;
+    return false;
+  }
+
   function chatNameFrom(title, text) {
     let name = stripControl(title).replace(/\s[-|–—]\s*(ChatGPT|Gemini|Google Gemini|Claude|Grok|Microsoft Copilot|Copilot).*/i, "").trim();
-    if (/^(chatgpt|google gemini|gemini|claude|grok|copilot|microsoft copilot|nuevo chat|new chat|chat|inicio|home)$/i.test(name)) name = "";
+    if (isGenericSiteTitle(name) || isGenericSiteTitle(title)) name = "";
     if (!name) name = stripControl(text).trim().split("\n")[0] || "";
     return clipPlain(name, 80);
+  }
+
+  function chooseChatTitle(input) {
+    const source = input && typeof input === "object" ? input : {};
+    const domName = chatNameFrom(source.domTitle || "", "");
+    const pageName = chatNameFrom(source.pageTitle || "", "");
+    const candidate = domName || pageName;
+    const previous = source.previous && typeof source.previous === "object" ? source.previous : {};
+    const previousName = chatNameFrom(previous.title || "", "") || String(previous.title || "");
+    if (previous.id && source.conversationId && previous.id !== source.conversationId && candidate && candidate === previousName) {
+      return "";
+    }
+    return candidate;
   }
 
   function deriveChatFields(text, title) {
@@ -254,6 +276,7 @@
     parseInvite,
     keywordFrom,
     chatNameFrom,
+    chooseChatTitle,
     deriveChatFields,
     buildEvent,
     validateEvent,

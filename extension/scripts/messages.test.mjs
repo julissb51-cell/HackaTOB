@@ -34,8 +34,10 @@ const sandbox = { globalThis: {} };
 sandbox.globalThis = sandbox;
 runInNewContext(chatgptSource, sandbox);
 const chatgpt = sandbox.EnlazaChatgptSite;
-if (chatgpt.composerSelectors[0] !== 'form div.ProseMirror[contenteditable="true"]') throw new Error("composer");
-if (chatgpt.composerSelectors[1] !== "#prompt-textarea") throw new Error("composer respaldo");
+if (chatgpt.composerSelectors[0] !== 'div.ProseMirror[contenteditable="true"][aria-label="Ask ChatGPT"]') throw new Error("composer");
+if (!chatgpt.composerSelectors.includes('form div.ProseMirror[contenteditable="true"]')) throw new Error("composer formulario");
+if (!chatgpt.assistantSelectors.includes('[data-chatgpt-search-unit-key$=":assistant"]')) throw new Error("respuesta nueva");
+if (!chatgpt.composerSelectors.includes("#prompt-textarea")) throw new Error("composer respaldo");
 if (chatgpt.fileAnchorSelectors[0] !== 'button[aria-label="Añadir archivos y más"]') throw new Error("ancla");
 if (!chatgpt.fileAnchorSelectors.includes('button[aria-label="Add files and more"]')) throw new Error("ancla en");
 if (chatgpt.fileFooterSelectors[0] !== '[class*="ComposerLayoutFooter"]') throw new Error("footer");
@@ -86,6 +88,29 @@ if (copilotSite.pairTurns !== true) throw new Error("pareo copilot");
 if (copilotSite.promptsFromComposer !== true) throw new Error("prompt desde el enter");
 if (messages.normalizeMessageText("prueba final\n\nprueba final") !== "prueba final") throw new Error("texto gemelo");
 if (messages.seenKey("user", "prueba final") !== messages.seenKey("user", "prueba final\n\nprueba final")) throw new Error("hash gemelo");
+const sameChat = core.chooseChatTitle({
+  pageTitle: "Hora actual en Lisboa - Claude",
+  domTitle: "Hora actual en Lisboa",
+  conversationId: "chat-1",
+  previous: { id: "chat-1", title: "Hora actual en Lisboa" },
+});
+if (sameChat !== "Hora actual en Lisboa") throw new Error(sameChat);
+const staleTitle = core.chooseChatTitle({
+  pageTitle: "Definición de hackatón - ChatGPT",
+  domTitle: "New chat",
+  conversationId: "chat-2",
+  previous: { id: "chat-1", title: "Definición de hackatón" },
+});
+if (staleTitle !== "") throw new Error(staleTitle);
+const genericPage = core.deriveChatFields("cuantas patas tiene una arana", "ChatGPT: Chat, Work, Create & Code with AI");
+if (genericPage.nombre_chat !== "cuantas patas tiene una arana") throw new Error(genericPage.nombre_chat);
+const freshTitle = core.chooseChatTitle({
+  pageTitle: "Definición de hackatón - ChatGPT",
+  domTitle: "Conectar Supabase",
+  conversationId: "chat-2",
+  previous: { id: "chat-1", title: "Definición de hackatón" },
+});
+if (freshTitle !== "Conectar Supabase") throw new Error(freshTitle);
 if (copilotSite.stableMs !== 1500) throw new Error("espera copilot");
 const sameTurn = messages.turnKey("conv-1", "user", 0, "hola de nuevo");
 if (sameTurn !== messages.turnKey("conv-1", "user", 0, "  hola   de nuevo ")) throw new Error("clave inestable");
@@ -149,6 +174,170 @@ if (roles.length !== 2) {
 }
 if (!roles[0].startsWith("user:que dia es")) throw new Error(roles[0]);
 if (!roles[1].includes("Hoy es martes")) throw new Error(roles[1]);
+
+const rich = parseHTML(`<!doctype html><body>
+  <div class="markdown">
+    <p>Tablas:</p>
+    <ul>
+      <li><p>salas (<code>rooms</code>): <code>id</code>, <code>nombre</code>, <code>creador_id</code>, <code>created_at</code>.</p></li>
+      <li><p>miembros (<code>room_members</code>): <code>id</code>.</p></li>
+    </ul>
+    <ol>
+      <li><p>Crea el proyecto.</p></li>
+      <li><p>Pega la <strong>clave</strong>.</p></li>
+    </ol>
+  </div>
+</body>`);
+const richText = messages.textFrom(rich.document.querySelector(".markdown"), [".markdown"]);
+const richExpected = [
+  "Tablas:",
+  "",
+  "- salas (`rooms`): `id`, `nombre`, `creador_id`, `created_at`.",
+  "- miembros (`room_members`): `id`.",
+  "",
+  "1. Crea el proyecto.",
+  "2. Pega la **clave**.",
+].join("\n");
+if (richText !== richExpected) throw new Error(richText);
+const tableDom = parseHTML(`<!doctype html><body>
+  <div class="markdown">
+    <table>
+      <tr><th>Tiempo</th><th>Sección</th><th>Qué debes decir / mostrar</th></tr>
+      <tr><td>0:00 - 0:30</td><td><strong>1. El Gancho</strong></td><td>Presenta una historia breve.</td></tr>
+    </table>
+  </div>
+</body>`);
+const tableText = messages.textFrom(tableDom.document.querySelector(".markdown"), [".markdown"]);
+const tableExpected = [
+  "| Tiempo | Sección | Qué debes decir / mostrar |",
+  "| --- | --- | --- |",
+  "| 0:00 - 0:30 | **1. El Gancho** | Presenta una historia breve. |",
+].join("\n");
+if (tableText !== tableExpected) throw new Error(tableText);
+if (tableText.includes("TiempoSección")) throw new Error(tableText);
+const loggedOut = parseHTML(`<!doctype html><body>
+  <article data-testid="conversation-turn-2">
+    <div data-message-author-role="user"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+  </article>
+  <article data-testid="conversation-turn-3">
+    <div data-message-author-role="assistant"><div class="markdown">Una araña tiene 8 patas!</div></div>
+    <button data-testid="stop-button" aria-label="Stop streaming"></button>
+  </article>
+</body>`);
+const loggedLine = messages.listChatMessages(loggedOut.document, chatgpt).map((item) => `${item.role}:${item.text}`).join("|");
+if (loggedLine !== "user:cuantas patas tiene una arana|assistant:Una araña tiene 8 patas!") throw new Error(loggedLine);
+const signedIn = parseHTML(`<!doctype html><body>
+  <div data-turn-key="turn-user-1">
+    <div data-content-search-turn-key="fallback-turn-1">
+      <div class="group" data-talvt-turn-state="complete">
+        <h4 class="sr-only" data-conversation-role="user">You said:</h4>
+        <div data-chatgpt-search-unit-key="fallback-turn-1:0:user" data-chatgpt-search-message-ids="msg-user-1">
+          <div data-user-message-bubble="true"><div class="whitespace-pre-wrap">cuantas patas tiene una arana</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div data-turn-key="turn-assistant-1">
+    <div data-content-search-turn-key="fallback-turn-2">
+      <div class="group" data-talvt-turn-state="complete">
+        <h4 class="sr-only" data-conversation-role="assistant">ChatGPT said:</h4>
+        <div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="msg-a msg-b">
+          <div data-dil-source-message-id="msg-a" data-markdown-copy="contents">
+            <div data-markdown-text-style="assistant-message">Una araña tiene 8 patas!</div>
+          </div>
+          <button aria-label="Copy"></button>
+          <button aria-label="Regenerate response"></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ProseMirror" contenteditable="true" aria-label="Ask ChatGPT"></div>
+</body>`);
+const signed = messages.listChatMessages(signedIn.document, chatgpt);
+const signedLine = signed.map((item) => `${item.role}:${item.id}:${item.text}`).join("|");
+if (signedLine !== "user:msg-user-1:cuantas patas tiene una arana|assistant:msg-a:Una araña tiene 8 patas!") throw new Error(signedLine);
+if (!signed.find((item) => item.role === "assistant")?.done) throw new Error("la respuesta con Copy no está terminada");
+const streamingNext = parseHTML(`<!doctype html><body>
+  <div data-turn-key="old" data-talvt-turn-state="complete">
+    <div data-chatgpt-search-unit-key="fallback-turn-1:1:assistant" data-chatgpt-search-message-ids="old-a">
+      <div data-markdown-text-style="assistant-message">respuesta vieja</div>
+      <button aria-label="Copy"></button>
+    </div>
+  </div>
+  <div data-turn-key="live">
+    <div data-chatgpt-search-unit-key="fallback-turn-2:1:assistant" data-chatgpt-search-message-ids="live-a">
+      <div data-markdown-text-style="assistant-message">- Se pueden</div>
+    </div>
+  </div>
+</body>`);
+const liveOnly = messages.listChatMessages(streamingNext.document, chatgpt).find((item) => item.id === "live-a");
+if (!liveOnly || liveOnly.done) throw new Error("el Copy de otro turno marcó esta respuesta como lista");
+
+const claudeCode = parseHTML(`<!doctype html><body>
+  <div data-testid="assistant-message">
+    <div class="standard-markdown">
+      <p>En el entorno:</p>
+      <div class="code-block">
+        <div class="code-block__header">
+          <span aria-hidden="true">⍰</span>
+          <span>bash</span>
+          <button aria-label="Copy"><span aria-hidden="true">⍰</span>Copy</button>
+        </div>
+        <pre><code class="language-bash">npm install</code></pre>
+      </div>
+      <p>Supabase (Settings → API):</p>
+      <div>
+        <div class="code-block__header"><span>env</span><button aria-label="Copiar">Copiar</button></div>
+        <pre><code>NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co</code></pre>
+      </div>
+    </div>
+  </div>
+</body>`);
+const claudeRich = messages.listChatMessages(claudeCode.document, claudeSite).map((item) => item.text).join("\n");
+if (claudeRich.includes("⍰") || /copy|copiar/i.test(claudeRich)) throw new Error(claudeRich);
+if (!claudeRich.includes("```bash\nnpm install\n```")) throw new Error(claudeRich);
+if (!claudeRich.includes("```env\nNEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co\n```")) throw new Error(claudeRich);
+if (!claudeRich.includes("En el entorno:\n\n```bash")) throw new Error(claudeRich);
+
+const geminiRichDom = parseHTML(`<!doctype html><body>
+  <user-query><div class="query-text">arma el esquema</div></user-query>
+  <model-response>
+    <message-content class="model-response-text markdown">
+      <p>Pasos:</p>
+      <ol>
+        <li><p>Crea <code>rooms</code>.</p></li>
+        <li><p>Agrega <strong>miembros</strong>.</p></li>
+      </ol>
+    </message-content>
+  </model-response>
+</body>`);
+const geminiRich = messages.listChatMessages(geminiRichDom.document, geminiSite).map((item) => `${item.role}:${item.text}`).join("\n---\n");
+if (!geminiRich.includes("user:arma el esquema")) throw new Error(geminiRich);
+if (!geminiRich.includes("assistant:Pasos:\n\n1. Crea `rooms`.\n2. Agrega **miembros**.")) throw new Error(geminiRich);
+
+const quoted = parseHTML(`<!doctype html><body>
+  <div data-testid="conversation-turn-2" data-turn="user">
+    <div data-user-message-bubble><div class="whitespace-pre-wrap">que es una hackaton</div></div>
+  </div>
+  <div data-testid="conversation-turn-3" data-turn="assistant">
+    <div class="markdown">Una hackaton es un evento donde un equipo construye un prototipo.</div>
+    <div data-message-author-role="user" class="sr-only">que es una hackaton</div>
+    <button aria-label="Copiar"></button>
+    <button aria-label="Regenerar"></button>
+  </div>
+</body>`);
+const quotedLine = messages.listChatMessages(quoted.document, site).map((item) => `${item.role}:${item.text}`).join("|");
+if (quotedLine !== "user:que es una hackaton|assistant:Una hackaton es un evento donde un equipo construye un prototipo.") {
+  throw new Error(quotedLine);
+}
+const wrapped = parseHTML(`<!doctype html><body>
+  <div data-turn-key="exchange">
+    <div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">que es una hackaton</div></div></div>
+    <div data-content-search-unit-key="a:assistant"><div class="markdown">Una hackaton es un evento.</div></div>
+  </div>
+</body>`);
+const wrappedLine = messages.listChatMessages(wrapped.document, site).map((item) => `${item.role}:${item.text}`).join("|");
+if (wrappedLine !== "user:que es una hackaton|assistant:Una hackaton es un evento.") throw new Error(wrappedLine);
 
 const legacy = parseHTML(`<!doctype html><body>
   <div data-message-author-role="user"><div class="whitespace-pre-wrap">hola</div></div>

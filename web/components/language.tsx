@@ -75,7 +75,7 @@ export function LanguageToggle() {
             type="button"
             aria-pressed={selected}
             onClick={() => setLang(code)}
-            className={`cursor-pointer rounded-full px-3 py-1 text-sm font-semibold tracking-wide ${
+            className={`motion-chip cursor-pointer rounded-full px-3 py-1 text-sm font-semibold tracking-wide ${
               selected ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"
             }`}
           >

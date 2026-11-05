@@ -31,6 +31,13 @@
     let lastWatchAt = 0;
     let settling = false;
     let armTimer = 0;
+    let armGeneration = 0;
+    let liveUntil = 0;
+    let titleMemory = { id: "", title: "" };
+    let promptsThisSession = 0;
+    const historyAssistants = new Set();
+    const sentSlots = new Set();
+    const bootAt = Date.now();
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -41,13 +48,26 @@
       return assistants[assistants.length - 1] || null;
     }
 
+    function controlVisible(selector) {
+      try {
+        return dom.queryAllDeep(selector).some((node) => dom.isVisible(node));
+      } catch {
+        return false;
+      }
+    }
+
     function isStreaming() {
-      if ((site.streamingSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
-      if ((site.stopSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
-      return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
-        const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
-        return /stop streaming|stop generating|detener respuesta|detener la respuesta|stop-button|composer-stop/.test(label);
-      });
+      try {
+        if ((site.streamingSelectors || []).some((selector) => controlVisible(selector))) return true;
+        if ((site.stopSelectors || []).some((selector) => controlVisible(selector))) return true;
+        return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
+          if (!dom.isVisible(button)) return false;
+          const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
+          return /stop streaming|stop generating|detener respuesta|detener la respuesta|stop-button|composer-stop/.test(label);
+        });
+      } catch {
+        return false;
+      }
     }
 
     function composerText(element) {
@@ -81,17 +101,114 @@
       sendLivePrompt(text).catch(() => {});
     }
 
+    function markLiveTurn() {
+      liveUntil = Date.now() + 90000;
+    }
+
+    function preferFullTurns(messages) {
+      return messages.filter((message) => {
+        if (message.role !== "assistant") return true;
+        const text = normalize(message.text);
+        return !messages.some((other) => {
+          if (other === message || other.role !== "assistant") return false;
+          const longer = normalize(other.text);
+          return longer.length > text.length && longer.includes(text);
+        });
+      });
+    }
+
+    function assistantSlot(messages, message) {
+      let users = 0;
+      let assistants = 0;
+      for (const item of messages) {
+        if (item.role === "user") {
+          users += 1;
+          assistants = 0;
+          continue;
+        }
+        if (item.role !== "assistant") continue;
+        assistants += 1;
+        if (item === message) return `${users}:${assistants}`;
+      }
+      return "";
+    }
+
+    function rememberAssistantsBefore(messages, userMessage) {
+      promptsThisSession += 1;
+      let list = messages;
+      if (!list) {
+        try {
+          list = listMessages();
+        } catch {
+          list = [];
+        }
+      }
+      let beforePrompt = true;
+      for (const message of list) {
+        if (userMessage && message === userMessage) {
+          beforePrompt = false;
+          continue;
+        }
+        if (beforePrompt && message.role === "assistant" && message.text) {
+          historyAssistants.add(messageKey(message));
+        }
+      }
+    }
+
+    function messageKey(message) {
+      if (message?.id) return `${message.role}|id|${message.id}`;
+      return countKey(message.role, message.text);
+    }
+
+    function assistantIsNew(message, messages) {
+      if (alreadySeen(message)) return false;
+      const slot = assistantSlot(messages, message);
+      if (slot && sentSlots.has(slot)) return false;
+      return true;
+    }
+
+    function rememberMessage(message) {
+      if (!message?.text) return;
+      const textKey = countKey(message.role, message.text);
+      reserved.add(textKey);
+      historyAssistants.add(textKey);
+      if (message.id) {
+        const idKey = messageKey(message);
+        reserved.add(idKey);
+        historyAssistants.add(idKey);
+      }
+      nodeSent.set(message.node, normalize(message.text));
+    }
+
+    function alreadySeen(message) {
+      if (historyAssistants.has(countKey(message.role, message.text))) return true;
+      if (message.id && historyAssistants.has(messageKey(message))) return true;
+      if (reserved.has(countKey(message.role, message.text))) return true;
+      if (message.id && reserved.has(messageKey(message))) return true;
+      return false;
+    }
+
+    function freezeMessage(message) {
+      rememberMessage(message);
+    }
+
+    function freezeOnScreen() {
+      if (Date.now() < liveUntil || promptsThisSession > 0) return;
+      if (Date.now() - bootAt > 3000) return;
+      const messages = safeMessages().filter((message) => message.text);
+      if (!messages.length || looksLikeFirstTurn(messages)) return;
+      for (const message of messages) freezeMessage(message);
+    }
+
     async function sendLivePrompt(text) {
       const keyName = countKey("user", text);
       if (reserved.has(keyName)) return;
       reserved.add(keyName);
+      markLiveTurn();
+      rememberAssistantsBefore(null, null);
       if (settling) {
+        armGeneration += 1;
         clearTimeout(armTimer);
-        try {
-          await arm(site.conversationId(location.href) || "");
-        } catch (error) {
-          console.debug("enlaza", error);
-        }
         settling = false;
       }
       try {
@@ -224,17 +341,11 @@
       return seenWrite;
     }
 
-    async function arm(key) {
+    async function arm(key, generation) {
       const persisted = await loadSeen(key);
+      if (generation != null && generation !== armGeneration) return;
       if ((site.conversationId(location.href) || "") !== key) return;
-      const messages = listMessages();
-      nodeSent = new WeakMap();
       for (const keyName of persisted) reserved.add(keyName);
-      for (const message of messages) {
-        if (!message.text) continue;
-        reserved.add(countKey(message.role, message.text));
-        nodeSent.set(message.node, normalize(message.text));
-      }
       armedKey = key;
       await saveSeen(key, [...reserved]);
     }
@@ -252,34 +363,106 @@
       }
     }
 
+    function safeMessages() {
+      try {
+        return listMessages();
+      } catch {
+        return [];
+      }
+    }
+
+    function looksLikeFirstTurn(messages) {
+      const users = new Set();
+      for (const message of messages) {
+        if (message.role === "user" && message.text) users.add(normalize(message.text));
+      }
+      // Varias cajas de la misma respuesta (mientras escribe) no son un chat viejo.
+      return users.size < 2;
+    }
+
     function noteConversationChange() {
       const key = site.conversationId(location.href) || "";
-      if (armedKey === null || (armedKey === "" && key)) {
+      if (armedKey === null) {
         beginBaseline(key);
         return;
       }
       if (key === armedKey) return;
+      const createdNow = armedKey === "" && key;
+      const messages = safeMessages();
+      // / , /app o /new pasan a /c/id, /app/id o /chat/id con el primer turno ya pintado.
+      // Si eso se toma como historial, el prompt y la respuesta no salen.
+      if (createdNow && (Date.now() < liveUntil || looksLikeFirstTurn(messages))) {
+        adoptConversation(key, true);
+        return;
+      }
+      if (Date.now() < liveUntil) {
+        adoptConversation(key, false);
+        return;
+      }
       beginBaseline(key);
+    }
+
+    function adoptConversation(key, freshTurn) {
+      armGeneration += 1;
+      clearTimeout(armTimer);
+      armedKey = key;
+      settling = false;
+      if (freshTurn) {
+        saveSeen(key, [...reserved]);
+        return;
+      }
+      try {
+        const messages = listMessages();
+        let lastUser = -1;
+        messages.forEach((message, index) => {
+          if (message.role === "user") lastUser = index;
+        });
+        messages.forEach((message, index) => {
+          if (!message.text) return;
+          const replyJustSent = promptsThisSession > 0 && message.role === "assistant" && index > lastUser;
+          if (replyJustSent) return;
+          reserved.add(messageKey(message));
+          nodeSent.set(message.node, normalize(message.text));
+          if (message.role === "assistant") historyAssistants.add(messageKey(message));
+        });
+      } catch {
+        // Si el lector falla, el filtro de la sesión igual no reenvía historial.
+      }
+      saveSeen(key, [...reserved]);
+    }
+
+    function absorbSettledHistory() {
+      if (Date.now() < liveUntil || promptsThisSession > 0) return;
+      const messages = safeMessages();
+      const fresh = messages.filter((message) => message.text && !reserved.has(countKey(message.role, message.text)));
+      if (!fresh.length) return;
+      const hadHistory = messages.some((message) => message.text && reserved.has(countKey(message.role, message.text)));
+      if (!hadHistory && looksLikeFirstTurn(messages)) return;
+      for (const message of fresh) freezeMessage(message);
     }
 
     function beginBaseline(key) {
       settling = true;
       armedKey = key;
+      const generation = ++armGeneration;
+      for (const message of safeMessages()) freezeMessage(message);
       const previous = snapshot();
       clearTimeout(armTimer);
-      armTimer = setTimeout(() => finishArm(key, previous, 0, 0), 400);
+      armTimer = setTimeout(() => finishArm(key, previous, 0, 0, generation), 400);
     }
 
-    async function finishArm(key, previous, stable, elapsed) {
+    async function finishArm(key, previous, stable, elapsed, generation) {
+      if (generation !== armGeneration) return;
       const current = site.conversationId(location.href) || "";
       if (current !== key) return;
       const now = snapshot();
       const nextStable = now === previous ? stable + 1 : 0;
       if (nextStable < 3 && elapsed < 20) {
-        armTimer = setTimeout(() => finishArm(key, now, nextStable, elapsed + 1), 400);
+        armTimer = setTimeout(() => finishArm(key, now, nextStable, elapsed + 1, generation), 400);
         return;
       }
-      await arm(key);
+      await arm(key, generation);
+      if (generation !== armGeneration) return;
       if ((site.conversationId(location.href) || "") !== key) return;
       settling = false;
       scheduleScan();
@@ -292,17 +475,79 @@
       });
     }
 
+    function conversationLabel() {
+      const id = site.conversationId(location.href) || "";
+      const found = [];
+      const push = (node) => {
+        if (!node) return;
+        const text = String(node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text || text.length > 120) return;
+        const visible = !dom.isVisible || dom.isVisible(node);
+        found.push({ text, visible, length: text.length });
+      };
+      if (id) {
+        let links = [];
+        try {
+          links = dom.queryAllDeep("a[href]");
+        } catch {
+          links = [];
+        }
+        for (const link of links) {
+          const href = link.getAttribute?.("href") || "";
+          if (href.includes(id)) push(link);
+        }
+      }
+      for (const selector of site.titleSelectors || ['[data-testid="conversation-title"]', '[data-testid="chat-title"]', 'a[aria-current="page"]']) {
+        let nodes = [];
+        try {
+          nodes = dom.queryAllDeep(selector);
+        } catch {
+          continue;
+        }
+        for (const node of nodes) push(node);
+      }
+      found.sort((a, b) => Number(b.visible) - Number(a.visible) || a.length - b.length);
+      return found[0]?.text || "";
+    }
+
+    function titleForSend(conversationId) {
+      let domTitle = "";
+      try {
+        domTitle = conversationLabel();
+      } catch {
+        domTitle = "";
+      }
+      const chosen = core.chooseChatTitle({
+        pageTitle: document.title || "",
+        domTitle,
+        conversationId: conversationId || "",
+        previous: titleMemory,
+      });
+      if (conversationId && chosen) titleMemory = { id: conversationId, title: chosen };
+      return chosen;
+    }
+
     function deliverNow(partial, conversationId) {
-      const fields = core.deriveChatFields(partial.texto, document.title);
+      let nombre_chat = "";
+      let resumen = "";
+      let palabra_clave = "";
+      try {
+        const fields = core.deriveChatFields(partial.texto, titleForSend(conversationId));
+        nombre_chat = fields?.nombre_chat || "";
+        resumen = fields?.resumen || "";
+        palabra_clave = fields?.palabra_clave || "";
+      } catch (error) {
+        console.debug("enlaza", error);
+      }
       deliver({
         event_id: partial.event_id,
         tipo: partial.tipo,
         texto: partial.texto,
         ia: site.ia,
         conversation_id: conversationId,
-        nombre_chat: fields.nombre_chat,
-        resumen: fields.resumen,
-        palabra_clave: fields.palabra_clave,
+        nombre_chat,
+        resumen,
+        palabra_clave,
       });
     }
 
@@ -349,18 +594,30 @@
 
     function readyDelay(message, tail, streaming) {
       const state = stateFor(message.node);
-      if (message.text !== state.lastText) {
-        state.lastText = message.text;
+      const comparable = normalize(message.text).replace(/[\u2580-\u259F\u25A0-\u25FF\u2800-\u28FF]+$/g, "").trim();
+      if (comparable !== state.lastText) {
+        state.lastText = comparable;
         state.lastChange = Date.now();
       }
       if (!message.text) return 400;
+      const age = Date.now() - state.lastChange;
+      if (message.role === "assistant" && message.strict) {
+        if (!message.done) return 400;
+        if (age < 1500) return 1500 - age;
+        return 0;
+      }
+      if (message.role === "assistant" && message.done) {
+        if (age < 300) return 300 - age;
+        return 0;
+      }
       if (message.role === "assistant" && tail && message.node === tail.node && streaming) {
         state.sawStream = true;
-        return FAST_MS;
+        const quiet = site.stableMs || SLOW_MS;
+        if (age < quiet) return quiet - age;
+        return 0;
       }
       const assistantWait = site.stableMs || (state.sawStream ? FAST_MS : SLOW_MS);
       const need = message.role === "user" ? USER_MS : assistantWait;
-      const age = Date.now() - state.lastChange;
       if (age < need) return need - age;
       return 0;
     }
@@ -368,6 +625,10 @@
     function claim(message, messages) {
       const previous = nodeSent.get(message.node);
       const next = normalize(message.text);
+      if (alreadySeen(message)) {
+        nodeSent.set(message.node, next);
+        return false;
+      }
       if (previous && normalize(previous) === next) return false;
       if (previous && next.length <= normalize(previous).length) return false;
       const nested = messages.some((other) => other !== message && other.role === message.role && globalThis.EnlazaMessages.inside(message.node, other.node));
@@ -375,10 +636,8 @@
         nodeSent.set(message.node, next);
         return false;
       }
-      if (!reserve(message.role, message.text)) {
-        nodeSent.set(message.node, next);
-        return false;
-      }
+      rememberMessage(message);
+      saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
       nodeSent.set(message.node, next);
       return true;
     }
@@ -389,6 +648,7 @@
         reportWatch();
         return;
       }
+      freezeOnScreen();
       noteConversationChange();
       attachShadows(document);
       let messages = [];
@@ -403,18 +663,30 @@
         reportWatch();
         return;
       }
-      const tail = lastAssistant(messages);
+      const visible = preferFullTurns(messages);
+      const tail = lastAssistant(visible);
       const streaming = isStreaming();
       let nextWait = 0;
-      for (const message of messages) {
+      for (const message of visible) {
         const delay = readyDelay(message, tail, streaming);
         if (!message.text) continue;
         if (site.promptsFromComposer && message.role === "user") continue;
+        if (message.role === "assistant" && !assistantIsNew(message, visible)) {
+          freezeMessage(message);
+          continue;
+        }
         if (delay > 0) {
           nextWait = nextWait === 0 ? delay : Math.min(nextWait, delay);
           continue;
         }
-        if (!claim(message, messages)) continue;
+        if (!claim(message, visible)) continue;
+        if (message.role === "user") {
+          markLiveTurn();
+          rememberAssistantsBefore(visible, message);
+        } else {
+          const slot = assistantSlot(visible, message);
+          if (slot) sentSlots.add(slot);
+        }
         enqueue({
           tipo: message.role === "user" ? "prompt" : "respuesta",
           texto: core.truncateText(message.text),
@@ -571,7 +843,6 @@
       document.addEventListener("click", onComposerClick, true);
       document.addEventListener("input", onComposerInput, true);
       document.addEventListener("submit", onComposerSubmit, true);
-      installPageDebug();
       refreshActive();
       reportWatch();
       chrome.storage.onChanged.addListener((changes, area) => {
@@ -603,17 +874,6 @@
     }
 
     globalThis.__enlazaDebug = () => JSON.stringify(debugReport(), null, 2);
-
-    function installPageDebug() {
-      const node = document.createElement("script");
-      node.textContent = `window.__enlazaDebug=function(){return new Promise(function(resolve){var id=Math.random().toString(16).slice(2);function onMessage(event){if(event.source!==window||!event.data||event.data.type!=="enlaza-debug-result"||event.data.id!==id)return;window.removeEventListener("message",onMessage);resolve(event.data.json);}window.addEventListener("message",onMessage);window.postMessage({type:"enlaza-debug",id:id},"*");});}`;
-      (document.documentElement || document.head || document.body).appendChild(node);
-      node.remove();
-      window.addEventListener("message", (event) => {
-        if (event.source !== window || event.data?.type !== "enlaza-debug") return;
-        window.postMessage({ type: "enlaza-debug-result", id: event.data.id, json: globalThis.__enlazaDebug() }, "*");
-      });
-    }
 
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", boot, { once: true });

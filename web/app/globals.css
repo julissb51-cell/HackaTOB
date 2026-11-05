@@ -125,6 +125,36 @@ body {
   .animate-pop, .animate-fade { animation: none; }
 }
 
+
+/* Sistema de movimiento Enlaza: sutil, inspirado en rebote suave. */
+:root { --ease-spring: cubic-bezier(.34,1.4,.64,1); --ease-out: cubic-bezier(.2,.8,.2,1); --motion-shadow: rgba(0,0,0,.08); }
+@media (prefers-color-scheme: dark) { :root { --motion-shadow: rgba(0,0,0,.5); } }
+.motion-btn, .motion-card, .motion-chip, .motion-press {
+  transition: transform 180ms var(--ease-spring), box-shadow 180ms ease, background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.motion-card { transition-duration: 240ms; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .motion-btn:hover:not(:disabled) { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 20px color-mix(in srgb, var(--accent) 30%, transparent); }
+  .motion-btn.motion-soft:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px var(--motion-shadow); }
+  .motion-card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px var(--motion-shadow); }
+  .motion-chip:hover { transform: translateY(-1px); }
+  .motion-avatar:hover .motion-avatar-dot { transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .motion-btn:active:not(:disabled) { transform: scale(.97); transition-duration: 90ms; }
+  .motion-btn.motion-soft:active:not(:disabled) { transform: scale(.98); }
+  .motion-press:active { transform: scale(.92); transition-duration: 120ms; }
+  .motion-chip:active { transform: scale(.96); }
+  .motion-avatar-dot { transition: transform 200ms var(--ease-spring); }
+  .motion-enter { animation: enlaza-enter 500ms var(--ease-out) both; }
+  .motion-enter-2 { animation-delay: 80ms; } .motion-enter-3 { animation-delay: 160ms; }
+}
+@keyframes enlaza-enter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .motion-btn, .motion-card, .motion-chip, .motion-press { transition: background-color 150ms, border-color 150ms, color 150ms; }
+  .motion-enter { animation: none; }
+}
+
 /* Inicio /rooms estilo Mobbin x Google: Geist, paneles planos, Material Symbols. Solo dentro de .m-home; la sala no cambia. */
 :root { --logo-ink: #1f1f1f; --logo-accent: #00b4d8; }
 @media (prefers-color-scheme: dark) { :root { --logo-ink: #ffffff; --logo-accent: #22ccee; } }
@@ -152,6 +182,11 @@ body {
   font-feature-settings: "liga";
 }
 
+.enlaza-activity { white-space: normal; }
+.enlaza-activity-clamp {
+  max-height: 10.5rem;
+  overflow: hidden;
+}
 .enlaza-md > :first-child { margin-top: 0; }
 .enlaza-md > :last-child { margin-bottom: 0; }
 .enlaza-md p,
