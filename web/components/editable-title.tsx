@@ -60,8 +60,34 @@ export function EditableTitle({ roomId, topic, compact = false }: { roomId: stri
         />
         </h1>
       ) : (
-        <h1 className="font-display text-[44px] leading-[1.05] font-bold tracking-[-1.6px] sm:text-[64px] sm:tracking-[-2.4px] lg:text-[80px] lg:tracking-[-3px]">
-          {/* Fusión C: el ancho sigue al texto; banda cian tenue abajo + subrayado cian de 3px. */}
+        <>
+          <h1 className="text-[1.65rem] leading-snug font-bold tracking-[-0.4px] lg:hidden">
+            <textarea
+              aria-label={text.titleLabel}
+              value={draft}
+              maxLength={200}
+              rows={Math.min(4, Math.max(2, Math.ceil(draft.length / 22)))}
+              autoFocus={fresh}
+              onFocus={(event) => {
+                if (UNTITLED.has(draft)) event.currentTarget.select();
+              }}
+              onChange={(event) => setDraft(event.target.value)}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+                if (event.key === "Escape") {
+                  setDraft(saved);
+                  requestAnimationFrame(() => (event.target as HTMLTextAreaElement).blur());
+                }
+              }}
+              aria-busy={pending}
+              className="w-full resize-none break-words border-b-[3px] border-accent bg-[linear-gradient(transparent_78%,color-mix(in_srgb,var(--accent)_14%,transparent)_78%)] bg-transparent px-1 outline-none focus:border-link"
+            />
+          </h1>
+          <h1 className="hidden font-display text-[64px] leading-[1.05] font-bold tracking-[-2.4px] lg:block lg:text-[80px] lg:tracking-[-3px]">
           <span className="relative inline-grid max-w-full border-b-[3px] border-accent bg-[linear-gradient(transparent_80%,color-mix(in_srgb,var(--accent)_14%,transparent)_80%)] pb-1 align-bottom">
             <span aria-hidden="true" className="invisible col-start-1 row-start-1 overflow-hidden whitespace-pre px-1 text-ellipsis">
               {draft || " "}
@@ -70,7 +96,6 @@ export function EditableTitle({ roomId, topic, compact = false }: { roomId: stri
           aria-label={text.titleLabel}
           value={draft}
           maxLength={200}
-          autoFocus={fresh}
           onFocus={(event) => {
             if (UNTITLED.has(draft)) event.currentTarget.select();
           }}
@@ -88,6 +113,7 @@ export function EditableTitle({ roomId, topic, compact = false }: { roomId: stri
         />
           </span>
         </h1>
+        </>
       )}
       {fresh ? <p className={compact ? "mt-0.5 text-xs text-muted" : "mt-2 text-sm text-muted"}>{text.titleHint}</p> : null}
       {error ? (
