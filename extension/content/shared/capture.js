@@ -87,12 +87,20 @@
       reserved.add(keyName);
       if (settling) {
         clearTimeout(armTimer);
-        await arm(site.conversationId(location.href) || "");
+        try {
+          await arm(site.conversationId(location.href) || "");
+        } catch (error) {
+          console.debug("enlaza", error);
+        }
         settling = false;
       }
-      saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
+      try {
+        saveSeen(site.conversationId(location.href) || armedKey || "", [...reserved]);
+      } catch (error) {
+        console.debug("enlaza", error);
+      }
       lastComposer = "";
-      enqueue({ tipo: "prompt", texto: core.truncateText(text) });
+      enqueue({ tipo: "prompt", texto: core.truncateText(normalize(text)) });
     }
 
     function isSendControl(event) {
@@ -383,7 +391,14 @@
       }
       noteConversationChange();
       attachShadows(document);
-      const messages = listMessages();
+      let messages = [];
+      try {
+        messages = listMessages();
+      } catch (error) {
+        console.debug("enlaza", error);
+        reportWatch();
+        return;
+      }
       if (settling) {
         reportWatch();
         return;

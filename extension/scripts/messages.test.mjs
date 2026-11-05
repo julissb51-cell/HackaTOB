@@ -224,16 +224,19 @@ const onlyReply = parseHTML(`<!doctype html><body>
 const onlyLine = messages.listChatMessages(onlyReply.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
 if (onlyLine !== "assistant:Respuesta sola.") throw new Error(onlyLine);
 const finished = parseHTML(`<!doctype html><body>
-  <div class="reply">Prueba recibida: la comunicacion funciona correctamente.</div>
+  <p>Hola.</p>
+  <p>Prueba nueva recibida correctamente.</p>
+  <p>En que te puedo ayudar hoy?</p>
   <div class="actions">
     <button aria-label="Copiar"></button>
-    <button aria-label="Me gusta"></button>
-    <button aria-label="No me gusta"></button>
-    <button aria-label="Regenerar"></button>
+    <button aria-label="Regenerar respuesta"></button>
+    <button aria-label="Más opciones"></button>
   </div>
 </body>`);
 const finishedLine = messages.listChatMessages(finished.document, copilotSite).map((item) => `${item.role}:${item.text}`).join("|");
-if (finishedLine !== "assistant:Prueba recibida: la comunicacion funciona correctamente.") throw new Error(finishedLine);
+if (!finishedLine.includes("assistant:Hola. Prueba nueva recibida correctamente. En que te puedo ayudar hoy?")) {
+  throw new Error(finishedLine);
+}
 if (copilotSite.conversationId("https://copilot.microsoft.com/chats/6aea3d77-c8d8-83e8-ada3-561359e03e25") !== "6aea3d77-c8d8-83e8-ada3-561359e03e25") {
   throw new Error("conversation microsoft");
 }

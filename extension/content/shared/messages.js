@@ -400,40 +400,68 @@
     return messages;
   }
 
+  function buttonLabel(button) {
+    return `${button.getAttribute?.("aria-label") || ""} ${button.getAttribute?.("title") || ""} ${button.getAttribute?.("data-testid") || ""}`;
+  }
+
+  function textBefore(node) {
+    const chunks = [];
+    let prev = node?.previousElementSibling;
+    while (prev) {
+      if (!isComposerNode(prev) && !insideUserTurn(prev)) chunks.unshift(plain(prev));
+      prev = prev.previousElementSibling;
+    }
+    return normalizeMessageText(chunks.filter(Boolean).join(" "));
+  }
+
   function repliesAboveActions(root) {
-    const buttons = queryAll(root, "button[aria-label], button[title]");
-    const action = /copiar|copy|me gusta|like|no me gusta|dislike|thumbs|regenerar|regenerate|intentar de nuevo|try again/i;
     const found = [];
     const seen = new Set();
-    for (const button of buttons) {
-      const label = `${button.getAttribute?.("aria-label") || ""} ${button.getAttribute?.("title") || ""}`;
-      if (!action.test(label)) continue;
-      let node = button;
-      for (let depth = 0; depth < 6 && node; depth += 1) {
-        let prev = node.previousElementSibling;
-        while (prev) {
-          if (!isComposerNode(prev) && !insideUserTurn(prev)) {
-            const text = plain(prev);
-            const norm = normalizeMessageText(text);
-            if (norm.length >= 12 && !seen.has(norm)) {
-              seen.add(norm);
-              found.push({ node: prev, text });
-              prev = null;
-              node = null;
-              break;
-            }
+    const remember = (node, text) => {
+      const norm = normalizeMessageText(text);
+      if (norm.length < 12 || seen.has(norm) || insideUserTurn(node)) return;
+      seen.add(norm);
+      found.push({ node, text: norm });
+    };
+    try {
+      const buttons = queryAll(root, "button, [role='button']");
+      const action = /copiar|copy|regener|reintent|intentar de nuevo|try again/i;
+      for (const button of buttons) {
+        if (!action.test(buttonLabel(button))) continue;
+        let node = button;
+        for (let depth = 0; depth < 8 && node; depth += 1) {
+          const text = textBefore(node);
+          if (text.length >= 12) {
+            remember(node.parentElement || node, text);
+            break;
           }
-          prev = prev?.previousElementSibling || null;
+          node = node.parentElement;
         }
-        if (!node) break;
-        node = node.parentElement;
       }
+      const rows = queryAll(root, "div");
+      for (const row of rows) {
+        const kids = [...(row.children || [])];
+        const iconButtons = kids.filter((child) => child.tagName === "BUTTON" && normalizeMessageText(child.innerText || "").length < 3);
+        if (iconButtons.length < 2) continue;
+        const labels = iconButtons.map(buttonLabel).join(" ");
+        if (!action.test(labels)) continue;
+        const text = textBefore(row);
+        if (text) remember(row, text);
+      }
+    } catch {
+      return found;
     }
     return found;
   }
 
   function listChatMessages(root, site) {
-    if (site?.pairTurns) return listPairedMessages(root, site);
+    if (site?.pairTurns) {
+      try {
+        return listPairedMessages(root, site);
+      } catch {
+        return [];
+      }
+    }
     const messages = [];
     const turns = collect(root, site.turnSelectors, false);
     const userSelector = group(site.userSelectors);
