@@ -289,6 +289,22 @@ test("storageConflicts lists several members without broken verb agreement", () 
   assert.doesNotMatch(ana.mensaje, / y \S+ usa /);
 });
 
+test("storageConflicts follows the latest storage decision, not the older mentions", () => {
+  const aligned = {
+    ...libraryInput,
+    events: [
+      ...libraryInput.events,
+      evt("4", "Ana", "respuesta", "Dejamos datos.json. Los datos van en SQLite, en biblioteca.db.", 4),
+    ],
+  };
+  assert.equal(storageConflicts(aligned).length, 0);
+  const back = {
+    ...aligned,
+    events: [...aligned.events, evt("5", "Ana", "respuesta", "Volvemos a guardar todo en datos.json.", 5)],
+  };
+  assert.deepEqual(storageConflicts(back).map((warning) => warning.destinatario).sort(), ["Ana", "Luis"]);
+});
+
 test("storageConflicts stays quiet when everyone uses the same storage or compatible ones", () => {
   const same = { ...libraryInput, events: [evt("1", "Ana", "prompt", "uso SQLite", 1), evt("2", "Luis", "prompt", "sqlite3 también", 2)] };
   assert.equal(storageConflicts(same).length, 0);
