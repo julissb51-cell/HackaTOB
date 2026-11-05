@@ -5,11 +5,13 @@
 HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 - **App en vivo:** [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app)
-- **Video de la demo:** [TODO: enlace del video]
+- **Video:** próximamente
 
 ---
 
 ## El problema
+
+La inteligencia artificial nos hizo más rápidos trabajando solos, pero más desordenados trabajando en grupo.
 
 Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio chat (ChatGPT, Gemini, Claude, Copilot o Cursor), y ninguna IA sabe lo que hacen las demás. Eso se descubre tarde, al unir el trabajo:
 
@@ -17,12 +19,11 @@ Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio
 - **Decisiones que se contradicen:** por ejemplo, una persona guarda los datos en JSON y otra en una base de datos.
 - **Partes que nadie hizo.**
 
-**Usuario:** estudiantes y equipos pequeños de 2 a 5 personas que hacen proyectos, tareas o hackatones con IA, cada quien desde su computadora.
+**Para quién es:** equipos que construyen un proyecto con IA. Gente que hace vibe coding, o un equipo que arma un MVP o un prototipo, cada quien desde su computadora.
 
 ### Evidencia
 
 - **El problema es real y está creciendo.**
-  - El **92 %** de los universitarios ya usa IA ([HEPI, 2025](https://www.hepi.ac.uk/reports/student-generative-ai-survey-2025/)). Son 1041 estudiantes de grado en el Reino Unido, encuestados en diciembre de 2024.
   - El **78 %** de quienes usan IA en el trabajo lleva su propia herramienta ([Microsoft, 2024](https://www.microsoft.com/en-us/worklab/work-trend-index/ai-at-work-is-here-now-comes-the-hard-part)). Son 31 000 personas en 31 países.
   - Así, en un mismo equipo, cada persona usa una IA distinta que no conoce lo que hacen las demás.
 - **Lo que dicen los usuarios:**
@@ -35,7 +36,9 @@ Hoy, cuando un equipo hace un proyecto con IA, cada persona trabaja en su propio
 
 ## Qué es
 
-Enlaza es una **sala compartida** para un trabajo en grupo hecho con IAs distintas. Cada estudiante sigue en su chat. La sala junta lo que hicieron y se lo devuelve al equipo.
+Enlaza es una **sala compartida** para un equipo que arma un proyecto con IAs distintas. Cada persona sigue en su chat. La sala junta lo que hicieron y se lo devuelve al equipo.
+
+El ejemplo: **Josué, Ana, Luis y Sofía** hacen con IA una app para dividir los gastos entre roommates. Josué define el producto, Ana escribe el flujo, Luis programa y Sofía arma la interfaz. Cada uno usa una IA distinta. Enlaza les muestra si se repiten, si se contradicen y qué les falta.
 
 Sirve para **ChatGPT, Gemini, Claude, Copilot y Cursor**.
 
@@ -139,7 +142,7 @@ Los pasos están en [cursor-hook/README.md](cursor-hook/README.md).
 4. Abrí **Archivos** para ver enlaces y archivos, o agregá uno.
 5. **Analizar ahora** vuelve a leer la sala con la IA.
 
-La sala de demo **`demo-final`** trae un caso de un **sistema de gestión de biblioteca**: Ana hace el informe, Luis el código y Sofía la presentación. Ahí se ve el choque entre `datos.json` y SQLite. El enlace de esa sala lo da el equipo. No está en este archivo.
+El enlace de una sala de prueba lo da el equipo. No está en este archivo.
 
 ## Tecnología
 
@@ -182,9 +185,8 @@ Pruebas: `npm test`, `npm run lint` y `npm run build`. Más detalle en [web/READ
 
 > Es una propuesta para la hackathon. Todavía no está validada con clientes.
 
-- **Gratis para estudiantes y equipos pequeños:** salas con límite de integrantes y de análisis por día.
-- **Plan de pago para equipos:** más integrantes, análisis ilimitado, historial más largo y más espacio en Archivos.
-- **Plan para universidades:** licencia por curso o por institución, con un panel para docentes que muestra el avance de cada grupo, y soporte.
+- **Gratis** para un equipo con una sala.
+- **Suscripción mensual** cuando necesitan más salas, más integrantes o más IAs conectadas.
 
 ## Riesgos
 
@@ -213,14 +215,13 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 ## Hoja de ruta
 
 - Avisos por correo cuando se acerca la fecha de entrega.
-- Panel para docentes y planes por equipo y por universidad.
 - Publicar la extensión en la Chrome Web Store.
 
 ---
 
 ## English summary
 
-**Enlaza** is a shared room for a student team that works with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor). A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Live: https://enlaza-green.vercel.app
+**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor): vibe coders, or a group shipping an MVP. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. Live: https://enlaza-green.vercel.app
 
 ## Licencia
 

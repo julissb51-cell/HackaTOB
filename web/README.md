@@ -207,7 +207,7 @@ La respuesta es 401, el cuerpo es `{"error":"no autorizado"}` y aparece `Access-
 curl -sS -X POST "http://localhost:3000/api/rooms/demo/events" \
   -H "content-type: application/json" \
   -H "x-room-token: token-de-prueba" \
-  -d '{"event_id":"evt_demo_001","tipo":"prompt","miembro":"Ana","ia":"chatgpt","conversation_id":"chatgpt_abc123","texto":"Arma la pantalla de una sala compartida para un equipo de estudiantes.","tiempo":"2026-11-03T09:15:00-06:00","nombre_chat":"Pantalla de la sala"}'
+  -d '{"event_id":"evt_demo_001","tipo":"prompt","miembro":"Ana","ia":"chatgpt","conversation_id":"chatgpt_abc123","texto":"Arma la pantalla para dividir un gasto entre roommates.","tiempo":"2026-11-03T09:15:00-06:00","nombre_chat":"Pantalla de la sala"}'
 ```
 
 La respuesta es `{"ok":true}`.

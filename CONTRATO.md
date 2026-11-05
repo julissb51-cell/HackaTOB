@@ -67,7 +67,7 @@ Ejemplo de evento (`prompt`):
   "miembro": "Ana",
   "ia": "chatgpt",
   "conversation_id": "chatgpt_abc123",
-  "texto": "Arma la pantalla de una sala compartida para un equipo de estudiantes.",
+  "texto": "Arma la pantalla para dividir un gasto entre roommates.",
   "tiempo": "2026-11-03T09:15:00-06:00",
   "proyecto": "Enlaza",
   "nombre_chat": "Pantalla de la sala",
