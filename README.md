@@ -5,6 +5,7 @@
 HackaTOB 2026 · TEC Cartago · 2 al 6 de noviembre · pista The Next Big Thing
 
 - **App en vivo:** [https://enlaza-green.vercel.app](https://enlaza-green.vercel.app)
+- **X:** [@enlazaxyz](https://x.com/enlazaxyz)
 - **Video:** próximamente
 
 ---
@@ -221,7 +222,7 @@ Recorrimos la app como si fuéramos usuarios y ajustamos lo que encontramos:
 
 ## English summary
 
-**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor): vibe coders, or a group shipping an MVP. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. Live: https://enlaza-green.vercel.app
+**Enlaza** is a shared room for a team building a product with different AIs (ChatGPT, Gemini, Claude, Copilot, and Cursor): vibe coders, or a group shipping an MVP. A Chrome or Edge extension captures finished prompts and replies, and can send a file or link to the room. Cursor on Windows uses a hook. The room (Next.js on Vercel, Supabase) runs a Gemini analyst, switchable to Grok with `AI_PROVIDER`, and shows each member a summary, warnings, progress, and a suggested prompt. Pitch example: Josué, Ana, Luis, and Sofía build an app to split expenses among roommates. Proposed pricing: free for one team and one room; a monthly subscription when they need more rooms, members, or connected AIs. Live: https://enlaza-green.vercel.app · X: [@enlazaxyz](https://x.com/enlazaxyz)
 
 ## Licencia
 
