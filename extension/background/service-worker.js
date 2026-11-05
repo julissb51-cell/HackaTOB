@@ -225,6 +225,22 @@ async function flushOutbox() {
   if (freshError) await noteFailure(freshError);
 }
 
+function eventFingerprint(event) {
+  const text = String(event.texto || "")
+    .normalize("NFC")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `${event.ia}|${event.tipo}|${text}`;
+}
+
+async function readRecentSends() {
+  const stored = await chrome.storage.local.get("recentSends");
+  const list = stored.recentSends;
+  return Array.isArray(list) ? list : [];
+}
+
 async function onCapture(capture) {
   const session = await readSession();
   if (!session?.connected || !session.consent) {
@@ -239,6 +255,12 @@ async function onCapture(capture) {
   }
   const sentIds = await readSentIds();
   if (sentIds.includes(event.event_id)) return { ok: true, duplicate: true };
+  const fingerprint = eventFingerprint(event);
+  const now = Date.now();
+  const recent = (await readRecentSends()).filter((item) => item && now - item.at < 30000);
+  if (recent.some((item) => item.key === fingerprint)) return { ok: true, duplicate: true };
+  recent.push({ key: fingerprint, at: now });
+  await chrome.storage.local.set({ recentSends: recent.slice(-80) });
   const outbox = await readOutbox();
   if (!outbox.some((item) => item.event?.event_id === event.event_id)) {
     outbox.push({ event, status: "pending", attempts: 0, error: "" });

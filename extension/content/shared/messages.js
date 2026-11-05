@@ -71,7 +71,17 @@
   }
 
   function normalizeMessageText(text) {
-    return String(text || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    const flat = String(text || "")
+      .normalize("NFC")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const mid = Math.floor(flat.length / 2);
+    if (mid >= 8 && flat.length % 2 === 1 && flat[mid] === " " && flat.slice(0, mid) === flat.slice(mid + 1)) {
+      return flat.slice(0, mid);
+    }
+    return flat;
   }
 
   function stripSpeakerLabel(text) {

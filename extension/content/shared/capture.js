@@ -551,10 +551,12 @@
       const root = document.documentElement || document.body;
       if (root) observer.observe(root, { childList: true, subtree: true, characterData: true });
       pollTimer = setInterval(scan, 1000);
-      document.addEventListener("keydown", onComposerKey, true);
-      document.addEventListener("click", onComposerClick, true);
+      if (!site.promptsFromDomOnly) {
+        document.addEventListener("keydown", onComposerKey, true);
+        document.addEventListener("click", onComposerClick, true);
+        document.addEventListener("submit", onComposerSubmit, true);
+      }
       document.addEventListener("input", onComposerInput, true);
-      document.addEventListener("submit", onComposerSubmit, true);
       installPageDebug();
       refreshActive();
       reportWatch();
