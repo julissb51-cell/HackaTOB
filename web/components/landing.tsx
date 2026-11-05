@@ -33,13 +33,13 @@ export function Landing() {
           <Symbol name="hub" className="text-[16px]" />
           {t.landingKicker}
         </p>
-        <h1 className="mt-5 max-w-3xl text-[40px] leading-[1.05] font-[650] tracking-[-1.5px] sm:text-[64px] sm:tracking-[-2.5px]">
+        <h1 className="motion-enter mt-5 max-w-3xl text-[40px] leading-[1.05] font-[650] tracking-[-1.5px] sm:text-[64px] sm:tracking-[-2.5px]">
           {t.landingTitle}
         </h1>
-        <p className="mt-5 max-w-xl text-lg leading-8 text-muted sm:text-xl">{t.landingLead}</p>
+        <p className="motion-enter motion-enter-2 mt-5 max-w-xl text-lg leading-8 text-muted sm:text-xl">{t.landingLead}</p>
         <a
           href="/auth/login?next=/rooms"
-          className="mt-9 inline-flex h-12 w-full max-w-xs items-center justify-center gap-3 rounded-full border border-line bg-surface px-6 text-[15px] font-semibold text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_16px_rgba(0,180,216,0.12)] transition hover:border-accent hover:shadow-[0_6px_24px_rgba(0,180,216,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link active:scale-[0.98] sm:w-auto"
+          className="mt-9 inline-flex h-12 w-full max-w-xs items-center justify-center gap-3 rounded-full border border-line bg-surface px-6 text-[15px] font-semibold text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06),0_4px_16px_rgba(0,180,216,0.12)] motion-btn motion-soft hover:border-link focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-link motion-enter motion-enter-3 sm:w-auto"
         >
           <GoogleG />
           {t.signIn}
@@ -48,7 +48,7 @@ export function Landing() {
       </section>
       <section aria-label={t.featuresLabel} className="mt-16 grid gap-3 sm:mt-20 sm:grid-cols-3 sm:gap-4">
         {features.map((f) => (
-          <div key={f.icon} className="rounded-3xl border border-line bg-surface/80 p-6 backdrop-blur-sm">
+          <div key={f.icon} className="motion-card rounded-3xl border border-line bg-surface/80 p-6 backdrop-blur-sm hover:border-[color-mix(in_srgb,var(--accent)_45%,var(--line))]">
             <span className="grid size-11 place-items-center rounded-2xl bg-accent/15 text-link">
               <Symbol name={f.icon} className="text-[24px]" />
             </span>

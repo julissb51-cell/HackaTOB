@@ -775,7 +775,7 @@ function FilterChip({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold ${
+      className={`motion-chip cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold ${
         selected
           ? "border-transparent bg-foreground text-background"
           : "border-transparent bg-structural text-muted hover:text-foreground"
