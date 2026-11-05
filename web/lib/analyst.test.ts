@@ -160,12 +160,12 @@ test("sin partes ni fecha, las reglas proponen una división y un día", () => {
   assert.equal(buildFallbackReport(input).sugerencia?.fecha ?? null, null);
 });
 
-test("el análisis corre como máximo cada 30 segundos, salvo a mano", () => {
+test("el análisis espera 30 segundos, también si se pide a mano", () => {
   const now = 1_000_000;
-  assert.equal(analysisDue(null, now, false), true);
-  assert.equal(analysisDue(now - 10_000, now, false), false);
-  assert.equal(analysisDue(now - ANALYSIS_INTERVAL_MS, now, false), true);
-  assert.equal(analysisDue(now - 1_000, now, true), true);
+  assert.equal(analysisDue(null, now), true);
+  assert.equal(analysisDue(now - 10_000, now), false);
+  assert.equal(analysisDue(now - ANALYSIS_INTERVAL_MS, now), true);
+  assert.equal(analysisDue(now - 1_000, now), false);
   assert.equal(
     nextSuggestionStatus(
       { sugerenciaEstado: "descartada", sugerencia: { partes: ["Datos"], fecha: null, asignaciones: [] } },

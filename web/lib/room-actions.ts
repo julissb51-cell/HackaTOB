@@ -34,6 +34,7 @@ import { createSupabaseServiceClient } from "./supabase/server";
 export type SettingsState =
   | { status: "idle" }
   | { status: "saved" }
+  | { status: "recent" }
   | { status: "error"; code: "topic" | "parts" | "date" | "id" | "token" | "auth" | "taken" | "forbidden" | "save" };
 
 export async function createRoomAction(_prev: CreateState, formData: FormData): Promise<CreateState> {
@@ -241,9 +242,10 @@ export async function dismissSuggestionAction(_prev: SettingsState, formData: Fo
 export async function analyzeNowAction(_prev: SettingsState, formData: FormData): Promise<SettingsState> {
   const ready = await memberRoom(formData);
   if (!ready.ok) return ready.state;
-  const ok = await scheduleRoomAnalysis(ready.roomId, { force: true });
-  if (!ok) return { status: "error", code: "save" };
+  const outcome = await scheduleRoomAnalysis(ready.roomId, { force: true });
+  if (outcome === "failed") return { status: "error", code: "save" };
   revalidatePath(`/rooms/${ready.roomId}`);
+  if (outcome === "recent") return { status: "recent" };
   return { status: "saved" };
 }
 

@@ -3,6 +3,7 @@ import {
   applyChatNames,
   claimAnalysisRun,
   markAnalysisPending,
+  readAnalysisGate,
   readSavedAnalysis,
   rememberEventCount,
   saveAnalysis,
@@ -10,30 +11,31 @@ import {
 } from "./analysis-db";
 import { complete, getAiProvider, type AiMessage } from "./ai";
 import { nextSuggestionStatus, produceReport, type AnalystMessage } from "./analyst";
+import { shouldAnalyze } from "./model-guard";
 import { computeProgress, mergeChecklist, reusableChecklist } from "./progress";
 import { supabaseMembershipStore } from "./room-membership-db";
 import { supabaseRoomStore } from "./room-store";
 
 const ANALYSIS_TIMEOUT_MS = 50_000;
-const inflight = new Map<string, Promise<boolean>>();
+const inflight = new Map<string, Promise<AnalysisOutcome>>();
 const dirty = new Map<string, number>();
+
+export type AnalysisOutcome = "ran" | "recent" | "failed";
 
 export function scheduleRoomAnalysis(
   roomId: string,
   options?: { force?: boolean; markPending?: boolean },
-): Promise<boolean> {
+): Promise<AnalysisOutcome> {
   const force = options?.force === true;
   const markPending = options?.markPending === true;
   if (markPending) dirty.set(roomId, (dirty.get(roomId) ?? 0) + 1);
-  if (!force) {
-    const current = inflight.get(roomId);
-    if (current) return current;
-  }
+  const current = inflight.get(roomId);
+  if (current) return current;
   const run = execute(roomId, force, markPending).catch((error: unknown) => {
-    console.error("analisis", error instanceof Error ? error.message : error);
-    return false;
+    console.error("analisis", error instanceof Error ? error.name : "error");
+    return "failed" as const;
   });
-  if (!force) inflight.set(roomId, run);
+  inflight.set(roomId, run);
   void run.finally(() => {
     if (inflight.get(roomId) === run) inflight.delete(roomId);
   });
@@ -41,23 +43,41 @@ export function scheduleRoomAnalysis(
 }
 
 export function trackAnalysis(roomId: string, options?: { force?: boolean; markPending?: boolean }): Promise<void> {
-  return scheduleRoomAnalysis(roomId, options).then((ok) => {
-    if (!ok) console.error("analisis", "no corrió");
+  return scheduleRoomAnalysis(roomId, options).then((outcome) => {
+    if (outcome === "failed") console.error("analisis", "no corrió");
   });
 }
 
-async function execute(roomId: string, force: boolean, markPending: boolean): Promise<boolean> {
+async function execute(roomId: string, force: boolean, markPending: boolean): Promise<AnalysisOutcome> {
   const seen = dirty.get(roomId) ?? 0;
-  const claim = await claimAnalysisRun(roomId, force);
+  if (!force) {
+    const gate = await readAnalysisGate(roomId);
+    if (gate) {
+      const currentEvents = await supabaseRoomStore.listEvents(roomId);
+      const decision = shouldAnalyze({
+        force: false,
+        pending: gate.pending,
+        ranAtMs: gate.ranAtMs,
+        now: Date.now(),
+        savedEvents: gate.eventos,
+        eventCount: currentEvents.length,
+      });
+      if (decision === "cooldown" && markPending && currentEvents.length !== gate.eventos) {
+        await markAnalysisPending(roomId);
+      }
+      if (decision !== "run") return "recent";
+    }
+  }
+  const claim = await claimAnalysisRun(roomId);
   if (claim === "skip") {
     if (markPending) await markAnalysisPending(roomId);
-    return true;
+    return "recent";
   }
 
   const room = await supabaseMembershipStore.getRoom(roomId);
   if (!room) {
     console.error("analisis", "sala inexistente");
-    return false;
+    return "failed";
   }
   const [members, events] = await Promise.all([
     supabaseMembershipStore.listMembers(roomId),
@@ -101,7 +121,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
     }
     await rememberEventCount(roomId, events.length);
     if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
-    return true;
+    return "ran";
   }
   // Solo se reutiliza la lista anterior si viene de la misma fuente; una lista de IA reemplaza a la de reglas.
   const items = mergeChecklist(reusableChecklist(previous, produced.fuente), produced.report.checklist ?? []);
@@ -124,7 +144,7 @@ async function execute(roomId: string, force: boolean, markPending: boolean): Pr
   });
   if ((dirty.get(roomId) ?? 0) !== seen) await markAnalysisPending(roomId);
   await applyChatNames(roomId, produced.report.chats);
-  return true;
+  return "ran";
 }
 
 async function completeAnalyst(messages: AnalystMessage[]): Promise<string> {
