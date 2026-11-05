@@ -98,6 +98,7 @@ export function Landing() {
         </p>
         <p className="mt-3 text-[15px] leading-6 text-muted">{t.extensionNote}</p>
         <p className="mt-2 text-[15px] leading-6 text-muted">{t.landingPrivacy}</p>
+        <p className="mt-2 text-[15px] leading-6 text-muted">{t.landingEvidence}</p>
       </section>
     </div>
   );
