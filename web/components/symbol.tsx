@@ -12,4 +12,4 @@ const pillBase =
 export const pillPrimary = `${pillBase} bg-accent text-accent-ink hover:bg-accent-hover`;
 export const pillSecondary = `${pillBase} motion-soft bg-structural text-foreground hover:bg-line`;
 export const iconButton =
-  "motion-press grid size-10 shrink-0 cursor-pointer place-items-center rounded-full text-muted hover:bg-structural hover:text-foreground focus-visible:outline-2 focus-visible:outline-link";
+  "motion-press grid size-11 shrink-0 cursor-pointer place-items-center rounded-full text-muted hover:bg-structural hover:text-foreground focus-visible:outline-2 focus-visible:outline-link";

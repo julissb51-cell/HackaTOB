@@ -211,7 +211,12 @@ body {
   padding: 0.75rem;
 }
 .enlaza-md pre code { background: transparent; padding: 0; }
-.enlaza-md table { width: 100%; border-collapse: collapse; }
+.enlaza-md table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
 .enlaza-md th,
 .enlaza-md td {
   border: 1px solid var(--line);

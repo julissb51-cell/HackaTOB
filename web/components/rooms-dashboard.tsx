@@ -83,7 +83,7 @@ export function RoomsDashboard({ name, rooms: initial, failed }: { name: string;
   return (
     <section>
       <div className="px-2 pb-10 pt-12 text-center sm:pt-16">
-        <h1 className="text-4xl font-[650] leading-[1.05] tracking-[-1.4px] sm:text-[64px]">
+        <h1 className="text-3xl font-[650] leading-[1.15] tracking-[-0.8px] break-words sm:text-4xl lg:text-[56px] lg:leading-[1.05]">
           {text.greeting(name)}
           <span aria-hidden="true" className="mx-1.5 inline-block size-9 rounded-[12px] bg-accent align-[-4px] sm:size-[52px] sm:rounded-[14px] sm:align-[-6px]" />
           <br />
@@ -111,7 +111,7 @@ export function RoomsDashboard({ name, rooms: initial, failed }: { name: string;
                 role="tab"
                 aria-selected={filter === key}
                 onClick={() => setFilter(key)}
-                className={`motion-chip cursor-pointer rounded-full px-3.5 py-1.5 text-sm font-semibold ${
+                className={`motion-chip min-h-11 cursor-pointer rounded-full px-3.5 text-sm font-semibold ${
                   filter === key ? "bg-foreground text-background" : "text-muted hover:bg-structural hover:text-foreground"
                 }`}
               >
@@ -235,7 +235,7 @@ function RoomRow({ room, first, onRemove }: { room: DashboardRoom; first: boolea
         {letter}
       </span>
       <Link href={`/rooms/${room.id}`} className="min-w-0 flex-1 after:absolute after:inset-0">
-        <span className="block truncate font-semibold tracking-[-0.1px]">{room.topic}</span>
+        <span className="block break-words font-semibold tracking-[-0.1px]">{room.topic}</span>
         <span className="block truncate text-sm text-muted">
           {text.roomMembers(room.members)} · {text.roomEvents(room.events)}
         </span>
@@ -330,7 +330,7 @@ function RoomMenu({ room, onRemove }: { room: DashboardRoom; onRemove: Remove })
   }
 
   const item =
-    "flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-foreground outline-none transition-colors hover:bg-structural focus-visible:bg-structural";
+    "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-left text-sm text-foreground outline-none transition-colors hover:bg-structural focus-visible:bg-structural";
   return (
     <div ref={box} className={`relative ${open ? "z-30" : "z-10"}`}>
       <button
@@ -340,7 +340,7 @@ function RoomMenu({ room, onRemove }: { room: DashboardRoom; onRemove: Remove })
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className={`grid size-9 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-structural hover:text-foreground focus-visible:outline-2 focus-visible:outline-link ${
+        className={`relative z-20 grid size-11 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-structural hover:text-foreground focus-visible:outline-2 focus-visible:outline-link ${
           open ? "bg-structural text-foreground" : ""
         }`}
       >

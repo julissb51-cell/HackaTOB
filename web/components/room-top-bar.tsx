@@ -31,7 +31,7 @@ export function RoomTopBar({
         {topic}
       </p>
       <div className="flex-1" />
-      <button type="button" onClick={onShare} aria-haspopup="dialog" className={`${pillPrimary} h-10 px-4 text-sm sm:px-5`}>
+      <button type="button" onClick={onShare} aria-haspopup="dialog" className={`${pillPrimary} h-11 px-4 text-sm sm:px-5`}>
         <Symbol name="person_add" className="text-[20px]" />
         {text.share}
       </button>
@@ -100,7 +100,7 @@ export function SettingsDrawer({ open, onClose, children }: { open: boolean; onC
             data-close
             onClick={onClose}
             aria-label={text.settingsClose}
-            className="grid size-9 cursor-pointer place-items-center rounded-full text-muted hover:bg-structural hover:text-foreground"
+            className="grid size-11 cursor-pointer place-items-center rounded-full text-muted hover:bg-structural hover:text-foreground"
           >
             <Symbol name="close" />
           </button>

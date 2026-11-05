@@ -76,6 +76,7 @@ export function RoomScreen({
     initialBoard,
     feed.status === "polling" || feed.status === "offline",
   );
+  const [pane, setPane] = useState<"resumen" | "actividad" | "equipo">("resumen");
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -199,8 +200,32 @@ export function RoomScreen({
           </div>
         </section>
 
-        <div className="grid gap-6 gap-y-6 max-sm:gap-y-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="order-2 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none">
+        <div role="tablist" aria-label={text.roomPanels} className="sticky top-0 z-20 -mx-5 mb-4 flex gap-1 border-b border-line bg-background/95 px-2 py-2 backdrop-blur lg:hidden">
+          {(
+            [
+              ["resumen", text.summary],
+              ["actividad", text.feed],
+              ["equipo", text.members],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={pane === key}
+              onClick={() => setPane(key)}
+              className={`min-h-11 flex-1 cursor-pointer rounded-full px-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-link ${
+                pane === key ? "bg-foreground text-background" : "text-muted hover:bg-structural"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-6 gap-y-6 max-sm:gap-y-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-8 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className={`order-2 min-w-0 space-y-6 lg:order-none ${pane === "equipo" ? "max-lg:hidden" : ""}`}>
+            <div className={pane === "resumen" ? "" : "max-lg:hidden"}>
             <ProgressCard
               avance={analysis.board.avance}
               board={analysis.board}
@@ -237,6 +262,7 @@ export function RoomScreen({
                 {text.aiBusy}
               </p>
             ) : null}
+            </div>
             <SummaryDrawer
               open={summaryOpen}
               onClose={closeSummary}
@@ -274,6 +300,7 @@ export function RoomScreen({
               }
             />
 
+            <div className={pane === "actividad" ? "" : "max-lg:hidden"}>
             <Panel live>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="inline-flex items-center gap-2 text-2xl font-[650] tracking-[-0.4px]">
@@ -285,7 +312,7 @@ export function RoomScreen({
               <div
                 role="group"
                 aria-label={text.filterLabel}
-                className="mt-4 flex flex-wrap gap-2 max-sm:-mx-5 max-sm:flex-nowrap max-sm:gap-2.5 max-sm:overflow-x-auto max-sm:px-5 max-sm:pb-1"
+                className="mt-4 flex flex-wrap gap-2"
               >
                 <FilterChip
                   selected={activeFilter === null}
@@ -328,9 +355,10 @@ export function RoomScreen({
                 </ol>
               )}
             </Panel>
+            </div>
           </div>
 
-          <div className="order-1 min-w-0 space-y-6 max-sm:space-y-10 lg:order-none lg:self-start">
+          <div className={`order-1 min-w-0 space-y-6 lg:order-none lg:self-start ${pane === "equipo" ? "" : "max-lg:hidden"}`}>
             <Panel>
               <h2 className="inline-flex items-center gap-2 text-2xl font-[650] tracking-[-0.4px]">
                 <Symbol name="group" className="text-[20px] text-muted" />
@@ -775,7 +803,7 @@ function FilterChip({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`motion-chip cursor-pointer rounded-full border px-3.5 py-1.5 text-sm font-semibold ${
+      className={`motion-chip min-h-11 cursor-pointer rounded-full border px-3.5 text-sm font-semibold ${
         selected
           ? "border-transparent bg-foreground text-background"
           : "border-transparent bg-structural text-muted hover:text-foreground"
