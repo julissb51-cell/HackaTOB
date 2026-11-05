@@ -31,6 +31,8 @@
     let lastWatchAt = 0;
     let settling = false;
     let armTimer = 0;
+    let armGeneration = 0;
+    let liveUntil = 0;
 
     function listMessages() {
       return globalThis.EnlazaMessages.listChatMessages(document, site);
@@ -41,13 +43,26 @@
       return assistants[assistants.length - 1] || null;
     }
 
+    function controlVisible(selector) {
+      try {
+        return dom.queryAllDeep(selector).some((node) => dom.isVisible(node));
+      } catch {
+        return false;
+      }
+    }
+
     function isStreaming() {
-      if ((site.streamingSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
-      if ((site.stopSelectors || []).some((selector) => dom.queryAllDeep(selector).length > 0)) return true;
-      return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
-        const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
-        return /stop streaming|stop generating|detener respuesta|detener la respuesta|stop-button|composer-stop/.test(label);
-      });
+      try {
+        if ((site.streamingSelectors || []).some((selector) => controlVisible(selector))) return true;
+        if ((site.stopSelectors || []).some((selector) => controlVisible(selector))) return true;
+        return dom.queryAllDeep("button[aria-label], button[data-testid]").some((button) => {
+          if (!dom.isVisible(button)) return false;
+          const label = `${button.getAttribute("aria-label") || ""} ${button.getAttribute("data-testid") || ""}`.toLowerCase();
+          return /stop streaming|stop generating|detener respuesta|detener la respuesta|stop-button|composer-stop/.test(label);
+        });
+      } catch {
+        return false;
+      }
     }
 
     function composerText(element) {
@@ -81,14 +96,20 @@
       sendLivePrompt(text).catch(() => {});
     }
 
+    function markLiveTurn() {
+      liveUntil = Date.now() + 90000;
+    }
+
     async function sendLivePrompt(text) {
       const keyName = countKey("user", text);
       if (reserved.has(keyName)) return;
       reserved.add(keyName);
+      markLiveTurn();
       if (settling) {
+        const generation = ++armGeneration;
         clearTimeout(armTimer);
         try {
-          await arm(site.conversationId(location.href) || "");
+          await arm(site.conversationId(location.href) || "", generation);
         } catch (error) {
           console.debug("enlaza", error);
         }
@@ -224,10 +245,11 @@
       return seenWrite;
     }
 
-    async function arm(key) {
-      const persisted = await loadSeen(key);
-      if ((site.conversationId(location.href) || "") !== key) return;
+    async function arm(key, generation) {
       const messages = listMessages();
+      const persisted = await loadSeen(key);
+      if (generation != null && generation !== armGeneration) return;
+      if ((site.conversationId(location.href) || "") !== key) return;
       nodeSent = new WeakMap();
       for (const keyName of persisted) reserved.add(keyName);
       for (const message of messages) {
@@ -254,32 +276,49 @@
 
     function noteConversationChange() {
       const key = site.conversationId(location.href) || "";
-      if (armedKey === null || (armedKey === "" && key)) {
+      if (armedKey === null) {
         beginBaseline(key);
         return;
       }
       if (key === armedKey) return;
+      // El id nuevo justo después del prompt es el chat que se acaba de crear.
+      // No se marca la respuesta como ya vista: eso la borraba en ChatGPT y Gemini.
+      if (Date.now() < liveUntil) {
+        adoptConversation(key);
+        return;
+      }
       beginBaseline(key);
+    }
+
+    function adoptConversation(key) {
+      armGeneration += 1;
+      clearTimeout(armTimer);
+      armedKey = key;
+      settling = false;
+      saveSeen(key, [...reserved]);
     }
 
     function beginBaseline(key) {
       settling = true;
       armedKey = key;
+      const generation = ++armGeneration;
       const previous = snapshot();
       clearTimeout(armTimer);
-      armTimer = setTimeout(() => finishArm(key, previous, 0, 0), 400);
+      armTimer = setTimeout(() => finishArm(key, previous, 0, 0, generation), 400);
     }
 
-    async function finishArm(key, previous, stable, elapsed) {
+    async function finishArm(key, previous, stable, elapsed, generation) {
+      if (generation !== armGeneration) return;
       const current = site.conversationId(location.href) || "";
       if (current !== key) return;
       const now = snapshot();
       const nextStable = now === previous ? stable + 1 : 0;
       if (nextStable < 3 && elapsed < 20) {
-        armTimer = setTimeout(() => finishArm(key, now, nextStable, elapsed + 1), 400);
+        armTimer = setTimeout(() => finishArm(key, now, nextStable, elapsed + 1, generation), 400);
         return;
       }
-      await arm(key);
+      await arm(key, generation);
+      if (generation !== armGeneration) return;
       if ((site.conversationId(location.href) || "") !== key) return;
       settling = false;
       scheduleScan();
@@ -354,13 +393,15 @@
         state.lastChange = Date.now();
       }
       if (!message.text) return 400;
+      const age = Date.now() - state.lastChange;
       if (message.role === "assistant" && tail && message.node === tail.node && streaming) {
         state.sawStream = true;
-        return FAST_MS;
+        const quiet = site.stableMs || SLOW_MS;
+        if (age < quiet) return quiet - age;
+        return 0;
       }
       const assistantWait = site.stableMs || (state.sawStream ? FAST_MS : SLOW_MS);
       const need = message.role === "user" ? USER_MS : assistantWait;
-      const age = Date.now() - state.lastChange;
       if (age < need) return need - age;
       return 0;
     }
@@ -415,6 +456,7 @@
           continue;
         }
         if (!claim(message, messages)) continue;
+        if (message.role === "user") markLiveTurn();
         enqueue({
           tipo: message.role === "user" ? "prompt" : "respuesta",
           texto: core.truncateText(message.text),
@@ -605,13 +647,24 @@
     globalThis.__enlazaDebug = () => JSON.stringify(debugReport(), null, 2);
 
     function installPageDebug() {
-      const node = document.createElement("script");
-      node.textContent = `window.__enlazaDebug=function(){return new Promise(function(resolve){var id=Math.random().toString(16).slice(2);function onMessage(event){if(event.source!==window||!event.data||event.data.type!=="enlaza-debug-result"||event.data.id!==id)return;window.removeEventListener("message",onMessage);resolve(event.data.json);}window.addEventListener("message",onMessage);window.postMessage({type:"enlaza-debug",id:id},"*");});}`;
-      (document.documentElement || document.head || document.body).appendChild(node);
-      node.remove();
+      if (site.ia === "copilot") return;
+      try {
+        const parent = document.documentElement || document.head || document.body;
+        if (!parent) return;
+        const node = document.createElement("script");
+        node.textContent = `window.__enlazaDebug=function(){return new Promise(function(resolve){var id=Math.random().toString(16).slice(2);function onMessage(event){if(event.source!==window||!event.data||event.data.type!=="enlaza-debug-result"||event.data.id!==id)return;window.removeEventListener("message",onMessage);resolve(event.data.json);}window.addEventListener("message",onMessage);window.postMessage({type:"enlaza-debug",id:id},"*");});}`;
+        parent.appendChild(node);
+        node.remove();
+      } catch {
+        return;
+      }
       window.addEventListener("message", (event) => {
         if (event.source !== window || event.data?.type !== "enlaza-debug") return;
-        window.postMessage({ type: "enlaza-debug-result", id: event.data.id, json: globalThis.__enlazaDebug() }, "*");
+        try {
+          window.postMessage({ type: "enlaza-debug-result", id: event.data.id, json: globalThis.__enlazaDebug() }, "*");
+        } catch {
+          // La CSP de la página puede bloquear la respuesta. No es la captura.
+        }
       });
     }
 

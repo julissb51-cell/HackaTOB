@@ -150,6 +150,30 @@ if (roles.length !== 2) {
 if (!roles[0].startsWith("user:que dia es")) throw new Error(roles[0]);
 if (!roles[1].includes("Hoy es martes")) throw new Error(roles[1]);
 
+const quoted = parseHTML(`<!doctype html><body>
+  <div data-testid="conversation-turn-2" data-turn="user">
+    <div data-user-message-bubble><div class="whitespace-pre-wrap">que es una hackaton</div></div>
+  </div>
+  <div data-testid="conversation-turn-3" data-turn="assistant">
+    <div class="markdown">Una hackaton es un evento donde un equipo construye un prototipo.</div>
+    <div data-message-author-role="user" class="sr-only">que es una hackaton</div>
+    <button aria-label="Copiar"></button>
+    <button aria-label="Regenerar"></button>
+  </div>
+</body>`);
+const quotedLine = messages.listChatMessages(quoted.document, site).map((item) => `${item.role}:${item.text}`).join("|");
+if (quotedLine !== "user:que es una hackaton|assistant:Una hackaton es un evento donde un equipo construye un prototipo.") {
+  throw new Error(quotedLine);
+}
+const wrapped = parseHTML(`<!doctype html><body>
+  <div data-turn-key="exchange">
+    <div data-turn="user"><div data-user-message-bubble><div class="whitespace-pre-wrap">que es una hackaton</div></div></div>
+    <div data-content-search-unit-key="a:assistant"><div class="markdown">Una hackaton es un evento.</div></div>
+  </div>
+</body>`);
+const wrappedLine = messages.listChatMessages(wrapped.document, site).map((item) => `${item.role}:${item.text}`).join("|");
+if (wrappedLine !== "user:que es una hackaton|assistant:Una hackaton es un evento.") throw new Error(wrappedLine);
+
 const legacy = parseHTML(`<!doctype html><body>
   <div data-message-author-role="user"><div class="whitespace-pre-wrap">hola</div></div>
   <div data-message-author-role="assistant"><div class="markdown">respuesta</div></div>

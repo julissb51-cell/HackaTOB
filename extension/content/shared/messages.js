@@ -454,6 +454,13 @@
     return found;
   }
 
+  function publishMessages(messages, site) {
+    // El filtro de eco (un nodo de usuario dentro de la respuesta) es de Copilot.
+    // En ChatGPT ese nodo es una cita y, si se aplica, la respuesta desaparece.
+    if (site?.pairTurns || site?.ia === "copilot") return dedupeMessages(filterAssistantEchoes(messages));
+    return dedupeMessages(messages);
+  }
+
   function listChatMessages(root, site) {
     if (site?.pairTurns) {
       try {
@@ -481,8 +488,9 @@
           if (read.text) messages.push({ node: assistantNode || turn, role: "assistant", text: read.text, selector: read.selector });
         }
       }
-      if (messages.length) return dedupeMessages(filterAssistantEchoes(messages));
     }
+    const sawAssistant = messages.some((message) => message.role === "assistant" && message.text);
+    if (turns.length && sawAssistant) return publishMessages(messages, site);
 
     for (const node of collect(root, site.userSelectors, false)) {
       const read = readText(node, site.userTextSelectors);
@@ -499,7 +507,7 @@
       const read = readText(node, site.assistantTextSelectors);
       if (read.text) messages.push({ node, role: "assistant", text: read.text, selector: read.selector || nodeSelector });
     }
-    return dedupeMessages(filterAssistantEchoes(messages));
+    return publishMessages(messages, site);
   }
 
   return {
